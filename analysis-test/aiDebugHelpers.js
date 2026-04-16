@@ -73,7 +73,7 @@ export function prepareCoreAnalysisARequest({
       "careStyle": {
         "language": "one of: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed",
         "languageEmoji": "1 emoji representing that care style",
-        "examples": "1-2 sentences with concrete examples of how they show care or affection",
+        "examples": ["first example of how they show care or affection (one sentence, under 120 chars)", "second example if applicable"],
         "score": [1-10]
       },
       "energy": {
@@ -99,7 +99,7 @@ export function prepareCoreAnalysisARequest({
     "statusEvidence": "1 short line with a concrete dated example if possible",
     "toxicPerson": "ONLY a first name, 'Tie', or 'None clearly identified'",
     "toxicReason": "1 sentence - factual and conservative explanation of that read",
-    "toxicityReport": "2 sentences - balanced, observable summary of tension or health",
+    "toxicityReport": "1 sentence - balanced, observable summary of tension or health",
     "redFlags": [
       { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "dated example or short quote" },
       { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "dated example or short quote" },
@@ -110,15 +110,15 @@ export function prepareCoreAnalysisARequest({
       { "date": "exact or approximate date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
       { "date": "exact or approximate date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" }
     ],
-    "relationshipSummary": "2 sentences — what's actually going on between them, in plain human terms. Describe how they operate together, not a label or diagnosis. Be specific about the pattern.",
-    "groupDynamic": "2 sentences - honest, slightly perceptive read of this group's energy. What is the actual dynamic? Be specific about who does what and what the group runs on.",
+    "relationshipSummary": "1 sentence — what's actually going on between them, in plain human terms. Specific about the pattern, not a label or diagnosis.",
+    "groupDynamic": "1 sentence - honest read of this group's energy. Specific about who does what and what the group runs on.",
     "tensionMoment": "1 sentence — the most tense moment: what triggered it and how it played out. Support with a real quote. Describe clearly, don't amplify.",
     "kindestPerson": "ONLY a first name - the warmest/caring person, or 'None clearly identified'",
     "sweetMoment": "1 sentence — name the person, what they said or did, and why it landed. The shape is 'When [Person] [did specific thing] for [Other]'. Not a warm routine — actual effort, support, or going out of their way.",
     "mostMissed": "group only: ONLY a first name, or 'None clearly identified'",
     "insideJoke": "group only: 1 sentence - a recurring joke, meme, reference, or expression that keeps coming back in the chat. Must appear in at least two separate windows. Quote the actual phrase or expression exactly as it appears in the chat.",
     "hypePersonReason": "group only: 1 sentence - specifically how this person energises the group, with a real example of the kind of thing they say or do. Not generic - something that actually appears in the chat.",
-    "loveLanguageMismatch": "2 sentences - how their care styles align or mismatch in practice",
+    "loveLanguageMismatch": "1 sentence - how their care styles align or mismatch in practice",
     "mostLovingMoment": "1 sentence - the most genuinely warm or loving moment in the chat. Describe what happened and who was involved, with the actual message or action as evidence.",
     "compatibilityScore": [1-10],
     "compatibilityRead": "1 sentence - love-language compatibility summary",
@@ -126,8 +126,8 @@ export function prepareCoreAnalysisARequest({
     "mostDraining": "1 sentence - the single most draining moment or recurring pattern. Describe what happened and quote the line that best illustrates it.",
     "energyCompatibility": "1 sentence - how their energy styles work together (or don't)",
     "growth": {
-      "thenDepth": "2 sentences describing the conversation style and topics in the EARLY snapshot",
-      "nowDepth": "2 sentences describing the conversation style and topics in the RECENT snapshot",
+      "thenDepth": "1 sentence describing the conversation style and topics in the EARLY snapshot",
+      "nowDepth": "1 sentence describing the conversation style and topics in the RECENT snapshot",
       "depthChange": "deeper / shallower / about the same",
       "whoChangedMore": "first name of who changed more, or 'Both equally'",
       "whoChangedHow": "1 sentence - specifically how they changed, with evidence",
@@ -162,7 +162,7 @@ ${lateText}
 EVENT WINDOWS (use these for all non-growth fields - specific moments, quotes, patterns, kindness, humor, tension, red flags, love language, energy):
 ${chatText}
 
-Return exactly this JSON structure:
+Return exactly this JSON structure. JSON rules: (1) return ONLY valid JSON — no markdown, no text outside the JSON object; (2) the "examples" field MUST be an array of strings where each item is one sentence under 120 characters with no embedded line breaks; (3) never embed literal newline or tab characters inside any string value anywhere in the output.
 ${fields}`;
 
   return {
@@ -231,8 +231,8 @@ export function prepareCoreAnalysisBRequest({
         { "date": "approximate date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
         { "date": "approximate date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" }
       ],
-      "conflictPattern": "2 sentences - how arguments usually start, escalate, and resolve or fail to resolve",
-      "powerBalance": "2 sentences - who holds more power in this dynamic and how it shows up",
+      "conflictPattern": "1 sentence - how arguments usually start and resolve or fail to resolve",
+      "powerBalance": "1 sentence - who holds more power in this dynamic and how it shows up",
       "powerHolder": "first name of who holds more power, or 'Balanced'",
       "verdict": "1 punchy sentence verdict on the overall health of this chat"
     },

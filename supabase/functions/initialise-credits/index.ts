@@ -19,6 +19,13 @@ function corsHeaders(req: Request) {
   };
 }
 
+function getBearerToken(authHeader: string | null): string | null {
+  if (!authHeader) return null;
+  const [scheme, token] = authHeader.split(" ");
+  if (scheme !== "Bearer" || !token) return null;
+  return token;
+}
+
 serve(async (req) => {
   const CORS = corsHeaders(req);
 
@@ -34,26 +41,34 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
+  const token = getBearerToken(authHeader);
+  if (!token) {
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
     );
   }
+
+  const authClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+  );
+  const { data: authData, error: authError } = await authClient.auth.getClaims(token);
+  if (authError || !authData?.claims?.sub) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
+    );
+  }
+  const user = {
+    id: String(authData.claims.sub),
+    email: typeof authData.claims.email === "string" ? authData.claims.email : null,
+  };
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
-      { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
-    );
-  }
 
   let requestedEmail: string | null = null;
   try {

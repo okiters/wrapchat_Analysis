@@ -3726,12 +3726,22 @@ function buildSampleText(messages) {
 }
 
 async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMode = "analysis") {
-  const { data: { session } } = await supabase.auth.getSession();
+  let { data: { session } } = await supabase.auth.getSession();
+  const isExpired = session && session.expires_at && (session.expires_at * 1000) < Date.now();
+  if (!session || isExpired) {
+    try {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      session = refreshed.session;
+    } catch (refreshErr) {
+      console.warn("[callClaude] refreshSession threw:", refreshErr?.message);
+    }
+  }
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyse-chat`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 180000);
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyse-chat`,
+      url,
       {
         method: "POST",
         headers: {
@@ -3744,14 +3754,26 @@ async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMod
     );
     if (!res.ok) {
       let detail = "";
+      let parsed = null;
       try {
         const text = await res.text();
-        const parsed = tryParseJsonText(text);
+        parsed = tryParseJsonText(text);
+        if (parsed && typeof parsed === "object") {
+          console.error("[callClaude] edge function error payload:", parsed);
+        }
         detail = String(parsed?.error || text || "").trim();
       } catch {
         // Fall back to the status code below.
       }
-      throw new Error(detail || `Edge function error ${res.status}`);
+      const err = new Error(detail || `Edge function error ${res.status}`);
+      if (parsed && typeof parsed === "object") {
+        err.debug = parsed;
+        const preview = [parsed.parse_error_context, parsed.cleaned_preview_end, parsed.raw_preview_end]
+          .filter(Boolean)
+          .join("\n\n");
+        if (preview) err.message = `${detail || `Edge function error ${res.status}`}\n${preview}`;
+      }
+      throw err;
     }
     const raw = await res.json();
     return extractClaudePayload(raw);
@@ -3795,7 +3817,7 @@ function userFacingAnalysisError(error) {
   const message = String(error?.message || "").trim();
   if (!message) return "The AI analysis didn't come through. Please try again.";
   if (message.includes("timed out")) return "The AI took too long to answer. Please try again.";
-  if (/unauthorized/i.test(message)) return "Your session expired. Please log in again and retry.";
+  if (/parse_failed/i.test(message)) return "The AI returned malformed JSON. Check the console for the raw preview and try again.";
   if (/ANTHROPIC_API_KEY secret not set/i.test(message)) return "The AI server isn't configured correctly yet.";
   if (/Analysis failed/i.test(message) || /Edge function error 502/i.test(message)) return "The AI provider failed to return a usable answer. Please try again.";
   if (/AI returned an empty analysis/i.test(message)) return "The AI answered, but the result was empty. Please try again.";
@@ -3915,7 +3937,7 @@ function buildAnalystSystemPrompt(role, relationshipType, extraRules = "", chatL
 
 7. GEOGRAPHY: Never claim participants live in different cities, countries or continents unless the chat explicitly and literally states this.
 
-You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
+You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON. Never embed literal newline characters inside a JSON string value — keep every string on a single line. If a field calls for multiple ideas, write them as one flowing sentence separated by em-dashes or semicolons.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
 }
 
 const CORE_A_WRITING_STYLE = `WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; sarcasm only if clearly supported by the chat. No therapist, report, or academic tone. Don't over-explain reasoning. INSIGHT STRUCTURE: each field needs a clear observation → a concrete moment or repeated pattern → a short natural interpretation. If evidence is thin, keep it simple instead of padding. PHRASING: use natural lines like "They have this [tone] rhythm — like when [Person] said '[quote]' and [Other] [reacted]" or "A small moment that says a lot: '[quote]' → [reaction]". Don't repeat the same template across fields. For vibeOneLiner: one sharp memorable line specific to this chat — not a generic mood label. For biggestTopic: name what actually keeps coming up, not a category. For funniestReason: reference the real moment or line that caused the reaction. For sweetMoment: name names, say what was said or done, why it landed. For tensionMoment/dramaContext: describe what happened concretely without exaggerating. For relationshipSummary/relationshipStatusWhy: a natural human read, not a label or diagnosis.`;
@@ -4041,7 +4063,9 @@ function normalizeCorePersonA(person, fallbackName = "") {
     careStyle: {
       language: normalizeLoveLanguage(strOr(care.language, "Mixed")),
       languageEmoji: strOr(care.languageEmoji, "💝"),
-      examples: strOr(care.examples),
+      examples: Array.isArray(care.examples)
+        ? care.examples.filter(s => typeof s === "string" && s.trim()).map(s => s.trim()).join(". ")
+        : strOr(care.examples),
       score: clampScore(care.score, 5),
     },
     energy: {
@@ -5788,7 +5812,7 @@ function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationshipType,
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={7} total={TOTAL} feedback={feedback("Top 3 most active months", 7)}>
+    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("Top 3 most active months", 7)}>
       <T>{t("Top 3 most active months")}</T>
       <div style={{display:"flex",gap:10,marginTop:16,width:"100%",justifyContent:"center"}}>
         {s.topMonths.map((m,i)=><MonthBadge key={i} month={m[0]} count={m[1]} medal={["🥇","🥈","🥉"][i]} />)}
@@ -5797,7 +5821,7 @@ function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationshipType,
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("Who always reaches out first?", 6)}>
+    <Shell sec="lovely" prog={7} total={TOTAL} feedback={feedback("Who always reaches out first?", 6)}>
       <T>{t("Who always reaches out first?")}</T>
       <Big>{s.convStarter}</Big>
       <Sub>{t("Started {pct} of all conversations.", { pct: s.convStarterPct })}</Sub>
@@ -8823,8 +8847,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setSid(s => s + 1);
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setAuthedUser(session?.user || null);
+      if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") return;
       if (session?.user) {
         setStep(0);
         setDir("fwd");
@@ -8996,7 +9021,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     const derived = pipeline.derive(core, math, relType);
     if (!hasMeaningfulAnalysisResult(type, derived)) {
-      throw new Error("AI returned an empty analysis");
+      // Log quality warning but return the partial result so the frontend can still render.
+      // Cards with empty AI fields will show placeholder "—" values rather than aborting entirely.
+      console.warn(`[generatePipelineResult] low-quality result for "${type}" — rendering partial`);
     }
     return derived;
   };
