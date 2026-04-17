@@ -3899,6 +3899,7 @@ const CORE_ANALYSIS_CACHE_VERSION = 4;
 const CORE_A_MAX_TOKENS = 2600;
 const CORE_B_MAX_TOKENS = 2600;
 const HOMEPAGE_VERSION = "67534";
+const HOMEPAGE_VERSION_LABEL = "Version 1.0";
 
 function buildRelationshipContextBlock(relType) {
   const relCtx = relContextStr(relType);
@@ -7488,6 +7489,9 @@ function Upload({
             {t("Log out")}
           </button>
         )}
+      </div>
+      <div style={{ width:"100%", marginTop:"auto", paddingTop:12, textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+        {HOMEPAGE_VERSION_LABEL}
       </div>
     </Shell>
   );
