@@ -6998,7 +6998,7 @@ function Auth() {
       </button>
 
       <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
-      <div style={{ width:"100%", marginTop:"auto", paddingTop:12, textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
         {HOMEPAGE_VERSION_LABEL}
       </div>
     </Shell>
@@ -7493,7 +7493,7 @@ function Upload({
           </button>
         )}
       </div>
-      <div style={{ width:"100%", marginTop:"auto", paddingTop:12, textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
         {HOMEPAGE_VERSION_LABEL}
       </div>
     </Shell>
