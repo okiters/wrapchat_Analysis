@@ -8,9 +8,14 @@ import AiDebugPanel from "../analysis-test/AiDebugPanel.jsx";
 import {
   buildDebugAnalysisExport,
   createAiDebugFileName,
+  createAiRawDebugFileName,
+  downloadTextFile,
   downloadJsonFile,
+  prepareConnectionDigestRequest,
   prepareCoreAnalysisARequest,
+  prepareGrowthDigestRequest,
   prepareCoreAnalysisBRequest,
+  prepareRiskDigestRequest,
   serializeDebugAnalysisExport,
 } from "../analysis-test/aiDebugHelpers.js";
 import partnerIcon from "../assets/partner.svg";
@@ -2368,6 +2373,9 @@ const CONTROL_RE = /\b(where are you|who are you with|why are you online|why wer
 const AGGRO_RE = /\b(stupid|idiot|shut up|hate you|leave me alone|you're crazy|you are crazy|disgusting|pathetic|annoying|i'm sick of this|i am sick of this|salak|gerizekal[ıi]|aptal|mal|siktir|siktir git|defol|yeter|bıktım|biktim|nefret ediyorum|manyak|saçma|sacma)\b/i;
 const BREAKUP_RE = /\b(it'?s over|we'?re done|i'?m done|im done|done with you|break up|breakup|goodbye forever|don't text me|dont text me|blocked you|bitti|bitsin|ayrıl|ayrilelim|ayrılalım|beni arama|yazma bana|engelledim|sildim seni)\b/i;
 const APOLOGY_RE = /\b(sorry|i'm sorry|i am sorry|my fault|forgive me|özür dilerim|ozur dilerim|affet|hata bendeydi|haklısın|haklisin)\b/i;
+const SUPPORT_RE = /\b(i'm here|i am here|here for you|got you|proud of you|take care|rest up|go rest|get some rest|drink water|eat something|text me when you|get home safe|call me if|let me know if|i can help|i'll help|i will help|i'll come|i will come|feel better|hope you feel better|hope it gets better|sending love|yanındayım|yanindayim|buradayım|buradayim|iyi misin|iyi mısın|kendine iyi bak|dinlen|uyu biraz|su iç|su ic|bir şey yedin mi|bir sey yedin mi|haber ver|arayayım|arayim|gelirim|yardım ederim|yardim ederim|geçer|gecer|hallolur|hallederiz)\b/i;
+const GRATITUDE_RE = /\b(thank you|thanks|thank u|appreciate it|you’re the best|you're the best|sağ ol|sag ol|saol|teşekkür|tesekkur|iyi ki varsın|iyi ki varsin)\b/i;
+const DISTRESS_RE = /\b(sad|cry|crying|tired|stressed|anxious|scared|worried|hurt|hard|difficult|broken|lost|alone|upset|angry|panic|panicking|faint|fainted|feel sick|bad day|burnt out|hasta|üzgün|uzgun|stresli|yorgun|yalnız|yalniz|korktum|kötü|kotu|bayıl|bayil|ağla|agla|yardım|yardim)\b/i;
 const LAUGH_RE = new RegExp(
   [
     // Standard laugh patterns
@@ -2381,6 +2389,20 @@ const LAUGH_RE = new RegExp(
   ].join("|"),
   "i"
 );
+const HEART_REPLY_RE = /(❤️|❤|💕|💖|💗|💘|🥰|😘|🤍|🫶|🥺)/;
+
+function isKeyboardMashLaugh(body = "") {
+  const b = String(body || "").trim();
+  if (!b || /\s/.test(b)) return false;
+  if (!/^[a-zçğıöşü]{8,}$/i.test(b)) return false;
+  const vowelRatio = (b.match(/[aeiouöüıi]/gi) || []).length / b.length;
+  return vowelRatio < 0.3;
+}
+
+function isLaughReaction(body = "") {
+  const b = String(body || "").trim().toLowerCase();
+  return LAUGH_RE.test(b) || isKeyboardMashLaugh(b);
+}
 
 
 
@@ -3423,17 +3445,6 @@ function localStats(messages) {
   });
 
   // ── Funniest person — who CAUSED laugh reactions ──
-  // LAUGH_RE is defined at module scope
-  const isLaughReaction = body => {
-    const b = body.trim().toLowerCase();
-    if (LAUGH_RE.test(b)) return true;
-    // keyboard smash: 8+ letters, low vowel ratio, no spaces
-    if (/^[a-z]{8,}$/i.test(b)) {
-      const vowelRatio = (b.match(/[aeiou]/g)||[]).length / b.length;
-      return vowelRatio < 0.30;
-    }
-    return false;
-  };
   const laughCausedBy = {};
   namesAll.forEach(n => (laughCausedBy[n] = 0));
   for (let i = 0; i < messages.length - 1; i++) {
@@ -3539,6 +3550,8 @@ function scoreMessages(messages) {
     const tags = [];
     // Skip pure media placeholders for signal detection
     const body = /^<(Voice|Media) omitted>$/.test(msg.body) ? "" : msg.body;
+    const prev = i > 0 ? messages[i - 1] : null;
+    const next = i < messages.length - 1 ? messages[i + 1] : null;
 
     // Reply-gap signal — long silences often bracket important exchanges
     if (i > 0) {
@@ -3562,21 +3575,46 @@ function scoreMessages(messages) {
       score += 4; tags.push("affection");
     }
 
+    // Care / support signals
+    if (body && SUPPORT_RE.test(body)) {
+      score += 5; tags.push("support");
+    }
+    if (body && prev && prev.name !== msg.name && DISTRESS_RE.test(prev.body) && (SUPPORT_RE.test(body) || body.length > 90)) {
+      score += 7; tags.push("care-response");
+    }
+    if (
+      body && prev && prev.name !== msg.name &&
+      (GRATITUDE_RE.test(body) || HEART_REPLY_RE.test(body)) &&
+      (SUPPORT_RE.test(prev.body) || DISTRESS_RE.test(prev.body))
+    ) {
+      score += 3; tags.push("care-followup");
+    }
+
     // Long message — likely something substantive
     if (body.length > 200) { score += 2; tags.push("long-msg"); }
 
     // Laugh-trigger: this message caused a laugh reaction from a DIFFERENT speaker
     // in the next 1–3 messages. Preserving these windows (with their tail) lets
     // Claude see exactly whose line made someone laugh — not just what sounds funny.
-    for (let j = i + 1; j <= Math.min(i + 3, messages.length - 1); j++) {
+    for (let j = i + 1; j <= Math.min(i + 4, messages.length - 1); j++) {
       const reactionBody = messages[j].body || "";
-      if (messages[j].name !== msg.name && LAUGH_RE.test(reactionBody)) {
-        const isCapslockMash = /\b[ŞSKDGJFHBNMZXCVWQÇÖÜİ]{4,}\b/.test(reactionBody);
-        const boost = isCapslockMash ? 8 : 5;
+      if (messages[j].name !== msg.name && isLaughReaction(reactionBody)) {
+        const isHardLaugh = /\b[ŞSKDGJFHBNMZXCVWQÇÖÜİ]{4,}\b/.test(reactionBody) || /😂.*😂|🤣|💀/i.test(reactionBody);
+        const boost = isHardLaugh ? 9 : 6;
         score += boost;
-        tags.push(isCapslockMash ? "laugh-trigger-hard" : "laugh-trigger");
+        tags.push(isHardLaugh ? "laugh-trigger-hard" : "laugh-trigger");
         break;
       }
+    }
+
+    // Energising back-and-forth bursts are often useful for "fun" and chemistry reads.
+    if (
+      body && next && next.name !== msg.name &&
+      body.length > 8 && body.length < 140 &&
+      (next.date - msg.date) / 60000 < 8 &&
+      /!|\?|😂|🤣|💀|❤️|❤|💕|🥰/.test(body + next.body)
+    ) {
+      score += 2; tags.push("energy-burst");
     }
 
     return { score, tags };
@@ -3604,7 +3642,8 @@ function mergeIntervals(intervals) {
 function chunkLabel(tags = []) {
   if (tags.includes("conflict"))      return "conflict";
   if (tags.includes("apology"))       return "apology";
-  if (tags.includes("laugh-trigger")) return "funny moment";
+  if (tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger")) return "funny moment";
+  if (tags.includes("care-response") || tags.includes("support")) return "care moment";
   if (tags.includes("affection"))     return "affection";
   if (tags.includes("long-gap"))      return "after silence";
   if (tags.includes("long-msg"))      return "long message";
@@ -3625,6 +3664,7 @@ function buildChunks(messages) {
   const CONTEXT_AFTER       = 5;   // lines after event center (default)
   const CONTEXT_AFTER_LAUGH = 8;   // extended tail for laugh-trigger windows
                                    //   — captures the reaction(s) that follow the funny line
+  const CONTEXT_AFTER_CARE  = 7;   // keep the support response and the gratitude / reaction after it
   const EVENT_SCORE_MIN     = 4;   // minimum score to qualify as an event center
   const MAX_EVENT_WINDOWS   = 55;  // hard cap on event-based windows
   const TIMELINE_BUCKETS    = 28;  // time segments for baseline coverage
@@ -3644,15 +3684,37 @@ function buildChunks(messages) {
 
   const takenCenters  = new Set();
   const eventWindows  = [];
-  for (const c of candidates) {
-    if (takenCenters.has(c.i)) continue;
+  const addEventWindow = (c) => {
+    if (takenCenters.has(c.i)) return false;
     for (let k = Math.max(0, c.i - 4); k <= Math.min(n - 1, c.i + 4); k++) takenCenters.add(k);
-    const after = c.tags.includes("laugh-trigger") ? CONTEXT_AFTER_LAUGH : CONTEXT_AFTER;
+    const after = (c.tags.includes("laugh-trigger-hard") || c.tags.includes("laugh-trigger"))
+      ? CONTEXT_AFTER_LAUGH
+      : (c.tags.includes("care-response") || c.tags.includes("support") || c.tags.includes("care-followup"))
+        ? CONTEXT_AFTER_CARE
+        : CONTEXT_AFTER;
     eventWindows.push([
       Math.max(0, c.i - CONTEXT_BEFORE),
       Math.min(n - 1, c.i + after),
       c.tags,
     ]);
+    return true;
+  };
+
+  let preservedFunny = 0;
+  let preservedCare = 0;
+  for (const c of candidates) {
+    if ((c.tags.includes("laugh-trigger-hard") || c.tags.includes("laugh-trigger")) && preservedFunny < 8) {
+      if (addEventWindow(c)) preservedFunny += 1;
+    }
+  }
+  for (const c of candidates) {
+    if ((c.tags.includes("care-response") || c.tags.includes("support")) && preservedCare < 8) {
+      if (addEventWindow(c)) preservedCare += 1;
+    }
+  }
+  for (const c of candidates) {
+    if (takenCenters.has(c.i)) continue;
+    addEventWindow(c);
     if (eventWindows.length >= MAX_EVENT_WINDOWS) break;
   }
 
@@ -3785,6 +3847,56 @@ async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMod
   }
 }
 
+async function callClaudeRawText(systemPrompt, userContent, maxTokens = 1500) {
+  let { data: { session } } = await supabase.auth.getSession();
+  const isExpired = session && session.expires_at && (session.expires_at * 1000) < Date.now();
+  if (!session || isExpired) {
+    try {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      session = refreshed.session;
+    } catch (refreshErr) {
+      console.warn("[callClaudeRawText] refreshSession threw:", refreshErr?.message);
+    }
+  }
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyse-chat`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000);
+  try {
+    const res = await fetch(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ system: systemPrompt, userContent, max_tokens: maxTokens, schema_mode: "raw_text" }),
+        signal: controller.signal,
+      }
+    );
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const text = await res.text();
+        const parsed = tryParseJsonText(text);
+        if (parsed && typeof parsed === "object") {
+          console.error("[callClaudeRawText] edge function error payload:", parsed);
+        }
+        detail = String(parsed?.error || text || "").trim();
+      } catch {
+        // Fall back to the status code below.
+      }
+      throw new Error(detail || `Edge function error ${res.status}`);
+    }
+    return await res.text();
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("Analysis timed out");
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function tryParseJsonText(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -3818,6 +3930,7 @@ function userFacingAnalysisError(error) {
   if (!message) return "The AI analysis didn't come through. Please try again.";
   if (message.includes("timed out")) return "The AI took too long to answer. Please try again.";
   if (/parse_failed/i.test(message)) return "The AI returned malformed JSON. Check the console for the raw preview and try again.";
+  if (/invalid_response_shape|output_limit_reached/i.test(message)) return "The AI answer was cut off before it finished. Please try again.";
   if (/ANTHROPIC_API_KEY secret not set/i.test(message)) return "The AI server isn't configured correctly yet.";
   if (/Analysis failed/i.test(message) || /Edge function error 502/i.test(message)) return "The AI provider failed to return a usable answer. Please try again.";
   if (/AI returned an empty analysis/i.test(message)) return "The AI answered, but the result was empty. Please try again.";
@@ -3895,11 +4008,11 @@ function extractClaudePayload(raw) {
 
 const CORE_ANALYSIS_VERSION = 2;
 const LOCAL_STATS_VERSION = 3;
-const CORE_ANALYSIS_CACHE_VERSION = 4;
+const CORE_ANALYSIS_CACHE_VERSION = 6;
 const CORE_A_MAX_TOKENS = 2600;
 const CORE_B_MAX_TOKENS = 2600;
-const HOMEPAGE_VERSION = "67534";
-const HOMEPAGE_VERSION_LABEL = "Version 1.0";
+const HOMEPAGE_VERSION = "67537";
+const HOMEPAGE_VERSION_LABEL = "Version 1.3.2";
 
 function buildRelationshipContextBlock(relType) {
   const relCtx = relContextStr(relType);
@@ -3938,10 +4051,14 @@ function buildAnalystSystemPrompt(role, relationshipType, extraRules = "", chatL
 
 7. GEOGRAPHY: Never claim participants live in different cities, countries or continents unless the chat explicitly and literally states this.
 
-You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON. Never embed literal newline characters inside a JSON string value — keep every string on a single line. If a field calls for multiple ideas, write them as one flowing sentence separated by em-dashes or semicolons.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
+8. SPECIFICITY: Prefer real names, recurring people, places, repeated situations, and actual phrasing from the chat when they make the line more recognizable.
+
+9. CONTROLLED INTERPRETATION: You may compress clearly supported patterns into short reads like "easy flow", "awkwardness", "chaos", "natural ghosting", or "therapist mode", or similarly compact grounded tags, only when repeated or concrete evidence supports them. Never infer motives, inner states, diagnoses, or emotional certainty.
+
+You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON. Never embed literal newline characters inside a JSON string value — keep every string on a single line.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
 }
 
-const CORE_A_WRITING_STYLE = `WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; sarcasm only if clearly supported by the chat. No therapist, report, or academic tone. Don't over-explain reasoning. INSIGHT STRUCTURE: each field needs a clear observation → a concrete moment or repeated pattern → a short natural interpretation. If evidence is thin, keep it simple instead of padding. PHRASING: use natural lines like "They have this [tone] rhythm — like when [Person] said '[quote]' and [Other] [reacted]" or "A small moment that says a lot: '[quote]' → [reaction]". Don't repeat the same template across fields. For vibeOneLiner: one sharp memorable line specific to this chat — not a generic mood label. For biggestTopic: name what actually keeps coming up, not a category. For funniestReason: reference the real moment or line that caused the reaction. For sweetMoment: name names, say what was said or done, why it landed. For tensionMoment/dramaContext: describe what happened concretely without exaggerating. For relationshipSummary/relationshipStatusWhy: a natural human read, not a label or diagnosis.`;
+const CORE_A_WRITING_STYLE = `WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; bold only when earned by the chat. No therapist, report, or academic tone. Don't over-explain. INSIGHT STRUCTURE: observation first, concrete moment or repeated pattern second, short natural interpretation third. If evidence is thin, keep it simple instead of padding. For vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, relationshipSummary, mostLovingMoment, mostEnergising, and mostDraining, you may use one sharp grounded compression line, or 1-2 short sentences if one line feels flat. Keep those reads memorable and specific to this chat. For moment fields, choose the strongest supported moment or repeated pattern, not the blandest safe example. A strong read names who did what, the quote or move, and why it landed. biggestTopic should read like the chat's main ongoing storyline, not a generic category. It must be both recurring and important to the relationship or group dynamic; do not elevate minor logistics, one-note jokes, or low-stakes side debates just because they repeat. vibeOneLiner should feel like a friend's sharp summary after reading the whole chat. relationshipSummary should read like a specific human take on their actual pattern, not a label, verdict, or diagnosis. All other fields stay tighter and more functional.`;
 
 function buildCoreASystemPrompt(role, relationshipType, extraRules = "", chatLang = "en", relationshipLine = "") {
   return buildAnalystSystemPrompt(role, relationshipType, `${CORE_A_WRITING_STYLE} ${extraRules}`, chatLang, relationshipLine);
@@ -4198,6 +4315,22 @@ function normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext
   };
 }
 
+function normalizeConnectionDigest(raw, math, relationshipType, relationshipContext = null) {
+  const normalized = normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
+  return {
+    ...normalized,
+    part: "connection",
+  };
+}
+
+function normalizeGrowthDigest(raw, math, relationshipType, relationshipContext = null) {
+  const normalized = normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
+  return {
+    ...normalized,
+    part: "growth",
+  };
+}
+
 function normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext = null) {
   const source = raw && typeof raw === "object" ? raw : {};
   const meta = source.meta && typeof source.meta === "object" ? source.meta : {};
@@ -4256,6 +4389,14 @@ function normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext
         overallVerdict: strOr(accountability.overallVerdict),
       },
     },
+  };
+}
+
+function normalizeRiskDigest(raw, math, relationshipType, relationshipContext = null) {
+  const normalized = normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext);
+  return {
+    ...normalized,
+    part: "risk",
   };
 }
 
@@ -4545,6 +4686,50 @@ async function generateCoreAnalysisA(messages, math, relationshipType, chatLang 
   return normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
 }
 
+async function generateConnectionDigest(messages, math, relationshipType, chatLang = "en") {
+  const names = math.names || [];
+  const isGroup = !!math?.isGroup;
+  const relationshipContext = !isGroup ? await resolveRelationshipContext(messages, names, relationshipType) : null;
+  const request = prepareConnectionDigestRequest({
+    messages,
+    math,
+    relationshipType,
+    chatLang,
+    relationshipContext,
+    buildAnalystSystemPrompt: buildCoreASystemPrompt,
+    buildRelationshipLine,
+    buildSampleText,
+    coreAnalysisVersion: CORE_ANALYSIS_VERSION,
+    maxTokens: CORE_A_MAX_TOKENS,
+  });
+
+  if (import.meta.env.DEV) console.log("[ConnectionDigest] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
+  const raw = await callClaude(request.systemPrompt, request.userContent, request.maxTokens, request.schemaMode);
+  return normalizeConnectionDigest(raw, math, relationshipType, relationshipContext);
+}
+
+async function generateGrowthDigest(messages, math, relationshipType, chatLang = "en") {
+  const names = math.names || [];
+  const isGroup = !!math?.isGroup;
+  const relationshipContext = !isGroup ? await resolveRelationshipContext(messages, names, relationshipType) : null;
+  const request = prepareGrowthDigestRequest({
+    messages,
+    math,
+    relationshipType,
+    chatLang,
+    relationshipContext,
+    buildAnalystSystemPrompt: buildCoreASystemPrompt,
+    buildRelationshipLine,
+    formatForAI,
+    coreAnalysisVersion: CORE_ANALYSIS_VERSION,
+    maxTokens: CORE_A_MAX_TOKENS,
+  });
+
+  if (import.meta.env.DEV) console.log("[GrowthDigest] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
+  const raw = await callClaude(request.systemPrompt, request.userContent, request.maxTokens, request.schemaMode);
+  return normalizeGrowthDigest(raw, math, relationshipType, relationshipContext);
+}
+
 async function generateCoreAnalysisB(messages, math, relationshipType, chatLang = "en") {
   const names = math.names || [];
   const isGroup = !!math?.isGroup;
@@ -4565,6 +4750,28 @@ async function generateCoreAnalysisB(messages, math, relationshipType, chatLang 
   if (import.meta.env.DEV) console.log("[CoreB] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callClaude(request.systemPrompt, request.userContent, request.maxTokens, request.schemaMode);
   return normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext);
+}
+
+async function generateRiskDigest(messages, math, relationshipType, chatLang = "en") {
+  const names = math.names || [];
+  const isGroup = !!math?.isGroup;
+  const relationshipContext = !isGroup ? await resolveRelationshipContext(messages, names, relationshipType) : null;
+  const request = prepareRiskDigestRequest({
+    messages,
+    math,
+    relationshipType,
+    chatLang,
+    relationshipContext,
+    buildAnalystSystemPrompt,
+    buildRelationshipLine,
+    buildSampleText,
+    coreAnalysisVersion: CORE_ANALYSIS_VERSION,
+    maxTokens: CORE_B_MAX_TOKENS,
+  });
+
+  if (import.meta.env.DEV) console.log("[RiskDigest] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
+  const raw = await callClaude(request.systemPrompt, request.userContent, request.maxTokens, request.schemaMode);
+  return normalizeRiskDigest(raw, math, relationshipType, relationshipContext);
 }
 
 async function aiAnalysis(messages, math, relationshipType, coreAnalysis = null) {
@@ -4599,7 +4806,7 @@ async function aiLoveLangAnalysis(messages, math, relationshipType, coreAnalysis
 
 async function aiGrowthAnalysis(messages, math, relationshipType, coreAnalysis = null) {
   try {
-    const core = coreAnalysis || await generateCoreAnalysisA(messages, math, relationshipType);
+    const core = coreAnalysis || await generateGrowthDigest(messages, math, relationshipType);
     return deriveGrowthReportFromCore(core, math, relationshipType);
   } catch (e) {
     console.error("AI growth failed:", e);
@@ -4627,9 +4834,10 @@ async function aiEnergyAnalysis(messages, math, relationshipType, coreAnalysis =
   }
 }
 
-function getCoreAnalysisCacheKey(math, relationshipType, chatLang = "en") {
+function getAnalysisFamilyCacheKey(math, relationshipType, family = "core", chatLang = "en") {
   return [
     `core-cache-v${CORE_ANALYSIS_CACHE_VERSION}`,
+    family || "core",
     math?.isGroup ? "group" : "duo",
     relationshipType || "none",
     chatLang || "en",
@@ -4639,12 +4847,12 @@ function getCoreAnalysisCacheKey(math, relationshipType, chatLang = "en") {
 }
 
 const REPORT_PIPELINES = {
-  general:  { strategy: "core", cache: "a", derive: deriveGeneralReportFromCore },
-  toxicity: { strategy: "core", cache: "b", derive: deriveToxicityReportFromCore },
-  lovelang: { strategy: "core", cache: "a", derive: deriveLoveLangReportFromCore },
-  growth:   { strategy: "core", cache: "a", derive: deriveGrowthReportFromCore },
-  accounta: { strategy: "core", cache: "b", derive: deriveAccountaReportFromCore },
-  energy:   { strategy: "core", cache: "a", derive: deriveEnergyReportFromCore },
+  general:  { strategy: "family", family: "connection", derive: deriveGeneralReportFromCore },
+  toxicity: { strategy: "family", family: "risk", derive: deriveToxicityReportFromCore },
+  lovelang: { strategy: "family", family: "connection", derive: deriveLoveLangReportFromCore },
+  growth:   { strategy: "family", family: "growth", derive: deriveGrowthReportFromCore },
+  accounta: { strategy: "family", family: "risk", derive: deriveAccountaReportFromCore },
+  energy:   { strategy: "family", family: "connection", derive: deriveEnergyReportFromCore },
 };
 
 const STORED_RESULT_META_KEYS = new Set(["translations", "displayLanguage", "sourceLanguage", "analysisCacheVersion"]);
@@ -5018,6 +5226,11 @@ const REPORT_TYPES = [
   { id:"accounta", label:"Accountability Report",  desc:"Promises made in the chat and whether they were followed through. Receipts for both.",       palette:"accounta" },
   { id:"energy",   label:"Energy Report",          desc:"Who brings good energy vs drains it — net energy score per person.",                         palette:"energy"   },
 ];
+
+function normalizeSelectedReportTypes(types) {
+  const selected = new Set(Array.isArray(types) ? types : []);
+  return REPORT_TYPES.map(report => report.id).filter(id => selected.has(id));
+}
 
 const LEGAL_VERSION = "1.1";
 
@@ -6812,11 +7025,18 @@ function RelationshipSelect({
   error = "",
   showDebugPanel = false,
   debugJson = "",
+  debugRawText = "",
+  debugRawLabel = "",
+  debugRawBusy = false,
   debugRelationshipType = null,
   onDebugRelationshipTypeChange = () => {},
   onDebugExport = () => {},
   onDebugCopy = () => {},
   onDebugDownload = () => {},
+  onDebugRunRawCoreA = () => {},
+  onDebugRunRawCoreB = () => {},
+  onDebugCopyRaw = () => {},
+  onDebugDownloadRaw = () => {},
 }) {
   const t = useT();
   const romanticOptions = [
@@ -6886,8 +7106,8 @@ function RelationshipSelect({
       </div>
       <AiDebugPanel
         enabled={showDebugPanel}
-        title="Local AI inspection"
-        description="Pick a relationship type and export the exact Core A / Core B request bundle without hitting Supabase or the edge function."
+        title="Admin AI debug"
+        description="Pick a relationship type, inspect the exact request bundle, or fetch the untouched model reply for the compact connection and risk families."
         relationshipOptions={DEBUG_RELATIONSHIP_OPTIONS.map(option => ({ ...option, label: t(option.label) }))}
         selectedRelationshipType={debugRelationshipType}
         onRelationshipTypeChange={onDebugRelationshipTypeChange}
@@ -6897,6 +7117,15 @@ function RelationshipSelect({
         onExport={onDebugExport}
         onCopy={onDebugCopy}
         onDownload={onDebugDownload}
+        rawText={debugRawText}
+        rawLabel={debugRawLabel}
+        rawBusy={debugRawBusy}
+        rawPrimaryLabel="Run Connection Raw"
+        rawSecondaryLabel="Run Risk Raw"
+        onRunRawCoreA={onDebugRunRawCoreA}
+        onRunRawCoreB={onDebugRunRawCoreB}
+        onCopyRaw={onDebugCopyRaw}
+        onDownloadRaw={onDebugDownloadRaw}
       />
       <Btn onClick={onBack}>{t("Back")}</Btn>
     </Shell>
@@ -7503,16 +7732,18 @@ function Upload({
 // ─────────────────────────────────────────────────────────────────
 // LOADING
 // ─────────────────────────────────────────────────────────────────
-function Loading({ math, reportType }) {
+function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   const t = useT();
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick(x => Math.min(x+1, LOADING_STEPS.length-1)), 1800); return () => clearInterval(t); }, []);
   const label = REPORT_TYPES.find(r => r.id === reportType)?.label || "Analysis";
+  const queue = normalizeSelectedReportTypes(reportTypes);
+  const queuePrefix = queue.length > 1 ? `${Math.min(loadingIndex + 1, queue.length)}/${queue.length} · ` : "";
   return (
     <Shell sec="upload" prog={tick+1} total={LOADING_STEPS.length}>
       <BrandLockup />
       <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:500 }}>
-        {t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
+        {queuePrefix}{t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
       </div>
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"24px 20px", width:"100%", textAlign:"center" }}>
         <div style={{ fontSize:18, fontWeight:800, color:"#fff", minHeight:52, letterSpacing:-0.3 }}>{t(LOADING_STEPS[tick])}</div>
@@ -7553,20 +7784,41 @@ const DEBUG_RELATIONSHIP_OPTIONS = [
 
 function ReportSelect({
   math,
-  onSelect,
+  onToggle,
+  onRun,
   onBack,
+  backLabel = "Upload different file",
   chatLang,
   detectedLang,
   onLangChange,
   error = "",
+  selectedTypes = [],
+  credits = null,
+  hideCredits = false,
   showDebugPanel = false,
   debugJson = "",
+  debugRawText = "",
+  debugRawLabel = "",
+  debugRawBusy = false,
   onDebugExport = () => {},
   onDebugCopy = () => {},
   onDebugDownload = () => {},
+  onDebugRunRawCoreA = () => {},
+  onDebugRunRawCoreB = () => {},
+  onDebugCopyRaw = () => {},
+  onDebugDownloadRaw = () => {},
 }) {
   const t = useT();
   const [langOpen, setLangOpen] = useState(false);
+  const selected = normalizeSelectedReportTypes(selectedTypes);
+  const selectedCount = selected.length;
+  const neededCredits = selectedCount;
+  const runLabel = selectedCount === 1 ? "Run 1 report" : `Run ${selectedCount} reports`;
+  const creditSummary = !hideCredits && Number.isInteger(credits)
+    ? `${credits} available • ${neededCredits} needed`
+    : selectedCount > 0
+      ? `${neededCredits} credit${neededCredits === 1 ? "" : "s"}`
+      : "";
 
   const isOverridden = detectedLang && chatLang !== detectedLang.code;
   const currentLabel = LANG_OPTIONS.find(l => l.code === chatLang)?.label ?? "English";
@@ -7584,15 +7836,16 @@ function ReportSelect({
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:6 }}>
         {REPORT_TYPES.map((r) => {
           const pal = PAL[r.palette] || PAL.upload;
+          const active = selected.includes(r.id);
           return (
             <button
               key={r.id}
               type="button"
-              onClick={() => onSelect(r.id)}
+              onClick={() => onToggle(r.id)}
               className="wc-btn"
               style={{
                 background: pal.bg,
-                border: "1px solid rgba(255,255,255,0.14)",
+                border: active ? "1px solid rgba(255,255,255,0.36)" : "1px solid rgba(255,255,255,0.14)",
                 borderRadius: 20,
                 padding: "16px 18px",
                 textAlign: "left",
@@ -7600,13 +7853,76 @@ function ReportSelect({
                 cursor: "pointer",
                 width: "100%",
                 transition: "all 0.15s",
+                boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.08)" : "none",
               }}
             >
-              <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:4 }}>{t(r.label)}</div>
+              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:4 }}>{t(r.label)}</div>
+                <div style={{
+                  width:22,
+                  height:22,
+                  borderRadius:"50%",
+                  border: active ? "none" : "1px solid rgba(255,255,255,0.22)",
+                  background: active ? "rgba(255,255,255,0.18)" : "transparent",
+                  color:"#fff",
+                  fontSize:12,
+                  fontWeight:900,
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  flexShrink:0,
+                  marginTop:1,
+                }}>
+                  {active ? "✓" : ""}
+                </div>
+              </div>
               <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.58)" }}>{t(r.desc)}</div>
             </button>
           );
         })}
+      </div>
+
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8, marginTop:4 }}>
+        <div style={{
+          background:"rgba(255,255,255,0.06)",
+          border:"1px solid rgba(255,255,255,0.10)",
+          borderRadius:16,
+          padding:"12px 14px",
+          color:"rgba(255,255,255,0.76)",
+          fontSize:13,
+          lineHeight:1.6,
+          textAlign:"center",
+        }}>
+          {selectedCount === 0 ? "Pick one or more reports to run together." : `${selectedCount} report${selectedCount === 1 ? "" : "s"} selected.`}
+          {creditSummary ? <div style={{ fontSize:11, color:"rgba(255,255,255,0.48)", marginTop:3, fontWeight:700 }}>{creditSummary}</div> : null}
+        </div>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={selectedCount === 0}
+          className="wc-btn"
+          style={{
+            width:"100%",
+            border:"none",
+            borderRadius:16,
+            padding:"14px 16px",
+            fontSize:14,
+            fontWeight:800,
+            letterSpacing:0.1,
+            color:"#fff",
+            background:selectedCount === 0 ? "rgba(255,255,255,0.08)" : PAL.upload.inner,
+            cursor:selectedCount === 0 ? "default" : "pointer",
+            opacity:selectedCount === 0 ? 0.45 : 1,
+            transition:"all 0.15s",
+          }}
+        >
+          {runLabel}
+        </button>
+        {selectedCount > 1 && (
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", textAlign:"center", lineHeight:1.5 }}>
+            Reports will run together and save separately in My Results.
+          </div>
+        )}
       </div>
 
       {/* ── Language selector ── */}
@@ -7668,15 +7984,24 @@ function ReportSelect({
 
       <AiDebugPanel
         enabled={showDebugPanel}
-        title="Local AI inspection"
-        description="Build the exact Core A / Core B request bundle locally and inspect it before any API call."
+        title="Admin AI debug"
+        description="Inspect the connection, growth, and risk request bundles and fetch the untouched model reply for the compact connection or risk families before any parsing touches it."
         jsonText={debugJson}
         onExport={onDebugExport}
         onCopy={onDebugCopy}
         onDownload={onDebugDownload}
+        rawText={debugRawText}
+        rawLabel={debugRawLabel}
+        rawBusy={debugRawBusy}
+        rawPrimaryLabel="Run Connection Raw"
+        rawSecondaryLabel="Run Risk Raw"
+        onRunRawCoreA={onDebugRunRawCoreA}
+        onRunRawCoreB={onDebugRunRawCoreB}
+        onCopyRaw={onDebugCopyRaw}
+        onDownloadRaw={onDebugDownloadRaw}
       />
 
-      <Btn onClick={onBack}>{t("Upload different file")}</Btn>
+      <Btn onClick={onBack}>{t(backLabel)}</Btn>
     </Shell>
   );
 }
@@ -7973,11 +8298,28 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
   return rows;
 }
 
+function adminControlPillStyle() {
+  return {
+    background:"rgba(255,255,255,0.08)",
+    border:"1px solid rgba(255,255,255,0.18)",
+    borderRadius:50,
+    padding:"7px 16px",
+    fontSize:13,
+    fontWeight:700,
+    color:"#fff",
+    letterSpacing:0.1,
+    whiteSpace:"nowrap",
+  };
+}
+
 function AdminFeedbackTab() {
   const [rows, setRows] = useState(null);
   const [resultsById, setResultsById] = useState({});
   const [err, setErr] = useState("");
   const [viewLangById, setViewLangById] = useState({});
+  const [editing, setEditing] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -8023,6 +8365,38 @@ function AdminFeedbackTab() {
     return () => { alive = false; };
   }, []);
 
+  const exitEditing = () => {
+    setEditing(false);
+    setConfirmId(null);
+  };
+
+  const deleteFeedbackRow = async (id) => {
+    if (!id) return;
+    setDeletingId(id);
+    setConfirmId(null);
+    try {
+      const { data, error } = await supabase.rpc("admin_delete_feedback", {
+        p_feedback_id: String(id),
+      });
+      if (error || data !== true) {
+        console.error("Admin feedback delete failed", error || data);
+        setErr("Couldn't delete feedback right now.");
+        setDeletingId(null);
+        return;
+      }
+      setRows(prev => (prev || []).filter(row => row.id !== id));
+      setViewLangById(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (error) {
+      console.error("Admin feedback delete threw", error);
+      setErr("Couldn't delete feedback right now.");
+    }
+    setDeletingId(null);
+  };
+
   const errorTypeColor = (type) => {
     switch (type) {
       case "Events are mixing":  return { bg:"rgba(240,160,40,0.15)",  border:"rgba(240,160,40,0.3)",  text:"#F0A040" };
@@ -8037,26 +8411,45 @@ function AdminFeedbackTab() {
 
   return (
     <>
-      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
         <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
           Feedback
         </div>
-        <div
-          style={{
-            background:"rgba(255,255,255,0.07)",
-            border:"1px solid rgba(255,255,255,0.12)",
-            borderRadius:999,
-            color:"rgba(255,255,255,0.68)",
-            fontSize:12,
-            padding:"7px 12px",
-            fontWeight:700,
-            letterSpacing:0.08,
-            whiteSpace:"nowrap",
-          }}
-        >
-          {rows === null ? "Loading…" : `${rows.length} report${rows.length !== 1 ? "s" : ""}`}
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", justifyContent:"flex-end" }}>
+          <div
+            style={adminControlPillStyle()}
+          >
+            {rows === null ? "Loading…" : `${rows.length} report${rows.length !== 1 ? "s" : ""}`}
+          </div>
+          {!!rows?.length && (
+            <button
+              type="button"
+              onClick={() => editing ? exitEditing() : setEditing(true)}
+              className="wc-btn"
+              style={{
+                background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                borderRadius: 50,
+                padding: "7px 16px",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#fff",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                letterSpacing: 0.1,
+              }}
+            >
+              {editing ? "Done" : "Edit"}
+            </button>
+          )}
         </div>
       </div>
+
+      {rows?.length > 0 && (
+        !editing
+          ? <div style={{ fontSize:12, color:"rgba(255,255,255,0.42)", lineHeight:1.6 }}>Latest feedback reports and the exact card content they referred to.</div>
+          : <div style={{ fontSize:12, color:"rgba(255,255,255,0.42)", lineHeight:1.6 }}>Tap the × to delete a feedback report.</div>
+      )}
 
       {rows === null && !err && (
         <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"32px 0" }}><Dots /></div>
@@ -8097,11 +8490,86 @@ function AdminFeedbackTab() {
             ? new Date(row.created_at).toLocaleString("en-US", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
             : "Unknown";
           const tagStyle = errorTypeColor(row.error_type);
+          const isDeleting = deletingId === row.id;
+          const isConfirming = confirmId === row.id;
 
           return (
-            <div key={row.id} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:22, overflow:"hidden", flexShrink:0 }}>
+            <div
+              key={row.id}
+              style={{
+                background:"rgba(255,255,255,0.04)",
+                border:`1px solid ${isConfirming ? "rgba(220,50,50,0.42)" : "rgba(255,255,255,0.08)"}`,
+                borderRadius:22,
+                overflow:"hidden",
+                flexShrink:0,
+                position:"relative",
+                transition:"border-color 0.15s",
+              }}
+            >
+              {editing && !isConfirming && !isDeleting && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmId(row.id)}
+                  className="wc-btn"
+                  style={{
+                    position:"absolute",
+                    top:10,
+                    right:10,
+                    width:28,
+                    height:28,
+                    borderRadius:"50%",
+                    background:"rgba(200,40,40,0.85)",
+                    border:"1.5px solid rgba(255,100,100,0.5)",
+                    color:"#fff",
+                    fontSize:14,
+                    fontWeight:800,
+                    display:"flex",
+                    alignItems:"center",
+                    justifyContent:"center",
+                    cursor:"pointer",
+                    lineHeight:1,
+                    padding:0,
+                    transition:"all 0.15s",
+                    zIndex:2,
+                  }}
+                  aria-label="Delete feedback"
+                >
+                  ×
+                </button>
+              )}
+
+              {isDeleting && (
+                <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(12,12,18,0.42)", zIndex:3 }}>
+                  <Dots />
+                </div>
+              )}
+
+              {isConfirming && !isDeleting && (
+                <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, padding:"18px 20px", background:"rgba(16,16,22,0.88)", zIndex:3 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center", lineHeight:1.45 }}>Delete this feedback report?</div>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
+                    <button
+                      type="button"
+                      onClick={() => deleteFeedbackRow(row.id)}
+                      className="wc-btn"
+                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:50, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmId(null)}
+                      className="wc-btn"
+                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:50, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* top strip */}
-              <div style={{ padding:"14px 16px 12px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ padding:"14px 16px 12px", borderBottom:"1px solid rgba(255,255,255,0.06)", opacity: editing ? 0.68 : 1, transition:"opacity 0.15s" }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:5 }}>
@@ -8167,7 +8635,7 @@ function AdminFeedbackTab() {
               </div>
 
               {/* body */}
-              <div style={{ padding:"12px 16px 14px", display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ padding:"12px 16px 14px", display:"flex", flexDirection:"column", gap:10, opacity: editing ? 0.68 : 1, transition:"opacity 0.15s" }}>
                 {/* user's note */}
                 {row.error_note && (
                   <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:14, padding:"10px 14px" }}>
@@ -8266,7 +8734,7 @@ function AdminUsersTab() {
     setAmountById(prev => ({ ...prev, [userId]: value }));
   };
 
-  const addCredits = async (userId) => {
+  const adjustCredits = async (userId, delta) => {
     const rawValue = amountById[userId] ?? "1";
     const amount = Number.parseInt(String(rawValue), 10);
     if (!Number.isInteger(amount) || amount <= 0) {
@@ -8279,12 +8747,12 @@ function AdminUsersTab() {
 
     const { data, error } = await supabase.rpc("admin_add_credits", {
       p_user_id: userId,
-      p_amount: amount,
+      p_amount: delta < 0 ? -amount : amount,
     });
 
     if (error) {
-      console.error("Admin add credits failed", error);
-      setNoticeById(prev => ({ ...prev, [userId]: error.message || "Couldn't add credits right now." }));
+      console.error("Admin credit update failed", error);
+      setNoticeById(prev => ({ ...prev, [userId]: error.message || "Couldn't update credits right now." }));
       setBusyById(prev => ({ ...prev, [userId]: false }));
       return;
     }
@@ -8296,7 +8764,7 @@ function AdminUsersTab() {
         : row
     )));
     setAmountById(prev => ({ ...prev, [userId]: "1" }));
-    setNoticeById(prev => ({ ...prev, [userId]: "Added." }));
+    setNoticeById(prev => ({ ...prev, [userId]: delta < 0 ? "Removed." : "Added." }));
     setBusyById(prev => ({ ...prev, [userId]: false }));
   };
 
@@ -8306,19 +8774,7 @@ function AdminUsersTab() {
         <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
           Users
         </div>
-        <div
-          style={{
-            background:"rgba(255,255,255,0.07)",
-            border:"1px solid rgba(255,255,255,0.12)",
-            borderRadius:999,
-            color:"rgba(255,255,255,0.68)",
-            fontSize:12,
-            padding:"7px 12px",
-            fontWeight:700,
-            letterSpacing:0.08,
-            whiteSpace:"nowrap",
-          }}
-        >
+        <div style={adminControlPillStyle()}>
           {rows === null ? "Loading…" : `${rows.length} user${rows.length !== 1 ? "s" : ""}`}
         </div>
       </div>
@@ -8348,7 +8804,7 @@ function AdminUsersTab() {
                   <div style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:-0.2, lineHeight:1.35, wordBreak:"break-word" }}>{row.email}</div>
                   <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:5 }}>Current credits: {row.balance}</div>
                 </div>
-                <div style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:999, padding:"6px 10px", fontSize:12, fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>
+                <div style={adminControlPillStyle()}>
                   {row.balance} credit{row.balance === 1 ? "" : "s"}
                 </div>
               </div>
@@ -8374,7 +8830,7 @@ function AdminUsersTab() {
                 />
                 <button
                   type="button"
-                  onClick={() => addCredits(row.user_id)}
+                  onClick={() => adjustCredits(row.user_id, 1)}
                   disabled={busy}
                   className="wc-btn"
                   style={{
@@ -8392,8 +8848,28 @@ function AdminUsersTab() {
                 >
                   {busy ? "Adding…" : "Add credits"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => adjustCredits(row.user_id, -1)}
+                  disabled={busy}
+                  className="wc-btn"
+                  style={{
+                    background:"rgba(255,255,255,0.06)",
+                    border:"1px solid rgba(255,255,255,0.12)",
+                    borderRadius:999,
+                    color:"#fff",
+                    fontSize:12,
+                    cursor:busy ? "default" : "pointer",
+                    padding:"10px 14px",
+                    fontWeight:700,
+                    letterSpacing:0.1,
+                    opacity:busy ? 0.6 : 1,
+                  }}
+                >
+                  {busy ? "Removing…" : "Remove credits"}
+                </button>
                 {notice && (
-                  <div style={{ fontSize:12, color:notice === "Added." ? "rgba(176,244,200,0.9)" : "#FFB090" }}>
+                  <div style={{ fontSize:12, color:notice === "Added." || notice === "Removed." ? "rgba(176,244,200,0.9)" : "#FFB090" }}>
                     {notice}
                   </div>
                 )}
@@ -8670,12 +9146,16 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [messages,         setMessages]         = useState(null);
   const [math,             setMath]             = useState(null);
   const [ai,               setAi]               = useState(null);
+  const [connectionDigest, setConnectionDigest] = useState(null);
+  const [connectionDigestKey, setConnectionDigestKey] = useState("");
   const [coreAnalysisA,    setCoreAnalysisA]    = useState(null);
   const [coreAnalysisAKey, setCoreAnalysisAKey] = useState("");
   const [coreAnalysisB,    setCoreAnalysisB]    = useState(null);
   const [coreAnalysisBKey, setCoreAnalysisBKey] = useState("");
   const [aiLoading,        setAiLoading]        = useState(false);
   const [reportType,       setReportType]       = useState(null);
+  const [selectedReportTypes, setSelectedReportTypes] = useState([]);
+  const [loadingReportIndex, setLoadingReportIndex] = useState(0);
   const [relationshipType, setRelationshipType] = useState(null);
   const [chatLang,         setChatLang]         = useState("en");  // detected or user-selected
   const [detectedLang,     setDetectedLang]     = useState(null);  // { code, label, confidence }
@@ -8698,10 +9178,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [importMeta,       setImportMeta]       = useState({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
   const [debugExportJson,  setDebugExportJson]  = useState("");
   const [debugRelType,     setDebugRelType]     = useState(null);
+  const [debugRawText,     setDebugRawText]     = useState("");
+  const [debugRawLabel,    setDebugRawLabel]    = useState("");
+  const [debugRawBusy,     setDebugRawBusy]     = useState(false);
   const consumedImportRef = useRef(null);
   const resolvedUiLang = resolveUiLang(uiLangPref, detectedLang?.code);
   const authedIsAdmin = isAdminUser(authedUser);
-  const devDebugEnabled = import.meta.env.DEV;
 
   useEffect(() => {
     setUiLangPref(normalizeUiLangPref(authedUser?.user_metadata?.ui_language));
@@ -8776,6 +9258,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       refreshed.originalParticipantCount = math?.originalParticipantCount ?? refreshed.originalParticipantCount;
       setMath(refreshed);
       setCurrentResultId(null);
+      setConnectionDigest(null);
+      setConnectionDigestKey("");
       setCoreAnalysisA(null);
       setCoreAnalysisAKey("");
       setCoreAnalysisB(null);
@@ -8792,6 +9276,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const handleVisibility = async () => {
       if (document.visibilityState !== "visible") return;
       if (phaseRef.current !== "loading") return;
+      if (selectedReportTypes.length > 1) return;
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -8814,13 +9299,30 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       const canReuseCore = data.result_data?.analysisCacheVersion === CORE_ANALYSIS_CACHE_VERSION;
 
       setAi(displayResult || {});
-      if (canReuseCore && data.result_data?.coreAnalysis?.part === "a") {
+      if (canReuseCore && data.result_data?.coreAnalysis?.part === "connection") {
+        setConnectionDigest(data.result_data.coreAnalysis);
+        setConnectionDigestKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "connection", "en"));
+        setCoreAnalysisA(null);
+        setCoreAnalysisAKey("");
+        setCoreAnalysisB(null);
+        setCoreAnalysisBKey("");
+      } else if (canReuseCore && (data.result_data?.coreAnalysis?.part === "growth" || data.result_data?.coreAnalysis?.part === "a")) {
+        setConnectionDigest(null);
+        setConnectionDigestKey("");
         setCoreAnalysisA(data.result_data.coreAnalysis);
-        setCoreAnalysisAKey(getCoreAnalysisCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "en"));
-      } else if (canReuseCore && data.result_data?.coreAnalysis?.part === "b") {
+        setCoreAnalysisAKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "growth", "en"));
+        setCoreAnalysisB(null);
+        setCoreAnalysisBKey("");
+      } else if (canReuseCore && (data.result_data?.coreAnalysis?.part === "risk" || data.result_data?.coreAnalysis?.part === "b")) {
+        setConnectionDigest(null);
+        setConnectionDigestKey("");
+        setCoreAnalysisA(null);
+        setCoreAnalysisAKey("");
         setCoreAnalysisB(data.result_data.coreAnalysis);
-        setCoreAnalysisBKey(getCoreAnalysisCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "en"));
+        setCoreAnalysisBKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "risk", "en"));
       } else {
+        setConnectionDigest(null);
+        setConnectionDigestKey("");
         setCoreAnalysisA(null);
         setCoreAnalysisAKey("");
         setCoreAnalysisB(null);
@@ -8828,6 +9330,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       }
       setMath(data.math_data || null);
       setReportType(data.report_type || null);
+      setSelectedReportTypes(data.report_type ? [data.report_type] : []);
+      setLoadingReportIndex(0);
       setCurrentResultId(data.id || null);
       setRelationshipType(displayResult?.relationshipType ?? null);
       setChatLang(displayLang);
@@ -8841,7 +9345,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []); // registered once — reads phase via phaseRef
+  }, [selectedReportTypes.length]); // registered once per batch-mode shape — reads phase via phaseRef
 
   // Check for an existing session on mount and listen for auth changes
   useEffect(() => {
@@ -8917,9 +9421,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const next    = () => go("fwd");
   const restart = () => {
     setPhase("upload"); setMessages(null); setMath(null); setAi(null);
+    setConnectionDigest(null); setConnectionDigestKey("");
     setCoreAnalysisA(null); setCoreAnalysisAKey("");
     setCoreAnalysisB(null); setCoreAnalysisBKey("");
     setAiLoading(false); setReportType(null); setRelationshipType(null);
+    setSelectedReportTypes([]);
+    setLoadingReportIndex(0);
     setCurrentResultId(null);
     setFeedbackTarget(null); setFeedbackChoice(""); setFeedbackNote(""); setFeedbackBusy(false); setFeedbackThanks(false);
     setChatLang("en"); setDetectedLang(null);
@@ -8928,6 +9435,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setAnalysisError("");
     setImportMeta({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
     setDebugExportJson("");
+    setDebugRawText("");
+    setDebugRawLabel("");
     setDebugRelType(null);
     setStep(0); setDir("fwd"); setSid(s => s+1);
   };
@@ -8943,7 +9452,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUploadInfo("");
     setAnalysisError("");
     setDebugExportJson("");
+    setDebugRawText("");
+    setDebugRawLabel("");
     setDebugRelType(null);
+    setSelectedReportTypes([]);
+    setLoadingReportIndex(0);
     setImportMeta({
       fileName,
       summary,
@@ -8971,14 +9484,18 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setMessages(cappedMsgs);
         setMath(m);
         setAi(null);
+        setConnectionDigest(null);
+        setConnectionDigestKey("");
         setCoreAnalysisA(null);
         setCoreAnalysisAKey("");
         setCoreAnalysisB(null);
         setCoreAnalysisBKey("");
         setRelationshipType(null);
+        setSelectedReportTypes([]);
+        setLoadingReportIndex(0);
         setCurrentResultId(null);
         setDebugRelType(null);
-        setPhase("select");
+        setPhase(m?.isGroup ? "select" : "relationship");
         setSid(s => s+1);
       } catch (error) {
         console.error("Post-parse analysis failed", error);
@@ -9005,22 +9522,30 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const generatePipelineResult = async (type, relType) => {
     const pipeline = REPORT_PIPELINES[type];
-    if (pipeline?.strategy !== "core") return {};
+    if (pipeline?.strategy !== "family") return {};
 
-    const cacheKey = getCoreAnalysisCacheKey(math, relType, "en");
-    const useCoreA = pipeline.cache === "a";
-    let core = useCoreA
-      ? (coreAnalysisAKey === cacheKey ? coreAnalysisA : null)
-      : (coreAnalysisBKey === cacheKey ? coreAnalysisB : null);
+    const family = pipeline.family || "connection";
+    const cacheKey = getAnalysisFamilyCacheKey(math, relType, family, "en");
+    let core = null;
 
-    if (!core) {
-      core = useCoreA
-        ? await generateCoreAnalysisA(messages, math, relType, "en")
-        : await generateCoreAnalysisB(messages, math, relType, "en");
-      if (useCoreA) {
+    if (family === "connection") {
+      core = connectionDigestKey === cacheKey ? connectionDigest : null;
+      if (!core) {
+        core = await generateConnectionDigest(messages, math, relType, "en");
+        setConnectionDigest(core);
+        setConnectionDigestKey(cacheKey);
+      }
+    } else if (family === "growth") {
+      core = coreAnalysisAKey === cacheKey ? coreAnalysisA : null;
+      if (!core) {
+        core = await generateGrowthDigest(messages, math, relType, "en");
         setCoreAnalysisA(core);
         setCoreAnalysisAKey(cacheKey);
-      } else {
+      }
+    } else if (family === "risk") {
+      core = coreAnalysisBKey === cacheKey ? coreAnalysisB : null;
+      if (!core) {
+        core = await generateRiskDigest(messages, math, relType, "en");
         setCoreAnalysisB(core);
         setCoreAnalysisBKey(cacheKey);
       }
@@ -9035,9 +9560,54 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return derived;
   };
 
-  // Run AI analysis with the selected report type and relationship type
-  const runAnalysis = async (type, relType) => {
+  const restoreGeneratedResult = (type, result, savedId = null) => {
+    const displayLang = result ? getStoredResultDisplayLanguage(result) : "en";
+    if (!result) return false;
+    setReportType(type);
+    setSelectedReportTypes([type]);
+    setLoadingReportIndex(0);
+    setAi(getDisplayResultData(result, displayLang));
+    setCurrentResultId(savedId || null);
+    setAiLoading(false);
+    setResultsOrigin("upload");
+    setPhase("results");
+    setStep(0);
+    setSid(s => s + 1);
+    return true;
+  };
+
+  const deductCreditsBatch = async (count) => {
+    if (authedIsAdmin || count <= 0) return;
+    try {
+      let nextBalance = credits;
+      for (let i = 0; i < count; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        nextBalance = await deductUserCredit();
+      }
+      setCredits(nextBalance);
+    } catch (error) {
+      console.error("Credit deduction failed", error);
+    }
+  };
+
+  const failBackToSelection = (message) => {
+    const fallbackPhase = math?.isGroup ? "select" : "relationship";
+    setAnalysisError(message);
+    setAiLoading(false);
+    setPhase(fallbackPhase);
+    setStep(0);
+    setSid(s => s + 1);
+  };
+
+  // Run AI analysis with the selected report type(s) and relationship type
+  const runAnalysis = async (types, relType) => {
+    const selectedTypes = normalizeSelectedReportTypes(Array.isArray(types) ? types : [types]).filter(Boolean);
     setAnalysisError("");
+    if (!selectedTypes.length) {
+      setAnalysisError("Choose at least one report.");
+      return;
+    }
+
     if (!authedIsAdmin) {
       let availableCredits = credits;
       try {
@@ -9057,6 +9627,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setSid(s => s + 1);
         return;
       }
+
+      if (availableCredits < selectedTypes.length) {
+        setAnalysisError(`You need ${selectedTypes.length} credits to run ${selectedTypes.length === 1 ? "this report" : "these reports"}.`);
+        return;
+      }
     }
 
     setUploadInfo("");
@@ -9065,91 +9640,102 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s+1);
     setAiLoading(true);
     setAi(null);
+    setSelectedReportTypes(selectedTypes);
+    setLoadingReportIndex(0);
     setCurrentResultId(null);
-    let result = null;
-    try {
-      const canonicalResult = await generatePipelineResult(type, relType);
-      let translationOverlay = null;
-      if (chatLang !== "en") {
-        try {
-          translationOverlay = await translateResultOverlay(type, canonicalResult, chatLang);
-        } catch (translationError) {
-          console.error(`Translation failed for report "${type}" [lang=${chatLang}]`, translationError);
+    const successfulRuns = [];
+    const failedTypes = [];
+
+    for (let index = 0; index < selectedTypes.length; index += 1) {
+      const type = selectedTypes[index];
+      setReportType(type);
+      setLoadingReportIndex(index);
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const canonicalResult = await generatePipelineResult(type, relType);
+        let translationOverlay = null;
+        if (chatLang !== "en") {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            translationOverlay = await translateResultOverlay(type, canonicalResult, chatLang);
+          } catch (translationError) {
+            console.error(`Translation failed for report "${type}" [lang=${chatLang}]`, translationError);
+          }
         }
+        const result = buildStoredResultData(canonicalResult, translationOverlay ? chatLang : "en", translationOverlay);
+        if (!result) {
+          failedTypes.push(type);
+          continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const saved = await saveResult(type, result, math);
+        successfulRuns.push({ type, result, savedId: saved?.id || null });
+      } catch (error) {
+        console.error(`Analysis failed for report "${type}" [lang=${chatLang}]`, error);
+        failedTypes.push(type);
       }
-      result = buildStoredResultData(canonicalResult, translationOverlay ? chatLang : "en", translationOverlay);
-    } catch (error) {
-      console.error(`Analysis failed for report "${type}" [lang=${chatLang}]`, error);
-      const fallbackPhase = math?.isGroup ? "select" : "relationship";
-      const msg = userFacingAnalysisError(error);
-      setAnalysisError(msg);
-      setAiLoading(false);
-      setPhase(fallbackPhase);
-      setStep(0);
-      setSid(s => s + 1);
+    }
+
+    if (!successfulRuns.length) {
+      failBackToSelection(failedTypes.length ? userFacingAnalysisError(new Error("Batch analysis failed.")) : "The AI analysis didn't return a usable result. Please try again.");
       return;
     }
-    const displayLang = result ? getStoredResultDisplayLanguage(result) : "en";
-    if (!result) {
-      setAnalysisError("The AI analysis didn't return a usable result. Please try again.");
-      setAiLoading(false);
-      setPhase(math?.isGroup ? "select" : "relationship");
-      setStep(0);
-      setSid(s => s + 1);
+
+    void deductCreditsBatch(successfulRuns.length);
+
+    if (successfulRuns.length === 1) {
+      const only = successfulRuns[0];
+      restoreGeneratedResult(only.type, only.result, only.savedId);
       return;
     }
-    setAi(getDisplayResultData(result, displayLang));
-    const saved = await saveResult(type, result, math);
-    setCurrentResultId(saved?.id || null);
+
     setAiLoading(false);
-    setResultsOrigin("upload");
-    setPhase("results");
+    setResultsOrigin("history");
+    setPhase("history");
     setStep(0);
-    setSid(s => s+1);
-    if (!authedIsAdmin) {
-      void (async () => {
-        try {
-          const nextBalance = await deductUserCredit();
-          setCredits(nextBalance);
-        } catch (error) {
-          console.error("Credit deduction failed", error);
-        }
-      })();
-    }
+    setSid(s => s + 1);
   };
 
-  // Step 2: user picks a report → for duo chats, show relationship screen first
-  const onSelectReport = (type) => {
+  // Step 2: user toggles one or more reports, then runs them together
+  const onToggleReport = (type) => {
     setAnalysisError("");
-    setReportType(type);
-    if (!math.isGroup) {
-      setPhase("relationship");
-      setSid(s => s+1);
-    } else {
-      runAnalysis(type, null);
-    }
+    setSelectedReportTypes(prev => {
+      const next = prev.includes(type)
+        ? prev.filter(item => item !== type)
+        : [...prev, type];
+      return normalizeSelectedReportTypes(next);
+    });
   };
 
-  // Step 3 (duo only): user picks relationship type → run analysis
+  const onRunSelectedReports = () => {
+    setAnalysisError("");
+    runAnalysis(selectedReportTypes, math?.isGroup ? null : relationshipType);
+  };
+
+  // Step 3 (duo only): user picks relationship type → then choose report type
   const onSelectRelationship = (relType) => {
     setAnalysisError("");
     setRelationshipType(relType);
     setDebugRelType(relType);
     setDebugExportJson("");
-    runAnalysis(reportType, relType);
+    setDebugRawText("");
+    setDebugRawLabel("");
+    setPhase("select");
+    setSid(s => s+1);
   };
 
-  const buildLocalAiDebugExport = () => {
-    if (!messages?.length || !math) return "";
+  const buildAdminAiDebugRequests = () => {
+    if (!messages?.length || !math) return null;
 
     const selectedRelationshipType = math.isGroup ? null : (relationshipType || debugRelType || null);
-    if (!math.isGroup && !selectedRelationshipType) return "";
+    if (!math.isGroup && !selectedRelationshipType) return null;
 
     const relationshipContext = !math.isGroup
       ? peekResolvedRelationshipContext(messages, math.names || [], selectedRelationshipType)
       : null;
 
-    const coreARequest = prepareCoreAnalysisARequest({
+    const connectionRequest = prepareConnectionDigestRequest({
       messages,
       math,
       relationshipType: selectedRelationshipType,
@@ -9158,12 +9744,24 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       buildAnalystSystemPrompt: buildCoreASystemPrompt,
       buildRelationshipLine,
       buildSampleText,
+      coreAnalysisVersion: CORE_ANALYSIS_VERSION,
+      maxTokens: CORE_A_MAX_TOKENS,
+    });
+
+    const growthRequest = prepareGrowthDigestRequest({
+      messages,
+      math,
+      relationshipType: selectedRelationshipType,
+      chatLang: "en",
+      relationshipContext,
+      buildAnalystSystemPrompt: buildCoreASystemPrompt,
+      buildRelationshipLine,
       formatForAI,
       coreAnalysisVersion: CORE_ANALYSIS_VERSION,
       maxTokens: CORE_A_MAX_TOKENS,
     });
 
-    const coreBRequest = prepareCoreAnalysisBRequest({
+    const riskRequest = prepareRiskDigestRequest({
       messages,
       math,
       relationshipType: selectedRelationshipType,
@@ -9176,6 +9774,26 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       maxTokens: CORE_B_MAX_TOKENS,
     });
 
+    return {
+      selectedRelationshipType,
+      relationshipContext,
+      connectionRequest,
+      growthRequest,
+      riskRequest,
+    };
+  };
+
+  const buildLocalAiDebugExport = () => {
+    const debugRequests = buildAdminAiDebugRequests();
+    if (!debugRequests) return "";
+    const {
+      selectedRelationshipType,
+      relationshipContext,
+      connectionRequest,
+      growthRequest,
+      riskRequest,
+    } = debugRequests;
+
     const exportPayload = buildDebugAnalysisExport({
       fileName: importMeta.fileName,
       rawProcessedPayload: importMeta.rawProcessedPayload,
@@ -9184,7 +9802,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       detectedLanguage: detectedLang,
       relationshipType: selectedRelationshipType,
       relationshipContext,
-      relationshipLine: coreARequest.relationshipLine || coreBRequest.relationshipLine || "",
+      relationshipLine: connectionRequest.relationshipLine || growthRequest.relationshipLine || riskRequest.relationshipLine || "",
       tooShort: importMeta.tooShort,
       summary: importMeta.summary,
       analysisVersions: {
@@ -9194,8 +9812,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         homepageVersion: HOMEPAGE_VERSION,
       },
       requests: {
-        coreA: coreARequest,
-        coreB: coreBRequest,
+        connection: connectionRequest,
+        growth: growthRequest,
+        risk: riskRequest,
       },
     });
 
@@ -9218,6 +9837,54 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const jsonText = debugExportJson || buildLocalAiDebugExport();
     if (!jsonText) return;
     downloadJsonFile(jsonText, createAiDebugFileName(importMeta.fileName));
+  };
+
+  const runRawAiDebugExport = async (pipeline = "coreA") => {
+    const debugRequests = buildAdminAiDebugRequests();
+    if (!debugRequests) return;
+
+    const normalizedPipeline = pipeline === "coreB" ? "risk" : (pipeline === "growth" ? "growth" : "connection");
+    const request = normalizedPipeline === "risk"
+      ? debugRequests.riskRequest
+      : normalizedPipeline === "growth"
+        ? debugRequests.growthRequest
+        : debugRequests.connectionRequest;
+    const label = normalizedPipeline === "risk"
+      ? "Risk Raw Output"
+      : normalizedPipeline === "growth"
+        ? "Growth Raw Output"
+        : "Connection Raw Output";
+
+    setDebugRawBusy(true);
+    setDebugRawLabel(label);
+    try {
+      const rawText = await callClaudeRawText(request.systemPrompt, request.userContent, request.maxTokens);
+      setDebugRawText(rawText);
+    } catch (error) {
+      console.error(`[${label}] export failed`, error);
+      setDebugRawText(String(error?.message || "Raw debug export failed."));
+    } finally {
+      setDebugRawBusy(false);
+    }
+  };
+
+  const copyRawAiDebugExport = async () => {
+    if (!debugRawText) return;
+    try {
+      await navigator.clipboard.writeText(debugRawText);
+    } catch (error) {
+      console.error("Raw debug text copy failed", error);
+    }
+  };
+
+  const downloadRawAiDebugExport = () => {
+    if (!debugRawText) return;
+    const pipeline = /risk/i.test(debugRawLabel)
+      ? "risk"
+      : /growth/i.test(debugRawLabel)
+        ? "growth"
+        : "connection";
+    downloadTextFile(debugRawText, createAiRawDebugFileName(importMeta.fileName, pipeline));
   };
 
   const closeResults = () => {
@@ -9340,19 +10007,38 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const displayLang = getStoredResultDisplayLanguage(row.result_data);
     const canReuseCore = row.result_data?.analysisCacheVersion === CORE_ANALYSIS_CACHE_VERSION;
     setAi(getDisplayResultData(row.result_data, displayLang));
-    if (canReuseCore && row.result_data?.coreAnalysis?.part === "a") {
+    if (canReuseCore && row.result_data?.coreAnalysis?.part === "connection") {
+      setConnectionDigest(row.result_data.coreAnalysis);
+      setConnectionDigestKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "connection", "en"));
+      setCoreAnalysisA(null);
+      setCoreAnalysisAKey("");
+      setCoreAnalysisB(null);
+      setCoreAnalysisBKey("");
+    } else if (canReuseCore && (row.result_data?.coreAnalysis?.part === "growth" || row.result_data?.coreAnalysis?.part === "a")) {
+      setConnectionDigest(null);
+      setConnectionDigestKey("");
       setCoreAnalysisA(row.result_data.coreAnalysis);
-      setCoreAnalysisAKey(getCoreAnalysisCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "en"));
-    } else if (canReuseCore && row.result_data?.coreAnalysis?.part === "b") {
+      setCoreAnalysisAKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "growth", "en"));
+      setCoreAnalysisB(null);
+      setCoreAnalysisBKey("");
+    } else if (canReuseCore && (row.result_data?.coreAnalysis?.part === "risk" || row.result_data?.coreAnalysis?.part === "b")) {
+      setConnectionDigest(null);
+      setConnectionDigestKey("");
+      setCoreAnalysisA(null);
+      setCoreAnalysisAKey("");
       setCoreAnalysisB(row.result_data.coreAnalysis);
-      setCoreAnalysisBKey(getCoreAnalysisCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "en"));
+      setCoreAnalysisBKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "risk", "en"));
     } else {
+      setConnectionDigest(null);
+      setConnectionDigestKey("");
       setCoreAnalysisA(null);
       setCoreAnalysisAKey("");
       setCoreAnalysisB(null);
       setCoreAnalysisBKey("");
     }
     setReportType(row.report_type);
+    setSelectedReportTypes(row.report_type ? [row.report_type] : []);
+    setLoadingReportIndex(0);
     setCurrentResultId(row.id || null);
     setRelationshipType(row.result_data?.relationshipType ?? null);
     setChatLang(displayLang);
@@ -9389,17 +10075,29 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     withUiLanguage(<Slide dir="fwd" id={sid}>
       <ReportSelect
         math={math}
-        onSelect={onSelectReport}
-        onBack={() => { setAnalysisError(""); setPhase("upload"); setSid(s => s+1); }}
+        onToggle={onToggleReport}
+        onRun={onRunSelectedReports}
+        onBack={() => { setAnalysisError(""); setPhase(math?.isGroup ? "upload" : "relationship"); setSid(s => s+1); }}
+        backLabel={math?.isGroup ? "Upload different file" : "Back"}
         chatLang={chatLang}
         detectedLang={detectedLang}
         onLangChange={code => { setAnalysisError(""); setChatLang(code); setCoreAnalysisA(null); setCoreAnalysisAKey(""); setCoreAnalysisB(null); setCoreAnalysisBKey(""); }}
         error={analysisError}
-        showDebugPanel={devDebugEnabled && !!math?.isGroup}
+        selectedTypes={selectedReportTypes}
+        credits={credits}
+        hideCredits={authedIsAdmin}
+        showDebugPanel={authedIsAdmin && !!math?.isGroup}
         debugJson={debugExportJson}
+        debugRawText={debugRawText}
+        debugRawLabel={debugRawLabel}
+        debugRawBusy={debugRawBusy}
         onDebugExport={buildLocalAiDebugExport}
         onDebugCopy={copyLocalAiDebugExport}
         onDebugDownload={downloadLocalAiDebugExport}
+        onDebugRunRawCoreA={() => runRawAiDebugExport("coreA")}
+        onDebugRunRawCoreB={() => runRawAiDebugExport("coreB")}
+        onDebugCopyRaw={copyRawAiDebugExport}
+        onDebugDownloadRaw={downloadRawAiDebugExport}
       />
     </Slide>)
   );
@@ -9407,19 +10105,26 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     withUiLanguage(<Slide dir="fwd" id={sid}>
       <RelationshipSelect
         onSelect={onSelectRelationship}
-        onBack={() => { setAnalysisError(""); setPhase("select"); setSid(s => s+1); }}
+        onBack={() => { setAnalysisError(""); setPhase("upload"); setSid(s => s+1); }}
         error={analysisError}
-        showDebugPanel={devDebugEnabled && !math?.isGroup}
+        showDebugPanel={authedIsAdmin && !math?.isGroup}
         debugJson={debugExportJson}
+        debugRawText={debugRawText}
+        debugRawLabel={debugRawLabel}
+        debugRawBusy={debugRawBusy}
         debugRelationshipType={relationshipType || debugRelType}
-        onDebugRelationshipTypeChange={value => { setDebugRelType(value); setDebugExportJson(""); }}
+        onDebugRelationshipTypeChange={value => { setDebugRelType(value); setDebugExportJson(""); setDebugRawText(""); setDebugRawLabel(""); }}
         onDebugExport={buildLocalAiDebugExport}
         onDebugCopy={copyLocalAiDebugExport}
         onDebugDownload={downloadLocalAiDebugExport}
+        onDebugRunRawCoreA={() => runRawAiDebugExport("coreA")}
+        onDebugRunRawCoreB={() => runRawAiDebugExport("coreB")}
+        onDebugCopyRaw={copyRawAiDebugExport}
+        onDebugDownloadRaw={downloadRawAiDebugExport}
       />
     </Slide>)
   );
-  if (phase === "loading") return withUiLanguage(<Loading math={math} reportType={reportType} />);
+  if (phase === "loading") return withUiLanguage(<Loading math={math} reportType={reportType} reportTypes={selectedReportTypes} loadingIndex={loadingReportIndex} />);
 
   // ── Premium report routing ──
   if (reportType === "toxicity") {

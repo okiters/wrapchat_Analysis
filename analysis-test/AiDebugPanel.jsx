@@ -27,10 +27,22 @@ export default function AiDebugPanel({
   onExport = () => {},
   onCopy = () => {},
   onDownload = () => {},
+  rawText = "",
+  rawLabel = "",
+  rawBusy = false,
+  rawPrimaryLabel = "Run Core A Raw",
+  rawSecondaryLabel = "Run Core B Raw",
+  onRunRawCoreA = () => {},
+  onRunRawCoreB = () => {},
+  onCopyRaw = () => {},
+  onDownloadRaw = () => {},
 }) {
   const [open, setOpen] = useState(false);
+  const [rawOpen, setRawOpen] = useState(false);
   const hasPreview = Boolean(jsonText);
+  const hasRawPreview = Boolean(rawText);
   const previewText = useMemo(() => jsonText || "", [jsonText]);
+  const rawPreviewText = useMemo(() => rawText || "", [rawText]);
 
   if (!enabled) return null;
 
@@ -134,6 +146,90 @@ export default function AiDebugPanel({
         </button>
       </div>
 
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.42)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+          Raw AI Output
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.58)" }}>
+          Run the exact Core request and export the untouched model text before any parsing or schema repair.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+          <button
+            type="button"
+            onClick={onRunRawCoreA}
+            disabled={exportDisabled || rawBusy}
+            className="wc-btn"
+            style={{
+              borderRadius: 999,
+              padding: "9px 14px",
+              fontSize: 12,
+              fontWeight: 800,
+              color: exportDisabled || rawBusy ? "rgba(255,255,255,0.35)" : "#fff",
+              background: exportDisabled || rawBusy ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.14)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              cursor: exportDisabled || rawBusy ? "default" : "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            {rawBusy ? "Running…" : rawPrimaryLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onRunRawCoreB}
+            disabled={exportDisabled || rawBusy}
+            className="wc-btn"
+            style={{
+              borderRadius: 999,
+              padding: "9px 14px",
+              fontSize: 12,
+              fontWeight: 800,
+              color: exportDisabled || rawBusy ? "rgba(255,255,255,0.35)" : "#fff",
+              background: exportDisabled || rawBusy ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              cursor: exportDisabled || rawBusy ? "default" : "pointer",
+            }}
+          >
+            {rawBusy ? "Running…" : rawSecondaryLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onCopyRaw}
+            disabled={!hasRawPreview || rawBusy}
+            className="wc-btn"
+            style={{
+              borderRadius: 999,
+              padding: "9px 14px",
+              fontSize: 12,
+              fontWeight: 800,
+              color: hasRawPreview && !rawBusy ? "#fff" : "rgba(255,255,255,0.35)",
+              background: hasRawPreview && !rawBusy ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              cursor: hasRawPreview && !rawBusy ? "pointer" : "default",
+            }}
+          >
+            Copy Raw Output
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadRaw}
+            disabled={!hasRawPreview || rawBusy}
+            className="wc-btn"
+            style={{
+              borderRadius: 999,
+              padding: "9px 14px",
+              fontSize: 12,
+              fontWeight: 800,
+              color: hasRawPreview && !rawBusy ? "#fff" : "rgba(255,255,255,0.35)",
+              background: hasRawPreview && !rawBusy ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              cursor: hasRawPreview && !rawBusy ? "pointer" : "default",
+            }}
+          >
+            Download Raw
+          </button>
+        </div>
+      </div>
+
       {disabledReason && (
         <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.55, color: "rgba(255,255,255,0.52)" }}>
           {disabledReason}
@@ -181,6 +277,52 @@ export default function AiDebugPanel({
               }}
             >
               {previewText}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {hasRawPreview && (
+        <div style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            className="wc-btn"
+            onClick={() => setRawOpen(value => !value)}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              cursor: "pointer",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ transform: rawOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▸</span>
+            {rawLabel || "Raw Output Preview"}
+          </button>
+          {rawOpen && (
+            <pre
+              style={{
+                marginTop: 10,
+                marginBottom: 0,
+                maxHeight: 260,
+                overflow: "auto",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                padding: "12px 13px",
+                borderRadius: 12,
+                background: "rgba(7,11,16,0.72)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                fontSize: 11,
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,0.88)",
+              }}
+            >
+              {rawPreviewText}
             </pre>
           )}
         </div>
