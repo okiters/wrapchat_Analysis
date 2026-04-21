@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
+import { DA, Geo } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
@@ -34,6 +35,9 @@ const FeedbackContext = createContext(null);
 
 // Provided by Slide; Shell reads it to animate only its content area.
 const SlideContext = createContext({ dir: "fwd", id: 0 });
+
+// Provided by Shell so inner components (AICard etc.) can auto-adopt the section palette.
+const SectionPaletteContext = createContext(null);
 
 // UI language preference — "english" stores as-is, "auto" follows detected chat lang.
 // uiLang is the resolved code ("en","tr","es","pt","ar","fr","de","it").
@@ -5379,6 +5383,7 @@ function Shell({ sec, prog, total, children, feedback=null }) {
   const exitTo    = dir === "fwd" ? "-100%" : "100%";
 
   return (
+    <SectionPaletteContext.Provider value={p}>
     <>
       <style>{`
         .wc-root * { box-sizing: border-box; }
@@ -5408,6 +5413,12 @@ function Shell({ sec, prog, total, children, feedback=null }) {
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
       }}>
+        {/* ── DECORATIVE GEO SHAPES ── */}
+        <Geo shape="sq-r"   size={90}  color={p.accent} top={60}    right={-24} rotate={18}  opacity={0.18} />
+        <Geo shape="sq-r"   size={60}  color={p.accent} bottom={100} left={-18} rotate={-14} opacity={0.13} />
+        <Geo shape="circle" size={40}  color={p.accent} bottom={200} right={20}              opacity={0.10} />
+        <Geo shape="sq-r"   size={130} color={p.accent} top={-40}   left={-50}  rotate={28}  opacity={0.07} />
+
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
         <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
@@ -5470,8 +5481,8 @@ function Shell({ sec, prog, total, children, feedback=null }) {
         )}
         {/* Pill label */}
         {PILL_LABEL[sec] && (
-          <div style={{ paddingTop:18, display:"flex", justifyContent:"center", position:"relative", zIndex:4 }}>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:"rgba(255,255,255,0.5)", background:"rgba(255,255,255,0.12)", padding:"5px 14px", borderRadius:20 }}>
+          <div style={{ paddingTop:14, display:"flex", justifyContent:"center", position:"relative", zIndex:4 }}>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase", color:p.accent, background:`${p.accent}20`, border:`1px solid ${p.accent}50`, padding:"4px 12px", borderRadius:999 }}>
               {t(PILL_LABEL[sec])}
             </div>
           </div>
@@ -5514,15 +5525,16 @@ function Shell({ sec, prog, total, children, feedback=null }) {
         </div>
       </div>
     </>
+    </SectionPaletteContext.Provider>
   );
 }
 
-// Typography — system font, same weights as before
+// Typography
 const T   = ({s=26,children}) => (
-  <div className="wc-fadeup" style={{ fontSize:s, fontWeight:800, textAlign:"center", lineHeight:1.2, color:"#fff", letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
+  <div className="wc-fadeup" style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:"#fff", letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
 );
 const Big = ({children}) => (
-  <div className="wc-fadeup-2" style={{ fontSize:44, fontWeight:800, textAlign:"center", color:"#fff", letterSpacing:-1.5, width:"100%", lineHeight:1.05, wordBreak:"break-word", margin:"6px 0 2px" }}>{children}</div>
+  <div className="wc-fadeup-2" style={{ fontSize:44, fontWeight:900, textAlign:"center", color:"#fff", letterSpacing:-1.5, width:"100%", lineHeight:1.05, wordBreak:"break-word", margin:"6px 0 2px" }}>{children}</div>
 );
 const Sub = ({children, mt=6}) => (
   <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.65)", lineHeight:1.6, width:"100%", marginTop:mt, fontWeight:400 }}>{children}</div>
@@ -5554,7 +5566,7 @@ const pick = (arr, key = "") => {
   return arr[idx];
 };
 
-const Quip = ({children}) => <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.8)", background:"rgba(255,255,255,0.1)", padding:"12px 18px", borderRadius:18, width:"100%", lineHeight:1.55, fontStyle:"italic", fontWeight:500 }}>{children}</div>;
+const Quip = ({children}) => <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.82)", background:"rgba(255,255,255,0.07)", padding:"13px 18px", borderRadius:18, width:"100%", lineHeight:1.55, fontStyle:"italic", fontWeight:500 }}>{children}</div>;
 
 function Dots() {
   return (
@@ -5565,9 +5577,18 @@ function Dots() {
 }
 
 function AICard({ label, value, loading }) {
+  const p = useContext(SectionPaletteContext) || PAL.upload;
   return (
-    <div className="wc-fadeup-2" style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"14px 18px", width:"100%" }}>
-      <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:8 }}>{label}</div>
+    <div className="wc-fadeup-2" style={{
+      background: p.inner,
+      border: `1.5px solid ${p.accent}70`,
+      borderRadius: 24,
+      padding: "18px 20px",
+      width: "100%",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:p.accent, marginBottom:10 }}>{label}</div>
       {loading ? <Dots /> : <div style={{ fontSize:15, color:"#fff", lineHeight:1.65, fontWeight:400 }}>{value||"—"}</div>}
     </div>
   );
@@ -7050,26 +7071,27 @@ function RelationshipSelect({
     { id:"colleague", label:"Colleague", icon:colleagueIcon, desc:"Coworker or professional contact" },
     { id:"other",     label:"Other",     icon:otherIcon, desc:"Someone you know" },
   ];
+  const accent = PAL.upload.accent;
   const optionButtonStyle = {
-    background:"rgba(255,255,255,0.08)",
-    border:"1px solid rgba(255,255,255,0.14)",
-    borderRadius:20,
-    color:"#fff",
-    cursor:"pointer",
-    transition:"all 0.15s",
-    width:"100%",
-    minHeight:80,
+    background: `${accent}12`,
+    border: `1px solid ${accent}40`,
+    borderRadius: 20,
+    color: "#fff",
+    cursor: "pointer",
+    transition: "all 0.15s",
+    width: "100%",
+    minHeight: 80,
   };
   const iconStyle = {
-    width:32,
-    height:32,
-    objectFit:"contain",
-    filter:"brightness(0) invert(1)",
-    opacity:0.96,
+    width: 32,
+    height: 32,
+    objectFit: "contain",
+    filter: "brightness(0) invert(1)",
+    opacity: 0.96,
   };
   return (
     <Shell sec="upload" prog={0} total={1}>
-      <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>{t("Who is this chat with?")}</div>
+      <div style={{ fontSize:22, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>{t("Who is this chat with?")}</div>
       <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", textAlign:"center", lineHeight:1.6, width:"100%" }}>{t("This helps the AI frame the analysis correctly.")}</div>
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:6 }}>
@@ -7079,9 +7101,9 @@ function RelationshipSelect({
               key={opt.id}
               type="button"
               onClick={() => onSelect(opt.id)}
-            className="wc-btn"
-            style={{ ...optionButtonStyle, flex:1, padding:"12px 10px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}
-          >
+              className="wc-btn"
+              style={{ ...optionButtonStyle, flex:1, padding:"12px 10px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}
+            >
               <img src={opt.icon} alt="" aria-hidden="true" style={{ ...iconStyle, marginBottom:8 }} />
               <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3 }}>{t(opt.label)}</div>
               <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4 }}>{t(opt.desc)}</div>
@@ -7844,8 +7866,8 @@ function ReportSelect({
               onClick={() => onToggle(r.id)}
               className="wc-btn"
               style={{
-                background: pal.bg,
-                border: active ? "1px solid rgba(255,255,255,0.36)" : "1px solid rgba(255,255,255,0.14)",
+                background: active ? pal.inner : pal.bg,
+                border: active ? `1.5px solid ${pal.accent}` : `1px solid ${pal.accent}40`,
                 borderRadius: 20,
                 padding: "16px 18px",
                 textAlign: "left",
@@ -7853,18 +7875,17 @@ function ReportSelect({
                 cursor: "pointer",
                 width: "100%",
                 transition: "all 0.15s",
-                boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.08)" : "none",
               }}
             >
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
-                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:4 }}>{t(r.label)}</div>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:4, color: active ? "#fff" : pal.accent }}>{t(r.label)}</div>
                 <div style={{
                   width:22,
                   height:22,
                   borderRadius:"50%",
-                  border: active ? "none" : "1px solid rgba(255,255,255,0.22)",
-                  background: active ? "rgba(255,255,255,0.18)" : "transparent",
-                  color:"#fff",
+                  border: active ? "none" : `1px solid ${pal.accent}60`,
+                  background: active ? pal.accent : "transparent",
+                  color: active ? pal.bg : "transparent",
                   fontSize:12,
                   fontWeight:900,
                   display:"flex",
@@ -7876,7 +7897,7 @@ function ReportSelect({
                   {active ? "✓" : ""}
                 </div>
               </div>
-              <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.58)" }}>{t(r.desc)}</div>
+              <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.62)" }}>{t(r.desc)}</div>
             </button>
           );
         })}
@@ -9047,7 +9068,7 @@ function MyResults({ onBack, onRestoreResult }) {
 
           const cardContent = (
             <>
-              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:4 }}>{rt?.label || row.report_type} · {date}</div>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:pal.accent, marginBottom:4 }}>{rt?.label || row.report_type} · {date}</div>
               <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:3 }}>{names}</div>
               {stat !== "—" && <div style={{ fontSize:12, fontWeight:600, color:pal.accent }}>{stat}</div>}
             </>
@@ -9056,7 +9077,7 @@ function MyResults({ onBack, onRestoreResult }) {
           if (!editing) {
             return (
               <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
-                style={{ background:pal.bg, border:"1px solid rgba(255,255,255,0.14)", borderRadius:20, padding:"14px 18px", textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.15s", position:"relative" }}
+                style={{ background:pal.inner, border:`1.5px solid ${pal.accent}50`, borderRadius:20, padding:"14px 18px", textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.15s", position:"relative" }}
               >
                 {cardContent}
               </button>
@@ -9066,7 +9087,7 @@ function MyResults({ onBack, onRestoreResult }) {
           // ── Edit mode card ──
           return (
             <div key={row.id}
-              style={{ background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.5)" : "rgba(255,255,255,0.14)"}`, borderRadius:20, padding:"14px 18px", color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s" }}
+              style={{ background:pal.inner, border:`1.5px solid ${isConfirming ? "rgba(220,50,50,0.6)" : `${pal.accent}50`}`, borderRadius:20, padding:"14px 18px", color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s" }}
             >
               {/* Dimmed card body */}
               <div style={{ opacity: isDeleting || isConfirming ? 0.35 : 0.65, pointerEvents:"none", transition:"opacity 0.15s" }}>

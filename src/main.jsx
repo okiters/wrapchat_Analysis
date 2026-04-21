@@ -2,6 +2,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import Root from "./Root.jsx";
+import { injectGlobalStyles } from "./theme.jsx";
+
+injectGlobalStyles();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

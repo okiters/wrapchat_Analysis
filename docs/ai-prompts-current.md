@@ -3,7 +3,6 @@
 This file tracks the prompt templates that are actively sent to AI right now.
 
 Excluded on purpose:
-- the sampled/calculated chat payload itself
 - local stats/math payloads
 - inactive legacy prompt builders that are no longer used by the main pipeline
 
@@ -13,6 +12,38 @@ Active live prompt paths:
 3. Growth digest
 4. Risk digest
 5. Translation overlay
+
+## Provider Request Envelope
+
+Live provider call:
+- model: `claude-sonnet-4-6`
+- request body:
+
+```json
+{
+  "model": "claude-sonnet-4-6",
+  "max_tokens": max_tokens,
+  "system": system,
+  "messages": [
+    { "role": "user", "content": userContent }
+  ]
+}
+```
+
+Important sampling note:
+- there is currently **no explicit** `temperature`
+- there is currently **no explicit** `top_p`
+- there is currently **no explicit** `top_k`
+- there is currently **no explicit** `frequency_penalty`
+- there is currently **no explicit** `presence_penalty`
+- so the app's real control over "sampling" is the **chat-window selection system** plus the prompt instructions and `max_tokens`
+
+Active max token caps:
+- relationship confirmation: `300`
+- connection digest: `2600`
+- growth digest: `2600`
+- risk digest: `2600`
+- translation overlay: `1800`
 
 ## Shared Prompt Pieces
 
@@ -79,6 +110,123 @@ You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference re
 
 ```txt
 WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; bold only when earned by the chat. No therapist, report, or academic tone. Don't over-explain. INSIGHT STRUCTURE: observation first, concrete moment or repeated pattern second, short natural interpretation third. If evidence is thin, keep it simple instead of padding. For vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, relationshipSummary, mostLovingMoment, mostEnergising, and mostDraining, you may use one sharp grounded compression line, or 1-2 short sentences if one line feels flat. Keep those reads memorable and specific to this chat. For moment fields, choose the strongest supported moment or repeated pattern, not the blandest safe example. A strong read names who did what, the quote or move, and why it landed. biggestTopic should read like the chat's main ongoing storyline, not a generic category. It must be both recurring and important to the relationship or group dynamic; do not elevate minor logistics, one-note jokes, or low-stakes side debates just because they repeat. vibeOneLiner should feel like a friend's sharp summary after reading the whole chat. relationshipSummary should read like a specific human take on their actual pattern, not a label, verdict, or diagnosis. All other fields stay tighter and more functional.
+```
+
+## Sampling / Windowing System
+
+This is the live system that decides **which chat text gets sent to AI**.
+
+### Connection and Risk sampling
+
+Main entry point:
+
+```txt
+If message count <= 600:
+- send the full chat as one `full-history` window
+
+If message count > 600:
+- score each message
+- build event windows around high-signal messages
+- preserve some funny and care windows first
+- fill uncovered time periods with small timeline windows
+- merge windows
+- stop when the total message-line budget reaches 1400
+```
+
+Signal scoring rules:
+
+```txt
+long gap > 240 min            => +4  tag: long-gap
+gap > 60 min                  => +2  tag: gap
+conflict signal               => +6  tag: conflict
+apology signal                => +4  tag: apology
+romance / affection signal    => +4  tag: affection
+support signal                => +5  tag: support
+care response after distress  => +7  tag: care-response
+care followup / gratitude     => +3  tag: care-followup
+long message > 200 chars      => +2  tag: long-msg
+laugh-trigger                 => +6  tag: laugh-trigger
+hard laugh-trigger            => +9  tag: laugh-trigger-hard
+energising burst              => +2  tag: energy-burst
+```
+
+Window-building constants:
+
+```txt
+CONTEXT_BEFORE      = 4
+CONTEXT_AFTER       = 5
+CONTEXT_AFTER_LAUGH = 8
+CONTEXT_AFTER_CARE  = 7
+EVENT_SCORE_MIN     = 4
+MAX_EVENT_WINDOWS   = 55
+TIMELINE_BUCKETS    = 28
+LINES_PER_BUCKET    = 5
+MSG_LINE_LIMIT      = 1400
+```
+
+Selection behavior:
+
+```txt
+1. Sort candidate event centers by descending score.
+2. Do not take more than one event center within the same 8-message neighborhood.
+3. First preserve up to 8 funny windows.
+4. Then preserve up to 8 care/support windows.
+5. Then add the remaining highest-scoring event windows until the cap is reached.
+6. Split the full chat timespan into 28 time buckets.
+7. If a bucket has no event coverage, add a short 5-line timeline window around its midpoint.
+8. Merge overlapping windows.
+9. Keep windows in chronological order.
+10. Stop adding windows once the total included message lines would exceed 1400.
+```
+
+Rendered format sent to AI:
+
+```txt
+━━━ WINDOW 3/17 · 2025-01-14 Tue · funny moment ━━━
+[timestamp] SpeakerName: body
+[timestamp] SpeakerName: body
+...
+```
+
+Window labels are derived from tags:
+
+```txt
+conflict      => "conflict"
+apology       => "apology"
+laugh-trigger => "funny moment"
+support/care  => "care moment"
+affection     => "affection"
+long-gap      => "after silence"
+long-msg      => "long message"
+otherwise     => "excerpt"
+```
+
+### Growth sampling
+
+Growth does **not** use the event-window sampler above. It uses snapshots plus bridge windows:
+
+```txt
+snapshotSize = min(120, max(48, floor(messages.length * 0.16)))
+
+EARLY SNAPSHOT  = first snapshotSize messages
+RECENT SNAPSHOT = last snapshotSize messages
+
+Bridge windows are centered at:
+- 25% through the chat
+- 50% through the chat
+- 75% through the chat
+
+bridge windowSize:
+- 24 if total messages > 12000
+- 32 otherwise
+```
+
+Rendered bridge format:
+
+```txt
+BRIDGE WINDOW 1 (25% through the chat):
+[timestamp] SpeakerName: body
+...
 ```
 
 ## 1. Relationship Confirmation
