@@ -1,5 +1,5 @@
-import wrapchatLogo from "../assets/WrapchatLogo.png";
-import wrapchatLogoTransparent from "../assets/WrapchatLogo_tr.png";
+import wrapchatLogo from "../assets/WrapchatLogo_main_2.svg";
+const wrapchatLogoTransparent = wrapchatLogo;
 
 export default function BrandLockup({
   subtitle,
@@ -33,8 +33,6 @@ export default function BrandLockup({
             objectFit: "contain",
             marginBottom: inline ? 0 : 14,
             flexShrink: 0,
-            borderRadius: inline ? 0 : 18,
-            boxShadow: "none",
           }}
         />
         <div

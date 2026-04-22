@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
-import { DA, Geo } from "./theme.jsx";
+import { DA, Geo, PrimaryButton, GhostButton } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
@@ -5810,10 +5810,23 @@ function Btn({ onClick, children }) {
 }
 function Nav({ back, next, showBack=true, nextLabel="Next" }) {
   const t = useT();
+  const p = useContext(SectionPaletteContext) || PAL.upload;
   return (
-    <div style={{ display:"flex", gap:10, marginTop:8, width:"100%", justifyContent:"center" }}>
-      {showBack && <Btn onClick={back}>{t("Back")}</Btn>}
-      <Btn onClick={next}>{t(nextLabel)}</Btn>
+    <div style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
+      {showBack && (
+        <button onClick={back} className="wc-btn" style={{
+          flex:1, padding:"14px", borderRadius:999,
+          background:"rgba(255,255,255,0.10)", border:"1.5px solid rgba(255,255,255,0.18)",
+          fontFamily:"'Nunito Sans',sans-serif", color:"rgba(255,255,255,0.75)",
+          fontSize:15, fontWeight:700,
+        }}>← {t("Back")}</button>
+      )}
+      <button onClick={next} className="wc-btn" style={{
+        flex:1, padding:"14px", borderRadius:999,
+        background:p.accent, border:"none",
+        fontFamily:"'Nunito Sans',sans-serif", color:p.bg,
+        fontSize:15, fontWeight:800,
+      }}>{t(nextLabel)} →</button>
     </div>
   );
 }
@@ -6908,13 +6921,14 @@ function PremiumFinale({ s, restart, back, reportType }) {
   const t = useT();
   const rtype = REPORT_TYPES.find(r => r.id === reportType);
   const sec = rtype?.palette || "upload";
+  const p = PAL[sec] || PAL.upload;
   return (
     <Shell sec={sec} prog={1} total={1}>
       <T s={22}>{t(rtype?.label || "Report complete")}</T>
       <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
-      <div style={{ display:"flex", gap:10, marginTop:24, justifyContent:"center", width:"100%" }}>
-        <Btn onClick={back}>{t("Back")}</Btn>
-        <Btn onClick={restart}>{t("Start over")}</Btn>
+      <div style={{ display:"flex", gap:10, marginTop:24, width:"100%" }}>
+        <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
+        <PrimaryButton onClick={restart} color={p.accent} textColor={p.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
       </div>
     </Shell>
   );
@@ -6972,9 +6986,9 @@ function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId }
       {!aiLoading&&ai?.vibeOneLiner&&(
         <div style={{background:"rgba(0,0,0,0.2)",borderRadius:20,padding:"14px 18px",width:"100%",fontSize:14,fontStyle:"italic",color:"rgba(255,255,255,0.75)",textAlign:"center",lineHeight:1.6,fontWeight:500}}>"{ai.vibeOneLiner}"</div>
       )}
-      <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"center",width:"100%"}}>
-        <Btn onClick={back}>{t("Back")}</Btn>
-        <Btn onClick={restart}>{t("Start over")}</Btn>
+      <div style={{display:"flex",gap:10,marginTop:20,width:"100%"}}>
+        <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
+        <PrimaryButton onClick={restart} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
       </div>
     </Shell>
   );
@@ -7208,11 +7222,11 @@ function Auth() {
       />
 
       {/* Tab toggle */}
-      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:50, padding:4, width:"100%", gap:4 }}>
+      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:999, padding:4, width:"100%", gap:4 }}>
         {[["login","Log in"],["signup","Sign up"]].map(([t,label]) => (
           <button key={t} onClick={() => switchTab(t)}
             style={{
-              flex:1, border:"none", borderRadius:46, padding:"10px 0",
+              flex:1, border:"none", borderRadius:999, padding:"10px 0",
               fontSize:14, fontWeight:700, cursor:"pointer", transition:"all 0.2s",
               background: tab === t ? "rgba(255,255,255,0.18)" : "transparent",
               color: tab === t ? "#fff" : "rgba(255,255,255,0.38)",
@@ -7241,12 +7255,9 @@ function Auth() {
       {err  && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{err}</div>}
       {info && <div style={{ fontSize:13, color:"#B0F4C8", background:"rgba(20,160,80,0.15)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{info}</div>}
 
-      <button
-        onClick={submit} disabled={busy} className="wc-btn"
-        style={{ width:"100%", padding:"14px 0", borderRadius:50, border:"none", background: PAL.upload.inner, color:"#fff", fontSize:16, cursor: busy ? "default" : "pointer", fontWeight:700, transition:"all 0.15s", letterSpacing:0.2, opacity: busy ? 0.65 : 1 }}
-      >
+      <PrimaryButton onClick={submit} disabled={busy} color={PAL.upload.accent} textColor={PAL.upload.bg}>
         {busy ? "…" : tab === "login" ? "Log in" : "Create account"}
-      </button>
+      </PrimaryButton>
 
       <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
       <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
@@ -7312,8 +7323,8 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", textAlign:"center", lineHeight:1.75, width:"100%" }}>
           {t("Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.")}
         </div>
-        <Btn onClick={next}>{t("Next")}</Btn>
-        <button onClick={handleSkip} style={linkBtn}>{t("Skip")}</button>
+        <PrimaryButton onClick={next} color={PAL.upload.accent} textColor={PAL.upload.bg}>{t("Next")} →</PrimaryButton>
+        <button onClick={handleSkip} className="wc-btn" style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, padding:"4px 8px", fontWeight:600 }}>{t("Skip")}</button>
       </>)}
 
       {/* ── Screen 2: export instructions ── */}
@@ -7331,7 +7342,7 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
             </div>
           ))}
         </div>
-        <Btn onClick={next}>{t("Next")}</Btn>
+        <PrimaryButton onClick={next} color={PAL.upload.accent} textColor={PAL.upload.bg}>{t("Next")} →</PrimaryButton>
       </>)}
 
       {/* ── Screen 3: launch ── */}
@@ -7353,7 +7364,7 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
           })}
         </div>
         {err && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>}
-        <Btn onClick={next}>{t("Continue")}</Btn>
+        <PrimaryButton onClick={next} color={PAL.upload.accent} textColor={PAL.upload.bg}>{t("Continue")} →</PrimaryButton>
       </>)}
 
       {step === 3 && (<>
@@ -7393,19 +7404,13 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={handleFinish}
-          disabled={busy}
-          className="wc-btn"
-          style={{ width:"100%", padding:"14px 0", borderRadius:50, border:"none", background:PAL.upload.inner, color:"#fff", fontSize:16, cursor:busy?"default":"pointer", fontWeight:700, transition:"all 0.15s", letterSpacing:0.2, opacity:busy?0.65:1 }}
-        >
-          {busy ? "…" : t("Continue")}
-        </button>
+        <PrimaryButton onClick={handleFinish} disabled={busy} color={PAL.upload.accent} textColor={PAL.upload.bg}>
+          {busy ? "…" : `${t("Continue")} →`}
+        </PrimaryButton>
       </>)}
 
       <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
-        {onLogout && <button onClick={onLogout} className="wc-btn" style={linkBtn}>{t("Log out")}</button>}
+        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>{t("Log out")}</button>}
       </div>
     </Shell>
   );
@@ -7457,7 +7462,7 @@ function TermsFlow({ onAccepted, onLogout }) {
   };
 
   const tabBtn = (tab, isRead) => ({
-    flex:1, border:"none", borderRadius:46, padding:"10px 6px",
+    flex:1, border:"none", borderRadius:999, padding:"10px 6px",
     fontSize:13, fontWeight:700, cursor:"pointer", transition:"all 0.2s",
     background: activeTab === tab ? "rgba(255,255,255,0.18)" : "transparent",
     color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.38)",
@@ -7490,7 +7495,7 @@ function TermsFlow({ onAccepted, onLogout }) {
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:50, padding:4, width:"100%", gap:4 }}>
+      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:999, padding:4, width:"100%", gap:4 }}>
         <button onClick={() => setActiveTab("tos")} style={tabBtn("tos", tosRead)}>
           Terms of Service {checkMark(tosRead)}
         </button>
@@ -7527,24 +7532,12 @@ function TermsFlow({ onAccepted, onLogout }) {
 
       {err && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>}
 
-      <button
-        type="button"
-        onClick={acceptTerms}
-        disabled={!bothRead || busy}
-        className="wc-btn"
-        style={{
-          width:"100%", padding:"14px 0", borderRadius:50, border:"none",
-          background: PAL.upload.inner, color:"#fff", fontSize:15,
-          cursor: !bothRead || busy ? "default" : "pointer",
-          fontWeight:700, transition:"all 0.15s", letterSpacing:0.1,
-          opacity: !bothRead || busy ? 0.38 : 1,
-        }}
-      >
+      <PrimaryButton onClick={acceptTerms} disabled={!bothRead || busy} color={PAL.upload.accent} textColor={PAL.upload.bg}>
         {busy ? "Saving…" : "I have read and accept both documents."}
-      </button>
+      </PrimaryButton>
 
       <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
-        {onLogout && <button onClick={onLogout} className="wc-btn" style={linkBtn}>Log out</button>}
+        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>Log out</button>}
       </div>
     </Shell>
   );
@@ -7647,15 +7640,13 @@ function Upload({
               onClick={() => updateUiLangPref(option)}
               className="wc-btn"
               style={{
-                border:"1px solid rgba(255,255,255,0.12)",
+                border:`1px solid ${active ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.14)"}`,
                 borderRadius:999,
                 padding:"6px 12px",
                 fontSize:12,
                 fontWeight:700,
-                color:"#fff",
-                background:active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
-                cursor:"pointer",
-                transition:"all 0.15s",
+                color: active ? "#fff" : "rgba(255,255,255,0.55)",
+                background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
               }}
             >
               {t(option === "english" ? "English" : "Auto-detect")}
@@ -7713,33 +7704,19 @@ function Upload({
           {creditLabel}
         </div>
       )}
-      <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
+      <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
         {onHistory && (
-          <button onClick={onHistory} className="wc-btn" style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:999, color:"rgba(255,255,255,0.72)", fontSize:12, cursor:"pointer", padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+          <button onClick={onHistory} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
             {t("My Results")}
           </button>
         )}
         {showAdminEntry && (
-          <button
-            onClick={onAdmin}
-            className="wc-btn"
-            style={{
-              background:canAdmin ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
-              border:"1px solid rgba(255,255,255,0.1)",
-              borderRadius:999,
-              color:canAdmin ? "#fff" : "rgba(255,255,255,0.68)",
-              fontSize:12,
-              cursor:"pointer",
-              padding:"8px 14px",
-              fontWeight:700,
-              letterSpacing:0.1,
-            }}
-          >
+          <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
             Admin
           </button>
         )}
         {onLogout && (
-          <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:999, color:"rgba(255,255,255,0.58)", fontSize:12, cursor:"pointer", padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+          <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
             {t("Log out")}
           </button>
         )}
@@ -8323,7 +8300,7 @@ function adminControlPillStyle() {
   return {
     background:"rgba(255,255,255,0.08)",
     border:"1px solid rgba(255,255,255,0.18)",
-    borderRadius:50,
+    borderRadius:999,
     padding:"7px 16px",
     fontSize:13,
     fontWeight:700,
@@ -8450,7 +8427,7 @@ function AdminFeedbackTab() {
               style={{
                 background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.18)",
-                borderRadius: 50,
+                borderRadius: 999,
                 padding: "7px 16px",
                 fontSize: 13,
                 fontWeight: 700,
@@ -8573,7 +8550,7 @@ function AdminFeedbackTab() {
                       type="button"
                       onClick={() => deleteFeedbackRow(row.id)}
                       className="wc-btn"
-                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:50, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
+                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
                     >
                       Delete
                     </button>
@@ -8581,7 +8558,7 @@ function AdminFeedbackTab() {
                       type="button"
                       onClick={() => setConfirmId(null)}
                       className="wc-btn"
-                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:50, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
+                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
                     >
                       Cancel
                     </button>
@@ -8924,7 +8901,7 @@ function AdminPanel({ onBack }) {
         </div>
       )}
 
-      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:50, padding:4, width:"100%", gap:4 }}>
+      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:999, padding:4, width:"100%", gap:4 }}>
         {tabs.map(item => (
           <button
             key={item.id}
@@ -8934,7 +8911,7 @@ function AdminPanel({ onBack }) {
             style={{
               flex:1,
               border:"none",
-              borderRadius:46,
+              borderRadius:999,
               padding:"10px 0",
               fontSize:13,
               fontWeight:700,
@@ -9028,7 +9005,7 @@ function MyResults({ onBack, onRestoreResult }) {
             style={{
               background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
               border: "1px solid rgba(255,255,255,0.18)",
-              borderRadius: 50,
+              borderRadius: 999,
               padding: "7px 16px",
               fontSize: 13,
               fontWeight: 700,
@@ -9132,7 +9109,7 @@ function MyResults({ onBack, onRestoreResult }) {
                       type="button"
                       onClick={() => handleDelete(row.id)}
                       className="wc-btn"
-                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:50, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
+                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
                     >
                       Delete
                     </button>
@@ -9140,7 +9117,7 @@ function MyResults({ onBack, onRestoreResult }) {
                       type="button"
                       onClick={() => setConfirmId(null)}
                       className="wc-btn"
-                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:50, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
+                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
                     >
                       Cancel
                     </button>
