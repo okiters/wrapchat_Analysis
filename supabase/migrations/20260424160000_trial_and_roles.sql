@@ -10,10 +10,13 @@ do $$ begin
 exception when duplicate_column then null;
 end $$;
 
+-- Drop first so we can change the return type from whatever existed before.
+drop function if exists public.initialise_credits(uuid, text);
+
 -- initialise_credits — called by the initialise-credits edge function on first login.
 -- Idempotent: if a row already exists, returns the current balance without touching it.
 -- In payments mode the first call grants 1 trial credit and stamps trial_granted_at.
-create or replace function public.initialise_credits(
+create function public.initialise_credits(
   p_user_id uuid,
   p_email    text default null
 )
