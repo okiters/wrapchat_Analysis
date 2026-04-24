@@ -74,6 +74,15 @@ function isAdminUser(user) {
   return ADMIN_EMAILS.includes(email);
 }
 
+function GearIcon({ size = 15 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1A1.7 1.7 0 0 0 10 3.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6.9h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z" />
+    </svg>
+  );
+}
+
 const FEEDBACK_OPTIONS = [
   "Events are mixing",
   "Wrong person",
@@ -5577,9 +5586,13 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
   // Content-only slide animation — chrome (bg, bar, pill, X) stays perfectly still.
   const prevContentRef = useRef(null);
   const prevIdRef      = useRef(id);
+  const paneRef        = useRef(null);
   const [exitContent, setExitContent] = useState(null);
 
   useLayoutEffect(() => {
+    requestAnimationFrame(() => {
+      paneRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
     if (id !== prevIdRef.current) {
       setExitContent({ node: prevContentRef.current, dir });
       prevIdRef.current = id;
@@ -5590,6 +5603,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
 
   prevContentRef.current = children;
 
+  const isFade = dir === "fade";
   const enterFrom = dir === "fwd" ? "100%"  : "-100%";
   const exitTo    = dir === "fwd" ? "-100%" : "100%";
 
@@ -5608,6 +5622,10 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
         @keyframes wcContentIn {
           from { transform: translateX(var(--wc-enter-from)); }
           to   { transform: translateX(0); }
+        }
+        @keyframes wcFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
       <div className="wc-root" data-share-type={shareType} data-share-accent={p.accent} style={{
@@ -5707,11 +5725,12 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
           {exitContent && (
             <div data-share-hide className="wc-pane" style={{
               position:"absolute", inset:0,
-              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"safe center",
               padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
-              transform:`translateX(${exitTo})`,
-              transition:`transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
-              willChange:"transform",
+              transform:isFade ? "none" : `translateX(${exitTo})`,
+              opacity:isFade ? 0 : 1,
+              transition:isFade ? `opacity 180ms ${SLIDE_EASE}` : `transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
+              willChange:isFade ? "opacity" : "transform",
               pointerEvents:"none",
               overflowY:"auto",
             }}>
@@ -5719,17 +5738,17 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
             </div>
           )}
           {/* Incoming content */}
-          <div className="wc-pane" style={{
+          <div ref={paneRef} className="wc-pane" style={{
             position: exitContent ? "absolute" : "relative",
             inset: exitContent ? 0 : "auto",
             flex: exitContent ? "none" : 1,
-            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"safe center",
             width:"100%",
             minHeight:0,
             padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
-            animation: exitContent ? `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both` : "none",
+            animation: exitContent ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`) : "none",
             ["--wc-enter-from"]: enterFrom,
-            willChange: exitContent ? "transform" : "auto",
+            willChange: exitContent ? (isFade ? "opacity, transform" : "transform") : "auto",
             overflowY:"auto",
             overscrollBehavior:"contain",
           }}>
@@ -7380,7 +7399,7 @@ function RelationshipSelect({
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
           padding:"20px 10px 16px",
           borderRadius:20,
-          background: active ? `${opt.accent}1A` : "rgba(255,255,255,0.05)",
+          background: "rgba(255,255,255,0.05)",
           border: active ? `1.5px solid ${opt.accent}` : "1px solid rgba(255,255,255,0.10)",
           color:"#fff", cursor:"pointer", transition:"all 0.18s",
           minHeight:100,
@@ -7892,6 +7911,7 @@ function Upload({
   onLogout,
   onHistory,
   onAdmin,
+  onSettings,
   canAdmin,
   uploadError = "",
   uploadInfo = "",
@@ -8031,7 +8051,7 @@ function Upload({
           {creditLabel}
         </div>
       )}
-      <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
+      <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
         {onHistory && (
           <button onClick={onHistory} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
             {t("My Results")}
@@ -8045,6 +8065,17 @@ function Upload({
         {onLogout && (
           <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
             {t("Log out")}
+          </button>
+        )}
+        {onSettings && (
+          <button
+            onClick={onSettings}
+            className="wc-btn"
+            aria-label={t("Settings")}
+            title={t("Settings")}
+            style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", width:34, height:34, padding:0, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}
+          >
+            <GearIcon />
           </button>
         )}
       </div>
@@ -8081,6 +8112,167 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
         Your chat is analysed by AI and never stored. Only results are saved.
       </div>
     </Shell>
+  );
+}
+
+function SettingsScreen({ onBack, onAccountDeleted }) {
+  const t = useT();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const closeConfirm = () => {
+    if (deleteBusy) return;
+    setConfirmOpen(false);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await deleteCurrentAccount();
+      onAccountDeleted?.();
+    } catch (error) {
+      console.error("Account deletion failed", error);
+      setDeleteError("Couldn't delete your account. Please try again.");
+      setDeleteBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Shell sec="upload" prog={0} total={0}>
+        <div style={{
+          alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+          margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+        }}>
+          <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+            <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+              <button onClick={onBack} className="wc-btn" style={{
+                position:"absolute", left:0,
+                background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
+                borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
+                color:"rgba(255,255,255,0.75)",
+              }}>← {t("Back")}</button>
+              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
+                {t("Settings")}
+              </div>
+            </div>
+          </div>
+          <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"12px 20px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              className="wc-btn"
+              style={{
+                width:"100%",
+                display:"flex",
+                alignItems:"center",
+                justifyContent:"space-between",
+                gap:14,
+                textAlign:"left",
+                background:"rgba(224,64,64,0.12)",
+                border:"1px solid rgba(224,64,64,0.35)",
+                borderRadius:18,
+                padding:"15px 16px",
+                color:"#fff",
+              }}
+            >
+              <span style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#FF8E8E" }}>{t("Delete my account")}</span>
+              <span style={{ fontSize:18, lineHeight:1, color:"rgba(255,142,142,0.55)" }}>›</span>
+            </button>
+          </div>
+        </div>
+      </Shell>
+
+      {confirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-account-title"
+          style={{
+            position:"fixed",
+            inset:0,
+            zIndex:220,
+            background:"rgba(0,0,0,0.62)",
+            backdropFilter:"blur(6px)",
+            WebkitBackdropFilter:"blur(6px)",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"center",
+            padding:"20px",
+          }}
+          onClick={closeConfirm}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width:"min(380px, calc(100vw - 32px))",
+              background:"linear-gradient(180deg, #211426 0%, #161018 100%)",
+              border:"1px solid rgba(255,255,255,0.12)",
+              borderRadius:24,
+              padding:"22px 20px 18px",
+              color:"#fff",
+              boxShadow:"0 24px 70px rgba(0,0,0,0.55)",
+            }}
+          >
+            <div id="delete-account-title" style={{ fontSize:20, fontWeight:900, letterSpacing:-0.5, lineHeight:1.15 }}>
+              Are you sure you want to delete your account?
+            </div>
+            <div style={{ marginTop:10, fontSize:14, lineHeight:1.6, color:"rgba(255,255,255,0.66)" }}>
+              All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.
+            </div>
+            {deleteError && (
+              <div style={{ marginTop:14, fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.18)", border:"1px solid rgba(200,60,20,0.28)", padding:"10px 12px", borderRadius:14, lineHeight:1.45 }}>
+                {deleteError}
+              </div>
+            )}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1.25fr", gap:10, marginTop:20 }}>
+              <button
+                type="button"
+                onClick={closeConfirm}
+                disabled={deleteBusy}
+                className="wc-btn"
+                style={{
+                  border:"1px solid rgba(255,255,255,0.12)",
+                  background:"rgba(255,255,255,0.06)",
+                  color:"rgba(255,255,255,0.72)",
+                  borderRadius:16,
+                  padding:"12px 10px",
+                  fontSize:14,
+                  fontWeight:800,
+                  cursor:deleteBusy ? "default" : "pointer",
+                  opacity:deleteBusy ? 0.55 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleteBusy}
+                className="wc-btn"
+                style={{
+                  border:"1px solid rgba(255,100,100,0.35)",
+                  background:"rgba(224,64,64,0.82)",
+                  color:"#fff",
+                  borderRadius:16,
+                  padding:"12px 10px",
+                  fontSize:14,
+                  fontWeight:900,
+                  cursor:deleteBusy ? "wait" : "pointer",
+                  opacity:deleteBusy ? 0.7 : 1,
+                }}
+              >
+                {deleteBusy ? "Deleting..." : "Delete account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -8530,6 +8722,16 @@ async function initialiseUserCredits(userEmail = null) {
   if (error) throw error;
 
   return await getUserCredits();
+}
+
+async function deleteCurrentAccount() {
+  const { error } = await supabase.functions.invoke("delete-account");
+  if (error) throw error;
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // The Edge Function already deleted the auth user; local cleanup continues below.
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -9563,7 +9765,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onNew, onRestoreResult }) {
+function MyResults({ onBack, onRestoreResult }) {
   const [rows,           setRows]           = useState(null);
   const [err,            setErr]            = useState("");
   const [editing,        setEditing]        = useState(false);
@@ -9841,31 +10043,33 @@ function MyResults({ onBack, onNew, onRestoreResult }) {
               borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
               color:"rgba(255,255,255,0.75)",
             }}>← Back</button>
-            {rows?.length > 0 && (
-              <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
-                background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
-                border:"1px solid rgba(255,255,255,0.18)",
-                borderRadius:999, padding:"6px 10px",
-                color: editing ? PAL.upload.accent : "rgba(255,255,255,0.7)",
-                lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
-              }}>
-                {editing
-                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                }
-              </button>
-            )}
           </div>
           {/* Row 2: title + new */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", marginTop:8 }}>
             <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
               My Results
             </div>
-            <button onClick={() => { exitEditing(); (onNew || onBack)(); }} className="wc-btn" style={{
-              background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
-              borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
-              color:PAL.upload.accent,
-            }}>+ New</button>
+            {rows?.length > 0 && (
+              <button
+                type="button"
+                onClick={() => editing ? exitEditing() : setEditing(true)}
+                className="wc-btn"
+                aria-label={editing ? "Done editing" : "Edit results"}
+                title={editing ? "Done" : "Edit"}
+                style={{
+                  background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
+                  border:"1px solid rgba(255,255,255,0.18)",
+                  borderRadius:999, padding:"6px 10px",
+                  color: editing ? PAL.upload.accent : "rgba(255,255,255,0.7)",
+                  lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
+                }}
+              >
+                {editing
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                }
+              </button>
+            )}
           </div>
         </div>
 
@@ -10257,7 +10461,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setAuthedUser(session?.user || null);
       if (session?.user) {
         setStep(0);
-        setDir("fwd");
+        setDir("fade");
         setPhase(postAuthPhaseForUser(session.user));
         setSid(s => s + 1);
       }
@@ -10266,11 +10470,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setAuthedUser(session?.user || null);
       if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") return;
       if (session?.user) {
-        setStep(0);
-        setDir("fwd");
-        setPhase(postAuthPhaseForUser(session.user));
-        setSid(s => s + 1);
-      } else {
+        if (event === "SIGNED_IN" && phaseRef.current === "auth") {
+          setStep(0);
+          setDir("fwd");
+          setPhase(postAuthPhaseForUser(session.user));
+          setSid(s => s + 1);
+        }
+      } else if (event === "SIGNED_OUT") {
         setStep(0);
         setDir("fwd");
         setPhase("auth");
@@ -10301,6 +10507,51 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const logout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleAccountDeleted = () => {
+    setAuthedUser(null);
+    setCredits(null);
+    setUserRole("user");
+    setMessages(null);
+    setMath(null);
+    setAi(null);
+    setConnectionDigest(null);
+    setConnectionDigestKey("");
+    setCoreAnalysisA(null);
+    setCoreAnalysisAKey("");
+    setCoreAnalysisB(null);
+    setCoreAnalysisBKey("");
+    setAiLoading(false);
+    setReportType(null);
+    setSelectedReportTypes([]);
+    setLoadingReportIndex(0);
+    setRelationshipType(null);
+    setChatLang("en");
+    setDetectedLang(null);
+    setStep(0);
+    setDir("fade");
+    setResultsOrigin("upload");
+    setShareBusy(false);
+    setSharePicker(false);
+    setCurrentResultId(null);
+    setFeedbackTarget(null);
+    setFeedbackChoice("");
+    setFeedbackNote("");
+    setFeedbackBusy(false);
+    setFeedbackThanks(false);
+    setUploadError("");
+    setUploadInfo("");
+    setUpgradeInfo(null);
+    setAnalysisError("");
+    setImportMeta({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
+    setDebugExportJson("");
+    setDebugRelType(null);
+    setDebugRawText("");
+    setDebugRawLabel("");
+    setDebugRawBusy(false);
+    setPhase("auth");
+    setSid(s => s + 1);
   };
 
   // Called when onboarding completes → proceed to terms acceptance
@@ -10334,7 +10585,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUploadInfo("");
     setAnalysisError("");
     setStep(0);
-    setDir("fwd");
+    setDir("fade");
     setPhase("upload");
     setSid(s => s + 1);
   };
@@ -10361,7 +10612,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDebugRawText("");
     setDebugRawLabel("");
     setDebugRelType(null);
-    setStep(0); setDir("fwd"); setSid(s => s+1);
+    setStep(0); setDir("fade"); setSid(s => s+1);
   };
 
   // Step 1: file parsed → check thresholds, cap large groups, compute local stats, detect language
@@ -10388,6 +10639,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       tooShort,
     });
     if (tooShort) {
+      setDir("fwd");
       setPhase("tooshort");
       setSid(s => s + 1);
       return;
@@ -10419,6 +10671,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setLoadingReportIndex(0);
         setCurrentResultId(null);
         setDebugRelType(null);
+        setDir("fwd");
         setPhase(m?.isGroup ? "select" : "relationship");
         setSid(s => s+1);
       } catch (error) {
@@ -10428,6 +10681,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setDetectedLang(null);
         setImportMeta({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
         setUploadError("Couldn't finish reading this chat. Try exporting again or using a shorter date range.");
+        setDir("fade");
         setPhase("upload");
         setSid(s => s + 1);
       }
@@ -10511,6 +10765,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setCurrentResultId(savedId || null);
     setAiLoading(false);
     setResultsOrigin("upload");
+    setDir("fwd");
     setPhase("results");
     setStep(0);
     setSid(s => s + 1);
@@ -10533,6 +10788,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const fallbackPhase = math?.isGroup ? "select" : "relationship";
     setAnalysisError(message);
     setAiLoading(false);
+    setDir("bk");
     setPhase(fallbackPhase);
     setStep(0);
     setSid(s => s + 1);
@@ -10600,6 +10856,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUploadInfo("");
     setUpgradeInfo(null);
     setStep(0);
+    setDir("fwd");
     setPhase("loading");
     setSid(s => s+1);
     setAiLoading(true);
@@ -10663,6 +10920,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     setAiLoading(false);
     setResultsOrigin("history");
+    setDir("fwd");
     setPhase("history");
     setStep(0);
     setSid(s => s + 1);
@@ -10697,6 +10955,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDebugExportJson("");
     setDebugRawText("");
     setDebugRawLabel("");
+    setDir("fwd");
     setPhase("select");
     setSid(s => s+1);
   };
@@ -10865,9 +11124,77 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const closeResults = () => {
     const dest = resultsOrigin === "history" ? "history" : "upload";
+    if (dest === "upload") setDir("fade");
     setPhase(dest);
     setSid(s => s + 1);
   };
+
+  const goBackFromCurrent = () => {
+    if (sharePicker || feedbackTarget || phase === "auth" || phase === "loading") return;
+    if (phase === "results") {
+      if (step > 0) back();
+      else closeResults();
+      return;
+    }
+    if (phase === "select") {
+      setAnalysisError("");
+      setDir(math?.isGroup ? "fade" : "bk");
+      setPhase(math?.isGroup ? "upload" : "relationship");
+      setSid(s => s + 1);
+      return;
+    }
+    if (phase === "relationship") {
+      setAnalysisError("");
+      setDir("fade");
+      setPhase("upload");
+      setSid(s => s + 1);
+      return;
+    }
+    if (phase === "upgrade") {
+      setAnalysisError("");
+      setDir("bk");
+      setPhase("select");
+      setSid(s => s + 1);
+      return;
+    }
+    if (["history", "admin", "settings", "tooshort"].includes(phase)) {
+      setDir("fade");
+      setPhase("upload");
+      setSid(s => s + 1);
+    }
+  };
+
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const edgeWidth = 28;
+
+    const onTouchStart = (event) => {
+      const touch = event.touches?.[0];
+      if (!touch || touch.clientX > edgeWidth) return;
+      tracking = true;
+      startX = touch.clientX;
+      startY = touch.clientY;
+    };
+
+    const onTouchEnd = (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const touch = event.changedTouches?.[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (dx > 72 && Math.abs(dx) > Math.abs(dy) * 1.6) goBackFromCurrent();
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [phase, step, math, sharePicker, feedbackTarget, resultsOrigin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFeedback = (target) => {
     setFeedbackTarget(target);
@@ -11059,41 +11386,42 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
-  if (phase === "auth")     return withUiLanguage(<Slide dir="fwd" id={sid}><Auth /></Slide>);
+  if (phase === "auth")     return withUiLanguage(<Slide dir={dir} id={sid}><Auth /></Slide>);
   if (phase === "onboarding") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
       <OnboardingFlow step={step} next={next} onOnboarded={onOnboarded} onLogout={logout} />
     </Slide>)
   );
   if (phase === "terms") return (
-    withUiLanguage(<Slide dir="fwd" id={sid}>
+    withUiLanguage(<Slide dir={dir} id={sid}>
       <TermsFlow onAccepted={onAcceptedTerms} onLogout={logout} />
     </Slide>)
   );
   if (phase === "admin") return (
-    withUiLanguage(<Slide dir="fwd" id={sid}>
+    withUiLanguage(<Slide dir={dir} id={sid}>
       {isAdminUser(authedUser)
         ? <AdminPanel
-            onBack={() => { setPhase("upload"); setSid(s => s+1); }}
+            onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }}
             onLogout={logout}
             accessMode={accessMode}
             onAccessModeChange={setAccessModeState}
           />
-        : <AdminLocked onBack={() => { setPhase("upload"); setSid(s => s+1); }} />}
+        : <AdminLocked onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} />}
     </Slide>)
   );
-  if (phase === "history")  return withUiLanguage(<Slide dir="fwd" id={sid}><MyResults onBack={() => { setPhase("upload"); setSid(s => s+1); }} onNew={() => { setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
-  if (phase === "upload")   return withUiLanguage(<Slide dir="fwd" id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setPhase("admin"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} /></Slide>);
-  if (phase === "tooshort") return withUiLanguage(<Slide dir="fwd" id={sid}><TooShort onBack={() => { setPhase("upload"); setSid(s => s+1); }} /></Slide>);
-  if (phase === "upgrade") return withUiLanguage(<Slide dir="fwd" id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={() => { setAnalysisError(""); setPhase("select"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "settings") return withUiLanguage(<Slide dir={dir} id={sid}><SettingsScreen onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} onAccountDeleted={handleAccountDeleted} /></Slide>);
+  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
+  if (phase === "upload")   return withUiLanguage(<Slide dir={dir} id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setDir("fwd"); setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} /></Slide>);
+  if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={() => { setAnalysisError(""); setDir("bk"); setPhase("select"); setSid(s => s+1); }} /></Slide>);
   if (phase === "select") return (
-    withUiLanguage(<Slide dir="fwd" id={sid}>
+    withUiLanguage(<Slide dir={dir} id={sid}>
       <ReportSelect
         math={math}
         onToggle={onToggleReport}
         onBundle={onSelectBundle}
         onRun={onRunSelectedReports}
-        onBack={() => { setAnalysisError(""); setPhase(math?.isGroup ? "upload" : "relationship"); setSid(s => s+1); }}
+        onBack={() => { setAnalysisError(""); setDir(math?.isGroup ? "fade" : "bk"); setPhase(math?.isGroup ? "upload" : "relationship"); setSid(s => s+1); }}
         backLabel={math?.isGroup ? "Upload different file" : "Back"}
         chatLang={chatLang}
         detectedLang={detectedLang}
@@ -11118,10 +11446,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>)
   );
   if (phase === "relationship") return (
-    withUiLanguage(<Slide dir="fwd" id={sid}>
+    withUiLanguage(<Slide dir={dir} id={sid}>
       <RelationshipSelect
         onSelect={onSelectRelationship}
-        onBack={() => { setAnalysisError(""); setPhase("upload"); setSid(s => s+1); }}
+        onBack={() => { setAnalysisError(""); setDir("fade"); setPhase("upload"); setSid(s => s+1); }}
         error={analysisError}
         showDebugPanel={authedIsAdmin && !math?.isGroup}
         debugJson={debugExportJson}
@@ -11152,6 +11480,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         back={back}
         onUpgrade={() => {
           setUpgradeInfo({ message: "Get credits to unlock the full analysis.", accessMode, requiredCredits: 2 });
+          setDir("fwd");
           setPhase("upgrade");
           setSid(s => s + 1);
         }}
