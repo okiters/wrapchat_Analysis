@@ -5401,7 +5401,7 @@ function Shell({ sec, prog, total, children, feedback=null }) {
       `}</style>
       <div className="wc-root" style={{
         width: "min(420px, 100vw)",
-        minHeight: "100svh",
+        height: "100svh",
         margin: "0 auto",
         background: p.bg,
         transition: `background ${SLIDE_MS}ms ${SLIDE_EASE}`,
@@ -7074,72 +7074,94 @@ function RelationshipSelect({
   onDebugDownloadRaw = () => {},
 }) {
   const t = useT();
+  const [sel, setSel] = useState(null);
+
   const romanticOptions = [
-    { id:"partner", label:"Partner", icon:partnerIcon, desc:"Romantic partner or spouse" },
-    { id:"dating",  label:"Dating",  icon:datingIcon, desc:"Seeing each other or early stages" },
-    { id:"ex",      label:"Ex",      icon:exIcon, desc:"Former romantic partner" },
+    { id:"partner", label:"Partner",   icon:partnerIcon,   accent:DA.purple },
+    { id:"dating",  label:"Dating",    icon:datingIcon,    accent:DA.amber  },
+    { id:"ex",      label:"Ex",        icon:exIcon,        accent:DA.orange },
   ];
-  const options = [
-    { id:"family",    label:"Related",   icon:familyIcon, desc:"Parent, sibling or relative" },
-    { id:"friend",    label:"Friend",    icon:friendIcon, desc:"Close friend or bestie" },
-    { id:"colleague", label:"Colleague", icon:colleagueIcon, desc:"Coworker or professional contact" },
-    { id:"other",     label:"Other",     icon:otherIcon, desc:"Someone you know" },
+  const otherOptions = [
+    { id:"family",    label:"Related",   icon:familyIcon,    accent:DA.teal  },
+    { id:"friend",    label:"Friend",    icon:friendIcon,    accent:DA.blue  },
+    { id:"colleague", label:"Colleague", icon:colleagueIcon, accent:DA.lime  },
+    { id:"other",     label:"Other",     icon:otherIcon,     accent:DA.faint },
   ];
-  const accent = PAL.upload.accent;
-  const optionButtonStyle = {
-    background: `${accent}12`,
-    border: `1px solid ${accent}40`,
-    borderRadius: 20,
-    color: "#fff",
-    cursor: "pointer",
-    transition: "all 0.15s",
-    width: "100%",
-    minHeight: 80,
-  };
-  const iconStyle = {
-    width: 32,
-    height: 32,
-    objectFit: "contain",
-    filter: "brightness(0) invert(1)",
-    opacity: 0.96,
-  };
-  return (
-    <Shell sec="upload" prog={0} total={1}>
-      <div style={{ fontSize:22, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>{t("Who is this chat with?")}</div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", textAlign:"center", lineHeight:1.6, width:"100%" }}>{t("This helps the AI frame the analysis correctly.")}</div>
-      {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:6 }}>
-        <div style={{ display:"flex", gap:10, width:"100%" }}>
-          {romanticOptions.map(opt => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onSelect(opt.id)}
-              className="wc-btn"
-              style={{ ...optionButtonStyle, flex:1, padding:"12px 10px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}
-            >
-              <img src={opt.icon} alt="" aria-hidden="true" style={{ ...iconStyle, marginBottom:8 }} />
-              <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3 }}>{t(opt.label)}</div>
-              <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4 }}>{t(opt.desc)}</div>
-            </button>
-          ))}
+
+  const selectedAccent = [...romanticOptions, ...otherOptions].find(o => o.id === sel)?.accent || PAL.upload.accent;
+
+  const RelCard = ({ opt, flex }) => {
+    const active = sel === opt.id;
+    return (
+      <button
+        key={opt.id}
+        type="button"
+        onClick={() => setSel(opt.id)}
+        className="wc-btn"
+        style={{
+          flex: flex || undefined,
+          position:"relative",
+          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+          padding:"20px 10px 16px",
+          borderRadius:20,
+          background: active ? `${opt.accent}1A` : "rgba(255,255,255,0.05)",
+          border: active ? `1.5px solid ${opt.accent}` : "1px solid rgba(255,255,255,0.10)",
+          color:"#fff", cursor:"pointer", transition:"all 0.18s",
+          minHeight:100,
+        }}
+      >
+        {active && (
+          <div style={{
+            position:"absolute", top:10, left:"50%", transform:"translateX(-50%)",
+            width:7, height:7, borderRadius:"50%", background:opt.accent,
+          }} />
+        )}
+        <img
+          src={opt.icon} alt="" aria-hidden="true"
+          style={{ width:32, height:32, objectFit:"contain", marginBottom:9,
+            filter:"brightness(0) invert(1)", opacity: active ? 1 : 0.65 }}
+        />
+        <div style={{
+          fontSize:14, fontWeight:800, letterSpacing:-0.2, textAlign:"center",
+          color: active ? opt.accent : "rgba(255,255,255,0.85)",
+        }}>
+          {t(opt.label)}
         </div>
-        {options.map(opt => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => onSelect(opt.id)}
-            className="wc-btn"
-            style={{ ...optionButtonStyle, padding:"16px 18px", display:"flex", alignItems:"center", gap:14, textAlign:"left" }}
-          >
-            <img src={opt.icon} alt="" aria-hidden="true" style={{ ...iconStyle, flexShrink:0 }} />
-            <div>
-              <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3 }}>{t(opt.label)}</div>
-              <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:2 }}>{t(opt.desc)}</div>
-            </div>
-          </button>
-        ))}
+      </button>
+    );
+  };
+
+  return (
+    <Shell sec="upload" prog={1} total={3}>
+      <button onClick={onBack} className="wc-btn" style={{
+        alignSelf:"flex-start",
+        background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
+        borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
+        color:"rgba(255,255,255,0.75)",
+      }}>← {t("Back")}</button>
+
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase",
+        color:DA.faint, width:"100%", marginBottom:-10 }}>
+        STEP 2 OF 3
       </div>
+
+      <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1, width:"100%" }}>
+        {t("Who is this chat with?")}
+      </div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%", marginTop:-8 }}>
+        {t("This helps the AI frame the analysis correctly.")}
+      </div>
+
+      {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, width:"100%" }}>
+        {romanticOptions.map(opt => <RelCard key={opt.id} opt={opt} />)}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, width:"100%" }}>
+        {otherOptions.map(opt => <RelCard key={opt.id} opt={opt} />)}
+      </div>
+
       <AiDebugPanel
         enabled={showDebugPanel}
         title="Admin AI debug"
@@ -7163,7 +7185,15 @@ function RelationshipSelect({
         onCopyRaw={onDebugCopyRaw}
         onDownloadRaw={onDebugDownloadRaw}
       />
-      <Btn onClick={onBack}>{t("Back")}</Btn>
+
+      <PrimaryButton
+        onClick={() => sel && onSelect(sel)}
+        disabled={!sel}
+        color={sel ? selectedAccent : "rgba(255,255,255,0.12)"}
+        textColor={sel ? DA.bg : "rgba(255,255,255,0.35)"}
+      >
+        {t("Continue")} →
+      </PrimaryButton>
     </Shell>
   );
 }
@@ -7822,17 +7852,39 @@ function ReportSelect({
   const isOverridden = detectedLang && chatLang !== detectedLang.code;
   const currentLabel = LANG_OPTIONS.find(l => l.code === chatLang)?.label ?? "English";
 
+  const stepLabel = math?.isGroup ? "STEP 2 OF 2" : "STEP 3 OF 3";
+  const stepProg  = math?.isGroup ? 1 : 2;
+  const stepTotal = math?.isGroup ? 2 : 3;
+
   return (
-    <Shell sec="upload" prog={0} total={1}>
-      <div style={{ fontSize:28, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>{t("Choose your report")}</div>
-      <Sub mt={4}>{math?.totalMessages?.toLocaleString()} {t("messages")} · {math?.names?.slice(0,3).join(", ") || ""}{(math?.names?.length||0)>3?` +${math.names.length-3}`:""}</Sub>
+    <Shell sec="upload" prog={stepProg} total={stepTotal}>
+      <button onClick={onBack} className="wc-btn" style={{
+        alignSelf:"flex-start",
+        background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
+        borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
+        color:"rgba(255,255,255,0.75)",
+      }}>← {t("Back")}</button>
+
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase",
+        color:DA.faint, width:"100%", marginBottom:-10 }}>
+        {stepLabel}
+      </div>
+
+      <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1, width:"100%" }}>
+        {t("Choose your report")}
+      </div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%", marginTop:-8 }}>
+        {math?.totalMessages?.toLocaleString()} {t("messages")} · {math?.names?.slice(0,3).join(", ") || ""}{(math?.names?.length||0)>3?` +${math.names.length-3}`:""}
+      </div>
+
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
       {math?.cappedGroup && (
         <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", background:"rgba(255,255,255,0.08)", borderRadius:14, padding:"8px 14px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
           {t("Large group detected — analysing the top {cap} members out of {count}.", { cap: GROUP_PARTICIPANT_CAP, count: math.originalParticipantCount })}
         </div>
       )}
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:6 }}>
+
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
         {REPORT_TYPES.map((r) => {
           const pal = PAL[r.palette] || PAL.upload;
           const active = selected.includes(r.id);
@@ -7843,84 +7895,66 @@ function ReportSelect({
               onClick={() => onToggle(r.id)}
               className="wc-btn"
               style={{
-                background: active ? pal.inner : pal.bg,
-                border: active ? `1.5px solid ${pal.accent}` : `1px solid ${pal.accent}40`,
-                borderRadius: 20,
-                padding: "16px 18px",
-                textAlign: "left",
-                color: "#fff",
-                cursor: "pointer",
-                width: "100%",
-                transition: "all 0.15s",
+                display:"flex", alignItems:"center", gap:14,
+                background: active ? `${pal.accent}14` : "rgba(255,255,255,0.04)",
+                border: active ? `1.5px solid ${pal.accent}` : "1px solid rgba(255,255,255,0.10)",
+                borderRadius:20, padding:"14px 16px",
+                textAlign:"left", color:"#fff", cursor:"pointer",
+                width:"100%", transition:"all 0.18s",
               }}
             >
-              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
-                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:4, color: active ? "#fff" : pal.accent }}>{t(r.label)}</div>
-                <div style={{
-                  width:22,
-                  height:22,
-                  borderRadius:"50%",
-                  border: active ? "none" : `1px solid ${pal.accent}60`,
-                  background: active ? pal.accent : "transparent",
-                  color: active ? pal.bg : "transparent",
-                  fontSize:12,
-                  fontWeight:900,
-                  display:"flex",
-                  alignItems:"center",
-                  justifyContent:"center",
-                  flexShrink:0,
-                  marginTop:1,
-                }}>
-                  {active ? "✓" : ""}
+              {/* colour swatch */}
+              <div style={{
+                width:44, height:44, borderRadius:14, flexShrink:0,
+                background: active ? pal.inner : `${pal.inner}80`,
+                border:`1px solid ${pal.accent}40`,
+                transform:"rotate(-8deg)",
+                transition:"background 0.18s",
+              }} />
+              {/* text */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:3,
+                  color: active ? "#fff" : "rgba(255,255,255,0.85)" }}>
+                  {t(r.label)}
+                </div>
+                <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.50)" }}>
+                  {t(r.desc)}
                 </div>
               </div>
-              <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.62)" }}>{t(r.desc)}</div>
+              {/* checkbox */}
+              <div style={{
+                width:22, height:22, borderRadius:"50%", flexShrink:0,
+                border: active ? "none" : `1.5px solid rgba(255,255,255,0.22)`,
+                background: active ? pal.accent : "transparent",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:12, fontWeight:900,
+                color: active ? pal.bg : "transparent",
+                transition:"all 0.18s",
+              }}>
+                {active ? "✓" : ""}
+              </div>
             </button>
           );
         })}
       </div>
 
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8, marginTop:4 }}>
-        <div style={{
-          background:"rgba(255,255,255,0.06)",
-          border:"1px solid rgba(255,255,255,0.10)",
-          borderRadius:16,
-          padding:"12px 14px",
-          color:"rgba(255,255,255,0.76)",
-          fontSize:13,
-          lineHeight:1.6,
-          textAlign:"center",
-        }}>
-          {selectedCount === 0 ? "Pick one or more reports to run together." : `${selectedCount} report${selectedCount === 1 ? "" : "s"} selected.`}
-          {creditSummary ? <div style={{ fontSize:11, color:"rgba(255,255,255,0.48)", marginTop:3, fontWeight:700 }}>{creditSummary}</div> : null}
-        </div>
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={selectedCount === 0}
-          className="wc-btn"
-          style={{
-            width:"100%",
-            border:"none",
-            borderRadius:16,
-            padding:"14px 16px",
-            fontSize:14,
-            fontWeight:800,
-            letterSpacing:0.1,
-            color:"#fff",
-            background:selectedCount === 0 ? "rgba(255,255,255,0.08)" : PAL.upload.inner,
-            cursor:selectedCount === 0 ? "default" : "pointer",
-            opacity:selectedCount === 0 ? 0.45 : 1,
-            transition:"all 0.15s",
-          }}
-        >
-          {runLabel}
-        </button>
-        {selectedCount > 1 && (
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", textAlign:"center", lineHeight:1.5 }}>
-            Reports will run together and save separately in My Results.
+      {/* summary + cta */}
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+        {selectedCount > 0 && (
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:600 }}>
+            {selectedCount} {selectedCount === 1 ? t("report") : t("reports")}
+            {creditSummary ? ` · ${creditSummary}` : ""}
+            {selectedCount > 1 ? ` · ${t("saved separately")}` : ""}
           </div>
         )}
+        <PrimaryButton
+          onClick={onRun}
+          disabled={selectedCount === 0}
+          color={selectedCount === 0 ? "rgba(255,255,255,0.10)" : DA.teal}
+          textColor={selectedCount === 0 ? "rgba(255,255,255,0.30)" : DA.bg}
+        >
+          {runLabel}
+        </PrimaryButton>
       </div>
 
       {/* ── Language selector ── */}
@@ -7962,7 +7996,7 @@ function ReportSelect({
                   className="wc-btn"
                   style={{
                     border: `1px solid ${active ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.12)"}`,
-                    borderRadius: 50,
+                    borderRadius: 999,
                     padding: "7px 14px",
                     fontSize: 13,
                     fontWeight: active ? 800 : 600,
@@ -7998,8 +8032,6 @@ function ReportSelect({
         onCopyRaw={onDebugCopyRaw}
         onDownloadRaw={onDebugDownloadRaw}
       />
-
-      <Btn onClick={onBack}>{t(backLabel)}</Btn>
     </Shell>
   );
 }
@@ -8078,12 +8110,13 @@ async function initialiseUserCredits(userEmail = null) {
 // ─────────────────────────────────────────────────────────────────
 // SAVE RESULT
 // ─────────────────────────────────────────────────────────────────
-async function saveResult(type, result, mathData) {
+async function saveResult(type, result, mathData, bundleId = null) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const safeMathData = {
       ...mathData,
+      ...(bundleId ? { bundle_id: bundleId } : {}),
       evidenceTimeline: mathData.evidenceTimeline?.map(({ date, title }) => ({ date, title })) ?? [],
       redFlags: mathData.redFlags?.map(({ title }) => ({ title })) ?? [],
     };
@@ -8937,12 +8970,15 @@ function AdminPanel({ onBack }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onRestoreResult }) {
-  const [rows,          setRows]          = useState(null);
-  const [err,           setErr]           = useState("");
-  const [editing,       setEditing]       = useState(false);
-  const [confirmId,     setConfirmId]     = useState(null); // row.id awaiting confirm
-  const [deletingId,    setDeletingId]    = useState(null); // row.id mid-delete
+function MyResults({ onBack, onNew, onRestoreResult }) {
+  const [rows,           setRows]           = useState(null);
+  const [err,            setErr]            = useState("");
+  const [editing,        setEditing]        = useState(false);
+  const [confirmId,      setConfirmId]      = useState(null);
+  const [deletingId,     setDeletingId]     = useState(null);
+  const [bundleView,     setBundleView]     = useState(null); // null | string (bundle_id)
+  const [confirmBundle,  setConfirmBundle]  = useState(null);
+  const [deletingBundle, setDeletingBundle] = useState(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -8957,7 +8993,13 @@ function MyResults({ onBack, onRestoreResult }) {
     });
   }, []);
 
-  const exitEditing = () => { setEditing(false); setConfirmId(null); };
+  useEffect(() => {
+    if (bundleView && rows && !rows.some(r => r.math_data?.bundle_id === bundleView)) {
+      setBundleView(null);
+    }
+  }, [rows, bundleView]);
+
+  const exitEditing = () => { setEditing(false); setConfirmId(null); setConfirmBundle(null); };
 
   const handleDelete = async (id) => {
     setDeletingId(id);
@@ -8975,6 +9017,23 @@ function MyResults({ onBack, onRestoreResult }) {
     setDeletingId(null);
   };
 
+  const handleDeleteBundle = async (bid, bundleRows) => {
+    setDeletingBundle(bid);
+    setConfirmBundle(null);
+    const ids = bundleRows.map(r => r.id);
+    try {
+      const { error } = await supabase.from("results").delete().in("id", ids);
+      if (!error) {
+        setRows(prev => prev.filter(r => !ids.includes(r.id)));
+      } else {
+        setErr("Couldn't delete. Try again.");
+      }
+    } catch {
+      setErr("Couldn't delete. Try again.");
+    }
+    setDeletingBundle(null);
+  };
+
   const headline = (row) => {
     const displayLang = getStoredResultDisplayLanguage(row.result_data);
     const ai   = getDisplayResultData(row.result_data, displayLang);
@@ -8990,146 +9049,392 @@ function MyResults({ onBack, onRestoreResult }) {
     }
   };
 
+  const formatDate = (dateStr) => {
+    const d    = new Date(dateStr);
+    const now  = new Date();
+    const diff = Math.floor((now - d) / 864e5);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    if (diff < 7)  return d.toLocaleDateString("en-US", { weekday:"short" });
+    return d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  };
+
+  const rowNames = (row) => Array.isArray(row.names)
+    ? row.names.slice(0, 3).join(", ") + (row.names.length > 3 ? ` +${row.names.length - 3}` : "")
+    : "—";
+
+  // Shared swatch for a single report card
+  const makeSwatchEl = (pal) => (
+    <div style={{ width:48, height:48, flexShrink:0, position:"relative" }}>
+      <div style={{ position:"absolute", inset:0, borderRadius:13, background:`${pal.inner}50`, border:`1.5px solid ${pal.accent}35` }} />
+      <div style={{ position:"absolute", inset:9, borderRadius:8, background:pal.inner, border:`1px solid ${pal.accent}70`, transform:"rotate(-12deg)" }} />
+    </div>
+  );
+
+  // Shared text block for a single report card
+  const makeTextEl = (pal, rt, row, dateLabel, stat) => (
+    <div style={{ flex:1, minWidth:0 }}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
+        {rt?.label || row.report_type} · {dateLabel}
+      </div>
+      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2 }}>
+        {rowNames(row)}
+      </div>
+      {stat !== "—" && (
+        <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4 }}>{stat}</div>
+      )}
+    </div>
+  );
+
+  // Bundle palette — visually distinct from per-report-type colors
+  const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
+
+  // ── Compute display items (singles + bundles) ──
+  const displayItems = (() => {
+    if (!rows) return [];
+    const bundleMap = new Map();
+    const items = [];
+    rows.forEach(row => {
+      const bid = row.math_data?.bundle_id;
+      if (bid) {
+        if (!bundleMap.has(bid)) bundleMap.set(bid, []);
+        bundleMap.get(bid).push(row);
+      } else {
+        items.push({ type:"single", row, created_at: row.created_at });
+      }
+    });
+    bundleMap.forEach((bundleRows, bid) => {
+      if (bundleRows.length <= 1) {
+        items.push({ type:"single", row: bundleRows[0], created_at: bundleRows[0].created_at });
+      } else {
+        items.push({ type:"bundle", bundleId: bid, rows: bundleRows, created_at: bundleRows[0].created_at });
+      }
+    });
+    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return items;
+  })();
+
+  // ── Bundle detail view ──
+  if (bundleView) {
+    const bRows = rows?.filter(r => r.math_data?.bundle_id === bundleView) || [];
+    const bNames = bRows.length ? rowNames(bRows[0]) : "—";
+    const bDate  = bRows.length ? formatDate(bRows[0].created_at) : "";
+    return (
+      <Shell sec="upload" prog={0} total={0}>
+        <div style={{
+          alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+          margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+        }}>
+          {/* Fixed header */}
+          <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
+              <button onClick={() => { exitEditing(); setBundleView(null); }} className="wc-btn" style={{
+                background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
+                borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
+                color:"rgba(255,255,255,0.75)",
+              }}>← Back</button>
+              {bRows.length > 0 && (
+                <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
+                  background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
+                  border:"1px solid rgba(255,255,255,0.18)",
+                  borderRadius:999, padding:"6px 10px",
+                  color: editing ? BUNDLE_PAL.accent : "rgba(255,255,255,0.7)",
+                  lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
+                }}>
+                  {editing
+                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  }
+                </button>
+              )}
+            </div>
+            <div style={{ marginTop:8 }}>
+              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>{bNames}</div>
+              <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:4, fontWeight:600 }}>
+                {bDate} · {bRows.length} report{bRows.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+          </div>
+          {/* Scrollable list */}
+          <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
+            padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+            display:"flex", flexDirection:"column", gap:10 }}>
+            {err && (
+              <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
+            )}
+            {bRows.map(row => {
+              const rt  = REPORT_TYPES.find(r => r.id === row.report_type);
+              const pal = PAL[rt?.palette] || PAL.upload;
+              const stat = headline(row);
+              const isDeleting   = deletingId === row.id;
+              const isConfirming = confirmId  === row.id;
+              const swatchEl = makeSwatchEl(pal);
+              const textEl   = (
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
+                    {rt?.label || row.report_type}
+                  </div>
+                  {stat !== "—" && (
+                    <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:2 }}>{stat}</div>
+                  )}
+                </div>
+              );
+              if (!editing) {
+                return (
+                  <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
+                    style={{ display:"flex", alignItems:"center", gap:16,
+                      background:pal.bg, border:`1px solid ${pal.accent}28`,
+                      borderRadius:20, padding:"16px 18px",
+                      textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.18s" }}>
+                    {swatchEl}{textEl}
+                    <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
+                  </button>
+                );
+              }
+              return (
+                <div key={row.id} style={{
+                  display:"flex", alignItems:"center", gap:16,
+                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                  borderRadius:20, padding:"16px 18px",
+                  color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
+                }}>
+                  <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+                    {swatchEl}{textEl}
+                  </div>
+                  {!isConfirming && !isDeleting && (
+                    <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
+                      style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                        background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                        color:"#fff", fontSize:14, fontWeight:800,
+                        display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
+                      aria-label="Delete result">×</button>
+                  )}
+                  {isDeleting && (
+                    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
+                  )}
+                  {isConfirming && !isDeleting && (
+                    <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this report?</div>
+                      <div style={{ display:"flex", gap:8 }}>
+                        <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
+                          style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
+                        <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
+                          style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
   return (
     <Shell sec="upload" prog={0} total={0}>
-      {/* Header row — title + Edit/Done */}
-      <div style={{ position:"relative", display:"flex", alignItems:"center", justifyContent:"flex-end", width:"100%", minHeight:36 }}>
-        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", fontSize:28, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1, textAlign:"center", pointerEvents:"none", whiteSpace:"nowrap" }}>
-          My Results
+      <div style={{
+        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+      }}>
+        {/* Fixed header */}
+        <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+          {/* Row 1: back + edit icon */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
+            <button onClick={() => { exitEditing(); onBack(); }} className="wc-btn" style={{
+              background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
+              borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
+              color:"rgba(255,255,255,0.75)",
+            }}>← Back</button>
+            {rows?.length > 0 && (
+              <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
+                background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
+                border:"1px solid rgba(255,255,255,0.18)",
+                borderRadius:999, padding:"6px 10px",
+                color: editing ? PAL.upload.accent : "rgba(255,255,255,0.7)",
+                lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                {editing
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                }
+              </button>
+            )}
+          </div>
+          {/* Row 2: title + new */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", marginTop:8 }}>
+            <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
+              My Results
+            </div>
+            <button onClick={() => { exitEditing(); (onNew || onBack)(); }} className="wc-btn" style={{
+              background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
+              borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
+              color:PAL.upload.accent,
+            }}>+ New</button>
+          </div>
         </div>
-        {rows?.length > 0 && (
-          <button
-            type="button"
-            onClick={() => editing ? exitEditing() : setEditing(true)}
-            className="wc-btn"
-            style={{
-              background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              borderRadius: 999,
-              padding: "7px 16px",
-              fontSize: 13,
-              fontWeight: 700,
-              color: "#fff",
-              cursor: "pointer",
-              transition: "all 0.15s",
-              letterSpacing: 0.1,
-            }}
-          >
-            {editing ? "Done" : "Edit"}
-          </button>
-        )}
-      </div>
 
-      {!editing && <Sub mt={2}>Tap any result to view it again.</Sub>}
-      {editing  && <Sub mt={2}>Tap the × to delete a result.</Sub>}
+        {/* Scrollable list */}
+        <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
+          padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+          display:"flex", flexDirection:"column", gap:10 }}>
+          {rows === null && !err && (
+            <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
+          )}
+          {err && (
+            <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
+          )}
+          {rows?.length === 0 && (
+            <div style={{ fontSize:14, color:"rgba(255,255,255,0.35)", textAlign:"center", padding:"32px 0", lineHeight:1.7 }}>
+              No saved results yet.<br/>Run an analysis to see it here.
+            </div>
+          )}
+          {displayItems.map(item => {
+          // ── Single report card ──
+          if (item.type === "single") {
+            const row          = item.row;
+            const rt           = REPORT_TYPES.find(r => r.id === row.report_type);
+            const pal          = PAL[rt?.palette] || PAL.upload;
+            const dateLabel    = formatDate(row.created_at);
+            const stat         = headline(row);
+            const isDeleting   = deletingId === row.id;
+            const isConfirming = confirmId  === row.id;
+            const swatchEl     = makeSwatchEl(pal);
+            const textEl       = makeTextEl(pal, rt, row, dateLabel, stat);
 
-      {rows === null && !err && (
-        <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
-      )}
-      {err && (
-        <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
-      )}
-      {rows?.length === 0 && (
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.38)", textAlign:"center", padding:"24px 0", lineHeight:1.6 }}>No saved results yet.<br/>Run an analysis to see it here.</div>
-      )}
+            if (!editing) {
+              return (
+                <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
+                  style={{ display:"flex", alignItems:"center", gap:16,
+                    background:pal.bg, border:`1px solid ${pal.accent}28`,
+                    borderRadius:20, padding:"16px 18px",
+                    textAlign:"left", color:"#fff", cursor:"pointer",
+                    width:"100%", transition:"all 0.18s" }}>
+                  {swatchEl}{textEl}
+                  <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
+                </button>
+              );
+            }
+            return (
+              <div key={row.id} style={{
+                display:"flex", alignItems:"center", gap:16,
+                background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                borderRadius:20, padding:"16px 18px",
+                color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
+              }}>
+                <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+                  {swatchEl}{textEl}
+                </div>
+                {!isConfirming && !isDeleting && (
+                  <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
+                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                      color:"#fff", fontSize:14, fontWeight:800,
+                      display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
+                    aria-label="Delete result">×</button>
+                )}
+                {isDeleting && (
+                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
+                )}
+                {isConfirming && !isDeleting && (
+                  <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this result?</div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
+                        style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
+                      <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
+                        style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
 
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, maxHeight:"58vh", overflowY:"auto", paddingRight:2 }}>
-        {rows?.map(row => {
-          const rt      = REPORT_TYPES.find(r => r.id === row.report_type);
-          const pal     = PAL[rt?.palette] || PAL.upload;
-          const names   = Array.isArray(row.names) ? row.names.slice(0, 3).join(", ") + (row.names.length > 3 ? ` +${row.names.length - 3}` : "") : "—";
-          const date    = new Date(row.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
-          const stat    = headline(row);
-          const isDeleting = deletingId === row.id;
-          const isConfirming = confirmId === row.id;
+          // ── Bundle card ──
+          const { bundleId, rows: bundleRows } = item;
+          const bNames   = rowNames(bundleRows[0]);
+          const bDate    = formatDate(item.created_at);
+          const isConfirmingBundle = confirmBundle  === bundleId;
+          const isDeletingBundle   = deletingBundle === bundleId;
 
-          const cardContent = (
-            <>
-              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:pal.accent, marginBottom:4 }}>{rt?.label || row.report_type} · {date}</div>
-              <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:3 }}>{names}</div>
-              {stat !== "—" && <div style={{ fontSize:12, fontWeight:600, color:pal.accent }}>{stat}</div>}
-            </>
+          const bundleSwatchEl = (
+            <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box" }}>
+              {bundleRows.slice(0, 4).map((r, i) => {
+                const rpal = PAL[REPORT_TYPES.find(rt => rt.id === r.report_type)?.palette] || PAL.upload;
+                return <div key={i} style={{ borderRadius:4, background:rpal.inner, border:`1px solid ${rpal.accent}60` }} />;
+              })}
+            </div>
+          );
+
+          const bundleTextEl = (
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5 }}>
+                Bundle · {bDate}
+              </div>
+              <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {bNames}
+              </div>
+              <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
+              </div>
+            </div>
           );
 
           if (!editing) {
             return (
-              <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
-                style={{ background:pal.inner, border:`1.5px solid ${pal.accent}50`, borderRadius:20, padding:"14px 18px", textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.15s", position:"relative" }}
-              >
-                {cardContent}
+              <button key={bundleId} onClick={() => setBundleView(bundleId)} className="wc-btn"
+                style={{ display:"flex", alignItems:"center", gap:16,
+                  background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
+                  borderRadius:20, padding:"16px 18px",
+                  textAlign:"left", color:"#fff", cursor:"pointer",
+                  width:"100%", transition:"all 0.18s" }}>
+                {bundleSwatchEl}{bundleTextEl}
+                <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
               </button>
             );
           }
-
-          // ── Edit mode card ──
           return (
-            <div key={row.id}
-              style={{ background:pal.inner, border:`1.5px solid ${isConfirming ? "rgba(220,50,50,0.6)" : `${pal.accent}50`}`, borderRadius:20, padding:"14px 18px", color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s" }}
-            >
-              {/* Dimmed card body */}
-              <div style={{ opacity: isDeleting || isConfirming ? 0.35 : 0.65, pointerEvents:"none", transition:"opacity 0.15s" }}>
-                {cardContent}
+            <div key={bundleId} style={{
+              display:"flex", alignItems:"center", gap:16,
+              background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
+              borderRadius:20, padding:"16px 18px",
+              color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
+            }}>
+              <div style={{ display:"contents", opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+                {bundleSwatchEl}{bundleTextEl}
               </div>
-
-              {/* Delete button — top-right */}
-              {!isConfirming && !isDeleting && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmId(row.id)}
-                  className="wc-btn"
-                  style={{
-                    position:"absolute", top:10, right:10,
-                    width:28, height:28, borderRadius:"50%",
-                    background:"rgba(200,40,40,0.85)",
-                    border:"1.5px solid rgba(255,100,100,0.5)",
+              {!isConfirmingBundle && !isDeletingBundle && (
+                <button type="button" onClick={() => setConfirmBundle(bundleId)} className="wc-btn"
+                  style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                    background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
                     color:"#fff", fontSize:14, fontWeight:800,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer", lineHeight:1, padding:0,
-                    transition:"all 0.15s",
-                  }}
-                  aria-label="Delete result"
-                >
-                  ×
-                </button>
+                    display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
+                  aria-label="Delete bundle">×</button>
               )}
-
-              {/* Deleting spinner */}
-              {isDeleting && (
-                <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}>
-                  <Dots />
-                </div>
+              {isDeletingBundle && (
+                <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
               )}
-
-              {/* Inline confirmation */}
-              {isConfirming && !isDeleting && (
-                <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center", lineHeight:1.4 }}>Delete this result?</div>
+              {isConfirmingBundle && !isDeletingBundle && (
+                <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
+                  alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {bundleRows.length} reports?</div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(row.id)}
-                      className="wc-btn"
-                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmId(null)}
-                      className="wc-btn"
-                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", transition:"all 0.15s" }}
-                    >
-                      Cancel
-                    </button>
+                    <button type="button" onClick={() => handleDeleteBundle(bundleId, bundleRows)} className="wc-btn"
+                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
+                    <button type="button" onClick={() => setConfirmBundle(null)} className="wc-btn"
+                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                   </div>
                 </div>
               )}
             </div>
           );
-        })}
+          })}
+        </div>
       </div>
-
-      <Btn onClick={() => { exitEditing(); onBack(); }}>← Back</Btn>
     </Shell>
   );
 }
@@ -9641,6 +9946,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSelectedReportTypes(selectedTypes);
     setLoadingReportIndex(0);
     setCurrentResultId(null);
+    const bundleId = selectedTypes.length > 1 ? crypto.randomUUID() : null;
     const successfulRuns = [];
     const failedTypes = [];
 
@@ -9667,7 +9973,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           continue;
         }
         // eslint-disable-next-line no-await-in-loop
-        const saved = await saveResult(type, result, math);
+        const saved = await saveResult(type, result, math, bundleId);
         successfulRuns.push({ type, result, savedId: saved?.id || null });
       } catch (error) {
         console.error(`Analysis failed for report "${type}" [lang=${chatLang}]`, error);
@@ -10066,7 +10372,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         : <AdminLocked onBack={() => { setPhase("upload"); setSid(s => s+1); }} />}
     </Slide>)
   );
-  if (phase === "history")  return withUiLanguage(<Slide dir="fwd" id={sid}><MyResults onBack={() => { setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
+  if (phase === "history")  return withUiLanguage(<Slide dir="fwd" id={sid}><MyResults onBack={() => { setPhase("upload"); setSid(s => s+1); }} onNew={() => { setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
   if (phase === "upload")   return withUiLanguage(<Slide dir="fwd" id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setPhase("admin"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} onClearError={() => setUploadError("")} /></Slide>);
   if (phase === "tooshort") return withUiLanguage(<Slide dir="fwd" id={sid}><TooShort onBack={() => { setPhase("upload"); setSid(s => s+1); }} /></Slide>);
   if (phase === "select") return (
