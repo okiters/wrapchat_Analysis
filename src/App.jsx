@@ -9,12 +9,20 @@ import AiDebugPanel from "../analysis-test/AiDebugPanel.jsx";
 import {
   ACCESS_MODES,
   DEFAULT_ACCESS_MODE,
-  checkReportAccess,
   getAccessMode,
   getAccessModeLabel,
   isOpenMode,
   setAccessMode,
 } from "./accessMode";
+import {
+  BUNDLES,
+  canUserRunReports,
+  deductCreditsAmount,
+  getBundleMatch,
+  getReportCreditCost,
+  getTotalCreditCost,
+  getTotalCreditCostBundled,
+} from "./reportCredits";
 import {
   buildDebugAnalysisExport,
   createAiDebugFileName,
@@ -8008,6 +8016,7 @@ const DEBUG_RELATIONSHIP_OPTIONS = [
 function ReportSelect({
   math,
   onToggle,
+  onBundle = () => {},
   onRun,
   onBack,
   backLabel = "Upload different file",
@@ -8036,14 +8045,12 @@ function ReportSelect({
   const [langOpen, setLangOpen] = useState(false);
   const selected = normalizeSelectedReportTypes(selectedTypes);
   const selectedCount = selected.length;
-  const neededCredits = selectedCount;
+  const neededCredits = getTotalCreditCostBundled(selected);
+  const standaloneCost = getTotalCreditCost(selected);
+  const bundleMatch = selectedCount > 1 ? getBundleMatch(selected) : null;
+  const hasSaving = neededCredits < standaloneCost;
   const runLabel = selectedCount === 1 ? "Run 1 report" : `Run ${selectedCount} reports`;
   const showCredits = !hideCredits && !isOpenMode(accessMode);
-  const creditSummary = showCredits && Number.isInteger(credits)
-    ? `${credits} available • ${neededCredits} needed`
-    : showCredits && selectedCount > 0
-      ? `${neededCredits} credit${neededCredits === 1 ? "" : "s"}`
-      : "";
 
   const isOverridden = detectedLang && chatLang !== detectedLang.code;
   const currentLabel = LANG_OPTIONS.find(l => l.code === chatLang)?.label ?? "English";
@@ -8085,10 +8092,45 @@ function ReportSelect({
         </div>
       )}
 
+      {/* ── Bundle quick-select ── */}
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase", color:DA.faint }}>
+          Bundles
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {Object.values(BUNDLES).map(bundle => {
+            const active = bundleMatch?.id === bundle.id;
+            return (
+              <button
+                key={bundle.id}
+                type="button"
+                onClick={() => onBundle(active ? [] : bundle.reports)}
+                className="wc-btn"
+                style={{
+                  flex:"1 1 auto",
+                  background: active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)",
+                  border: active ? "1.5px solid rgba(255,255,255,0.32)" : "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 999,
+                  padding: "7px 13px",
+                  color: active ? "#fff" : "rgba(255,255,255,0.52)",
+                  fontSize: 12, fontWeight: 700,
+                  cursor: "pointer", transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {bundle.label}
+                {showCredits && <span style={{ opacity: active ? 0.65 : 0.45 }}> · {bundle.cost} cr</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
         {REPORT_TYPES.map((r) => {
           const pal = PAL[r.palette] || PAL.upload;
           const active = selected.includes(r.id);
+          const reportCost = getReportCreditCost(r.id);
           return (
             <button
               key={r.id}
@@ -8114,9 +8156,16 @@ function ReportSelect({
               }} />
               {/* text */}
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, marginBottom:3,
-                  color: active ? "#fff" : "rgba(255,255,255,0.85)" }}>
-                  {t(r.label)}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:3 }}>
+                  <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3,
+                    color: active ? "#fff" : "rgba(255,255,255,0.85)" }}>
+                    {t(r.label)}
+                  </div>
+                  {showCredits && (
+                    <div style={{ fontSize:11, fontWeight:800, color:active ? pal.accent : "rgba(255,255,255,0.42)", whiteSpace:"nowrap" }}>
+                      {reportCost} cr
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.50)" }}>
                   {t(r.desc)}
@@ -8143,8 +8192,19 @@ function ReportSelect({
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
         {selectedCount > 0 && (
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:600 }}>
-            {selectedCount} {selectedCount === 1 ? t("report") : t("reports")}
-            {creditSummary ? ` · ${creditSummary}` : ""}
+            {bundleMatch
+              ? <span style={{ color:"rgba(255,255,255,0.78)" }}>{bundleMatch.label}</span>
+              : <>{selectedCount} {selectedCount === 1 ? t("report") : t("reports")}</>
+            }
+            {showCredits && selectedCount > 0 && (<>
+              {" · "}
+              {hasSaving && <span style={{ textDecoration:"line-through", opacity:0.45 }}>{standaloneCost}</span>}
+              {hasSaving && " "}
+              <span style={hasSaving ? { color:"rgba(255,255,255,0.78)" } : {}}>
+                {neededCredits} {t("cr")}
+              </span>
+              {Number.isInteger(credits) && <span> · {credits} {t("available")}</span>}
+            </>)}
             {selectedCount > 1 ? ` · ${t("saved separately")}` : ""}
           </div>
         )}
@@ -8237,6 +8297,37 @@ function ReportSelect({
   );
 }
 
+function UpgradePlaceholder({ info, onBack, credits = null }) {
+  const required = info?.requiredCredits ?? 0;
+  const available = Number.isInteger(info?.availableCredits) ? info.availableCredits : credits;
+  return (
+    <Shell sec="upload" prog={0} total={0}>
+      <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1, width:"100%", textAlign:"center" }}>
+        More credits needed
+      </div>
+      <div style={{ fontSize:14, color:"rgba(255,255,255,0.62)", lineHeight:1.65, textAlign:"center", width:"100%" }}>
+        {info?.message || "You need credits to run these reports."}
+      </div>
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"16px", textAlign:"center" }}>
+          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.42)", marginBottom:6 }}>Available</div>
+          <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{Number.isInteger(available) ? available : "—"}</div>
+        </div>
+        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"16px", textAlign:"center" }}>
+          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.42)", marginBottom:6 }}>Required</div>
+          <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{required}</div>
+        </div>
+      </div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.48)", lineHeight:1.6, textAlign:"center", width:"100%" }}>
+        Upgrade and payment controls will live here when payments are connected. For now, ask an admin to add credits.
+      </div>
+      <PrimaryButton onClick={onBack} color={PAL.upload.accent} textColor={PAL.upload.bg}>
+        Back to reports
+      </PrimaryButton>
+    </Shell>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 // SLIDE
 // ─────────────────────────────────────────────────────────────────
@@ -8286,16 +8377,6 @@ async function getUserCredits() {
   return parseCreditBalance(data);
 }
 
-async function deductUserCredit() {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError) throw userError;
-  if (!user) return null;
-
-  const { data, error } = await supabase.rpc("deduct_credit", { p_user_id: user.id });
-  if (error) throw error;
-  return parseCreditBalance(data);
-}
-
 async function initialiseUserCredits(userEmail = null) {
   const existingBalance = await getUserCredits();
   if (existingBalance !== null) return existingBalance;
@@ -8311,13 +8392,20 @@ async function initialiseUserCredits(userEmail = null) {
 // ─────────────────────────────────────────────────────────────────
 // SAVE RESULT
 // ─────────────────────────────────────────────────────────────────
-async function saveResult(type, result, mathData, bundleId = null) {
+async function saveResult(type, result, mathData, bundleId = null, creditMeta = null) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
+    const generatedAt = new Date().toISOString();
     const safeMathData = {
       ...mathData,
       ...(bundleId ? { bundle_id: bundleId } : {}),
+      ...(creditMeta ? {
+        credit_cost: creditMeta.creditCost,
+        report_types: creditMeta.reportTypes,
+        generated_at: generatedAt,
+        ...(creditMeta.bundleName ? { bundle_name: creditMeta.bundleName } : {}),
+      } : {}),
       evidenceTimeline: mathData.evidenceTimeline?.map(({ date, title }) => ({ date, title })) ?? [],
       redFlags: mathData.redFlags?.map(({ title }) => ({ title })) ?? [],
     };
@@ -8326,7 +8414,17 @@ async function saveResult(type, result, mathData, bundleId = null) {
       report_type: type,
       chat_type:   mathData.isGroup ? "group" : "duo",
       names:       mathData.names,
-      result_data: result,
+      result_data: {
+        ...result,
+        runMetadata: {
+          reportType: type,
+          reportTypes: creditMeta?.reportTypes || [type],
+          creditCost: creditMeta?.creditCost ?? getReportCreditCost(type),
+          totalRunCreditCost: creditMeta?.totalRunCreditCost ?? (creditMeta?.creditCost ?? getReportCreditCost(type)),
+          generatedAt,
+          ...(creditMeta?.bundleName ? { bundleName: creditMeta.bundleName } : {}),
+        },
+      },
       math_data:   safeMathData,
     }).select("id").single();
     if (error) return null;
@@ -8691,7 +8789,11 @@ function AdminFeedbackTab() {
       )}
       {rows?.length === 0 && !err && (
         <div style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"32px 20px", textAlign:"center" }}>
-          <div style={{ fontSize:28, marginBottom:10 }}>📭</div>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
           <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", lineHeight:1.6 }}>No feedback yet.</div>
         </div>
       )}
@@ -9826,6 +9928,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [feedbackThanks,   setFeedbackThanks]   = useState(false);
   const [uploadError,      setUploadError]      = useState("");
   const [uploadInfo,       setUploadInfo]       = useState("");
+  const [upgradeInfo,      setUpgradeInfo]      = useState(null);
   const [analysisError,    setAnalysisError]    = useState("");
   const [importMeta,       setImportMeta]       = useState({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
   const [debugExportJson,  setDebugExportJson]  = useState("");
@@ -10247,14 +10350,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return true;
   };
 
-  const deductCreditsBatch = async (count, mode = accessMode) => {
-    if (authedIsAdmin || isOpenMode(mode) || count <= 0) return;
+  const deductCreditsBatch = async (types, mode = accessMode) => {
+    const selectedTypes = normalizeSelectedReportTypes(Array.isArray(types) ? types : [types]).filter(Boolean);
+    if (authedIsAdmin || isOpenMode(mode) || !selectedTypes.length) return;
     try {
-      let nextBalance = credits;
-      for (let i = 0; i < count; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
-        nextBalance = await deductUserCredit();
-      }
+      const amount = getTotalCreditCostBundled(selectedTypes);
+      const nextBalance = await deductCreditsAmount(authedUser?.id, amount);
       setCredits(nextBalance);
     } catch (error) {
       console.error("Credit deduction failed", error);
@@ -10300,29 +10401,37 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCredits(null);
       }
 
-      const access = checkReportAccess({
-        isAdmin: authedIsAdmin,
-        accessMode: activeAccessMode,
+      const access = canUserRunReports({
+        ...authedUser,
+        role: authedIsAdmin ? "admin" : authedUser?.role,
         credits: availableCredits,
-        neededCredits: selectedTypes.length,
-      });
-
-      if (!access.allowed && (availableCredits == null || availableCredits <= 0)) {
-        setUploadInfo(access.message || OUT_OF_CREDITS_MESSAGE);
-        setStep(0);
-        setDir("bk");
-        setPhase("upload");
-        setSid(s => s + 1);
-        return;
-      }
+      }, selectedTypes, activeAccessMode);
 
       if (!access.allowed) {
+        setUpgradeInfo({
+          message: access.message,
+          requiredCredits: access.requiredCredits,
+          availableCredits,
+          accessMode: activeAccessMode,
+        });
         setAnalysisError(access.message);
+        setStep(0);
+        setDir("bk");
+        setPhase("upgrade");
+        setSid(s => s + 1);
         return;
       }
     }
 
+    const runCreditCost = getTotalCreditCostBundled(selectedTypes);
+    const matchedBundle = getBundleMatch(selectedTypes);
+    const bundleName = matchedBundle?.label
+      ?? (selectedTypes.length > 1
+        ? selectedTypes.map(type => REPORT_TYPES.find(r => r.id === type)?.label || type).join(" + ")
+        : null);
+
     setUploadInfo("");
+    setUpgradeInfo(null);
     setStep(0);
     setPhase("loading");
     setSid(s => s+1);
@@ -10357,8 +10466,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           failedTypes.push(type);
           continue;
         }
+        const creditMeta = {
+          reportTypes: selectedTypes,
+          creditCost: getReportCreditCost(type),
+          totalRunCreditCost: runCreditCost,
+          bundleName,
+        };
         // eslint-disable-next-line no-await-in-loop
-        const saved = await saveResult(type, result, math, bundleId);
+        const saved = await saveResult(type, result, math, bundleId, creditMeta);
         successfulRuns.push({ type, result, savedId: saved?.id || null });
       } catch (error) {
         console.error(`Analysis failed for report "${type}" [lang=${chatLang}]`, error);
@@ -10371,7 +10486,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
-    void deductCreditsBatch(successfulRuns.length, activeAccessMode);
+    await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode);
 
     if (successfulRuns.length === 1) {
       const only = successfulRuns[0];
@@ -10395,6 +10510,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         : [...prev, type];
       return normalizeSelectedReportTypes(next);
     });
+  };
+
+  const onSelectBundle = (reportTypes) => {
+    setAnalysisError("");
+    setSelectedReportTypes(normalizeSelectedReportTypes(reportTypes));
   };
 
   const onRunSelectedReports = () => {
@@ -10798,11 +10918,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   if (phase === "history")  return withUiLanguage(<Slide dir="fwd" id={sid}><MyResults onBack={() => { setPhase("upload"); setSid(s => s+1); }} onNew={() => { setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
   if (phase === "upload")   return withUiLanguage(<Slide dir="fwd" id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setPhase("admin"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} onClearError={() => setUploadError("")} /></Slide>);
   if (phase === "tooshort") return withUiLanguage(<Slide dir="fwd" id={sid}><TooShort onBack={() => { setPhase("upload"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "upgrade") return withUiLanguage(<Slide dir="fwd" id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} onBack={() => { setAnalysisError(""); setPhase("select"); setSid(s => s+1); }} /></Slide>);
   if (phase === "select") return (
     withUiLanguage(<Slide dir="fwd" id={sid}>
       <ReportSelect
         math={math}
         onToggle={onToggleReport}
+        onBundle={onSelectBundle}
         onRun={onRunSelectedReports}
         onBack={() => { setAnalysisError(""); setPhase(math?.isGroup ? "upload" : "relationship"); setSid(s => s+1); }}
         backLabel={math?.isGroup ? "Upload different file" : "Back"}
@@ -10813,7 +10935,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         selectedTypes={selectedReportTypes}
         credits={credits}
         accessMode={accessMode}
-        hideCredits={authedIsAdmin}
         showDebugPanel={authedIsAdmin && !!math?.isGroup}
         debugJson={debugExportJson}
         debugRawText={debugRawText}
