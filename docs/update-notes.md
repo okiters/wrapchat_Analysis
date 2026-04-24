@@ -106,6 +106,32 @@ All favicon sizes and apple-touch-icon replaced with a single `public/applogo.pn
 ## Pending (not yet committed)
 <!-- Add notes here before your next commit, then label with the next version -->
 
+## v1.9 — Trial & payment gating system
+**Files:** `src/App.jsx`, `src/trialReport.js`, `src/reportCredits.js`, `supabase/migrations/20260424160000_trial_and_roles.sql`
+
+### DB migration: roles + trial columns
+`role TEXT DEFAULT 'user' CHECK (role IN ('user','tester'))` and `trial_granted_at TIMESTAMPTZ` columns added to `public.credits` (idempotent). New RPCs: `initialise_credits(p_user_id, p_email)` — inserts a first row granting 1 credit in payments mode, no-op if row exists; `get_user_role(p_user_id)` — returns role or 'user'; `admin_set_user_role(p_user_id, p_role)` — admin-only role toggle between 'user' and 'tester'.
+
+### Trial report type (hidden from report selector)
+`trial_report` added to `REPORT_PIPELINES` (strategy: "trial"), `reportCredits` (1 cr), and `REPORT_FAMILY` ("trial"). It is in `REPORT_TYPES` for routing purposes but filtered out of the visible list in `ReportSelect`. New `src/trialReport.js` exports `buildTrialPrompt` (short AI prompt — vibe / pattern / takeaway JSON, 360 tokens, capped to 80 messages to minimise API cost) and `deriveTrialReport` (pure mapping). `generateTrialDigest` in App.jsx wires them to `callClaude`.
+
+### Auto-trigger trial flow
+`trialAutoRunDoneRef` prevents double-firing. `useEffect` watches `phase === "select"` — when in payments mode with exactly 1 credit and not admin, automatically calls `runAnalysis(["trial_report"], relType)`, skipping the report selector. Ref is reset in `onParsed` so each new upload gets a fresh trigger.
+
+### Upload screen trial messaging
+`Upload` now accepts `accessMode` prop. In payments mode with 1 credit: purple banner "You have 1 free trial analysis included." Credit pill is suppressed. In payments mode with 0 credits: info message "Your free trial is used up. Upgrade to unlock full reports."
+
+### TrialReportScreen & TrialFinale
+`TrialReportScreen` (1 screen): three AICards (vibe, how you communicate, most interesting thing) + teaser block labelled "That was your free preview. Here's what the full reports include:" with locked report list. `TrialFinale` (step 2): three credit pack cards (Starter 3 cr/$4, Standard 7 cr/$8, Deep Dive 12 cr/$12) + CTA → upgrade screen.
+
+### UpgradePlaceholder redesign
+Shows credit pack grid in payments mode. Tester role gets "contact admin" copy instead of packs. Credits mode shows existing "ask admin" message. Accepts new `userRole` and `accessMode` props.
+
+### userRole state & getUserProfile
+`userRole` state added to App. `getUserProfile()` replaces `getUserCredits()` in the auth effect — fetches both `balance` and `role` from the credits row in a single query and sets both states.
+
+---
+
 ## v1.8 — Bundle UI & credit visibility fix
 **Files:** `src/App.jsx`
 

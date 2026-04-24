@@ -9,12 +9,13 @@ import { isOpenMode } from "./accessMode";
 //   bundles and family-aware pricing reflect the actual compute saving.
 // Adjust these after production token/cost logs are available.
 export const reportCredits = Object.freeze({
-  general: 2,
-  toxicity: 2,
-  lovelang: 1,
-  growth: 2,
-  accounta: 2,
-  energy: 2,
+  general:      2,
+  toxicity:     2,
+  lovelang:     1,
+  growth:       2,
+  accounta:     2,
+  energy:       2,
+  trial_report: 1,
 });
 
 const DEFAULT_REPORT_CREDIT_COST = 2;
@@ -22,12 +23,13 @@ const DEFAULT_REPORT_CREDIT_COST = 2;
 // Which shared AI digest each report is built from.
 // Reports in the same family share one API call when run together.
 const REPORT_FAMILY = Object.freeze({
-  general:  "connection",
-  lovelang: "connection",
-  energy:   "connection",
-  toxicity: "risk",
-  accounta: "risk",
-  growth:   "growth",
+  general:      "connection",
+  lovelang:     "connection",
+  energy:       "connection",
+  toxicity:     "risk",
+  accounta:     "risk",
+  growth:       "growth",
+  trial_report: "trial",
 });
 
 // Add-on price for each extra report within the same family (beyond the first).

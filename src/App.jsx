@@ -45,6 +45,7 @@ import colleagueIcon from "../assets/colleage.svg";
 import otherIcon from "../assets/other.svg";
 import cardShareIcon from "../assets/card-share.svg";
 import sumShareIcon from "../assets/sum-share.svg";
+import { buildTrialPrompt, deriveTrialReport } from "./trialReport";
 
 // Provided by App during the results phase; Shell reads it to show the close button.
 // null means "no close button" (upload, auth, loading, etc.)
@@ -4797,6 +4798,12 @@ async function generateRiskDigest(messages, math, relationshipType, chatLang = "
   return normalizeRiskDigest(raw, math, relationshipType, relationshipContext);
 }
 
+async function generateTrialDigest(messages, math, relType) {
+  const { system, userContent, maxTokens } = buildTrialPrompt(messages, math, relType, buildSampleText);
+  const raw = await callClaude(system, userContent, maxTokens, "json");
+  return deriveTrialReport(raw, math, relType);
+}
+
 async function aiAnalysis(messages, math, relationshipType, coreAnalysis = null) {
   try {
     const core = coreAnalysis || await generateCoreAnalysisA(messages, math, relationshipType);
@@ -4870,12 +4877,13 @@ function getAnalysisFamilyCacheKey(math, relationshipType, family = "core", chat
 }
 
 const REPORT_PIPELINES = {
-  general:  { strategy: "family", family: "connection", derive: deriveGeneralReportFromCore },
-  toxicity: { strategy: "family", family: "risk", derive: deriveToxicityReportFromCore },
-  lovelang: { strategy: "family", family: "connection", derive: deriveLoveLangReportFromCore },
-  growth:   { strategy: "family", family: "growth", derive: deriveGrowthReportFromCore },
-  accounta: { strategy: "family", family: "risk", derive: deriveAccountaReportFromCore },
-  energy:   { strategy: "family", family: "connection", derive: deriveEnergyReportFromCore },
+  general:      { strategy: "family", family: "connection", derive: deriveGeneralReportFromCore },
+  toxicity:     { strategy: "family", family: "risk",       derive: deriveToxicityReportFromCore },
+  lovelang:     { strategy: "family", family: "connection", derive: deriveLoveLangReportFromCore },
+  growth:       { strategy: "family", family: "growth",     derive: deriveGrowthReportFromCore },
+  accounta:     { strategy: "family", family: "risk",       derive: deriveAccountaReportFromCore },
+  energy:       { strategy: "family", family: "connection", derive: deriveEnergyReportFromCore },
+  trial_report: { strategy: "trial" },
 };
 
 const STORED_RESULT_META_KEYS = new Set(["translations", "displayLanguage", "sourceLanguage", "analysisCacheVersion"]);
@@ -5147,11 +5155,13 @@ const PAL = {
   growth:   { bg:"#0A2E2E", inner:"#1A6B5A", text:"#fff", accent:"#3AF0C0" },
   accounta: { bg:"#0A1A3D", inner:"#1A3A8B", text:"#fff", accent:"#6AB4F0" },
   energy:   { bg:"#2E1A0A", inner:"#8B5A1A", text:"#fff", accent:"#F0A040" },
+  trial:    { bg:"#1A0A3D", inner:"#2E1A6B", text:"#fff", accent:"#A078F0" },
 };
 
 const PILL_LABEL = {
   roast:"The Roast", lovely:"The Lovely", funny:"The Funny", stats:"The Stats", ai:"Insight", finale:"WrapChat",
   toxicity:"Toxicity Report", lovelang:"Love Language", growth:"Growth Report", accounta:"Accountability", energy:"Energy Report",
+  trial:"Chat Preview",
 };
 
 
@@ -5423,12 +5433,13 @@ function chatHealthLabel(score) {
 // REPORT TYPES — shown on the report selection screen
 // ─────────────────────────────────────────────────────────────────
 const REPORT_TYPES = [
-  { id:"general",  label:"General Wrapped",       desc:"The full Wrapped-style deep dive — stats, AI insights, and your chat personality.",         palette:"upload"   },
-  { id:"toxicity", label:"Toxicity Report",        desc:"Red flags, power imbalances, who apologises more, conflict patterns, health scores.",        palette:"toxicity" },
-  { id:"lovelang", label:"Love Language Report",   desc:"How each person shows affection, mapped to the 5 love languages. Works for friends too.",   palette:"lovelang" },
-  { id:"growth",   label:"Growth Report",          desc:"First 3 months vs last 3 months — are you growing together or drifting apart?",             palette:"growth"   },
-  { id:"accounta", label:"Accountability Report",  desc:"Promises made in the chat and whether they were followed through. Receipts for both.",       palette:"accounta" },
-  { id:"energy",   label:"Energy Report",          desc:"Who brings good energy vs drains it — net energy score per person.",                         palette:"energy"   },
+  { id:"general",      label:"General Wrapped",       desc:"The full Wrapped-style deep dive — stats, AI insights, and your chat personality.",         palette:"upload"   },
+  { id:"toxicity",     label:"Toxicity Report",        desc:"Red flags, power imbalances, who apologises more, conflict patterns, health scores.",        palette:"toxicity" },
+  { id:"lovelang",     label:"Love Language Report",   desc:"How each person shows affection, mapped to the 5 love languages. Works for friends too.",   palette:"lovelang" },
+  { id:"growth",       label:"Growth Report",          desc:"First 3 months vs last 3 months — are you growing together or drifting apart?",             palette:"growth"   },
+  { id:"accounta",     label:"Accountability Report",  desc:"Promises made in the chat and whether they were followed through. Receipts for both.",       palette:"accounta" },
+  { id:"energy",       label:"Energy Report",          desc:"Who brings good energy vs drains it — net energy score per person.",                         palette:"energy"   },
+  { id:"trial_report", label:"Chat Preview",           desc:"A quick AI snapshot — vibe, communication pattern, and one key insight. Uses 1 credit.",    palette:"trial"    },
 ];
 
 function normalizeSelectedReportTypes(types) {
@@ -6727,6 +6738,69 @@ function ScoreRing({ score, max=10, size=110, color="#fff" }) {
 // ─────────────────────────────────────────────────────────────────
 // TOXICITY REPORT SCREENS  (7 cards)
 // ─────────────────────────────────────────────────────────────────
+const TRIAL_SCREENS = 1;
+
+function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
+  const t = useT();
+  const loading = aiLoading && !ai;
+  const screens = [
+    <Shell sec="trial" prog={1} total={TRIAL_SCREENS + 1}>
+      <T>{t("Chat preview")}</T>
+      <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
+
+      <AICard label={t("The vibe")}               value={ai?.vibe}     loading={loading} />
+      <AICard label={t("How you communicate")}    value={ai?.pattern}  loading={loading} />
+      <AICard label={t("Most interesting thing")} value={ai?.takeaway} loading={loading} />
+
+      <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"14px 16px" }}>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:10 }}>
+          {t("That was your free preview. Here's what the full reports include:")}
+        </div>
+        {["General Wrapped — stats + full AI deep dive", "Toxicity & red flags", "Love Language Report", "Energy Report", "Growth over time", "Accountability"].map((label, i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.28)" }}>🔒</div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.42)", flex:1 }}>{t(label)}</div>
+          </div>
+        ))}
+      </div>
+
+      <Nav back={back} next={next} showBack={false} nextLabel={t("See upgrade options →")} />
+    </Shell>,
+  ];
+  return screens[step] ?? null;
+}
+
+function TrialFinale({ s, restart, back, onUpgrade }) {
+  const t = useT();
+  const p = PAL.trial;
+  const packs = [
+    { label: "Starter",   credits: 3,  desc: "3 reports",      price: "$4"  },
+    { label: "Standard",  credits: 7,  desc: "Best value",      price: "$8"  },
+    { label: "Deep Dive", credits: 12, desc: "Full + extras",   price: "$12" },
+  ];
+  return (
+    <Shell sec="trial" prog={2} total={2} shareType="summary">
+      <T s={22}>{t("Want the full picture?")}</T>
+      <Sub mt={4}>{s.names?.join(" & ") || ""} · {t("Your preview is done. Unlock deeper analysis with credits.")}</Sub>
+
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+        {packs.map(pack => (
+          <div key={pack.label} style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:18, padding:"14px 10px", textAlign:"center" }}>
+            <div style={{ fontSize:10, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:p.accent, marginBottom:4 }}>{pack.label}</div>
+            <div style={{ fontSize:22, fontWeight:900, color:"#fff" }}>{pack.credits}</div>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginBottom:4 }}>{t("credits")}</div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginBottom:6 }}>{pack.desc}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:p.accent }}>{pack.price}</div>
+          </div>
+        ))}
+      </div>
+
+      <PrimaryButton onClick={onUpgrade} color={p.accent} textColor={p.bg}>{t("Get credits")}</PrimaryButton>
+      <GhostButton onClick={back}>← {t("Back")}</GhostButton>
+    </Shell>
+  );
+}
+
 const TOXICITY_SCREENS = 7;
 function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
@@ -7823,6 +7897,7 @@ function Upload({
   uploadInfo = "",
   credits = null,
   hideCredits = false,
+  accessMode = DEFAULT_ACCESS_MODE,
   onClearError,
 }) {
   const { uiLangPref, updateUiLangPref } = useUILanguage();
@@ -7832,8 +7907,17 @@ function Upload({
   const showAdminEntry = Boolean(onAdmin) && canAdmin;
   const uploadInputId = "wrapchat-upload-input";
   const displayErr = err || uploadError;
-  const displayInfo = uploadInfo || (!hideCredits && credits === 0 ? OUT_OF_CREDITS_MESSAGE : "");
-  const creditLabel = !hideCredits && Number.isInteger(credits) && credits > 0
+
+  const isPaymentsMode = !hideCredits && accessMode === "payments";
+  const isTrialPending  = isPaymentsMode && credits === 1;
+  const isTrialUsed     = isPaymentsMode && credits === 0;
+
+  const displayInfo = uploadInfo
+    || (isTrialUsed ? t("Your free trial is used up. Upgrade to unlock full reports.") : "")
+    || (!hideCredits && !isPaymentsMode && credits === 0 ? OUT_OF_CREDITS_MESSAGE : "");
+
+  // In payments trial mode show a bespoke banner; otherwise show credit pill as normal.
+  const creditLabel = !hideCredits && !isTrialPending && Number.isInteger(credits) && credits > 0
     ? `${credits} credit${credits === 1 ? "" : "s"}`
     : "";
 
@@ -7897,6 +7981,17 @@ function Upload({
         <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : t("Upload your chat")}</div>
       </label>
       <input id={uploadInputId} type="file" accept=".txt,.zip,text/plain,application/zip" style={{ display:"none" }} onChange={e => handle(e.target.files[0])} />
+
+      {isTrialPending && (
+        <div style={{
+          fontSize:13, fontWeight:700, color:"rgba(160,120,240,0.95)",
+          background:"rgba(160,120,240,0.10)", border:"1px solid rgba(160,120,240,0.25)",
+          borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6,
+        }}>
+          {t("You have 1 free trial analysis included. Upload a chat to get started.")}
+        </div>
+      )}
+
       {displayErr && <div style={{ fontSize:13, color:"#FFB090", marginTop:8, textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayErr}</div>}
       {displayInfo && (
         <div
@@ -8127,7 +8222,7 @@ function ReportSelect({
       </div>
 
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
-        {REPORT_TYPES.map((r) => {
+        {REPORT_TYPES.filter(r => r.id !== "trial_report").map((r) => {
           const pal = PAL[r.palette] || PAL.upload;
           const active = selected.includes(r.id);
           const reportCost = getReportCreditCost(r.id);
@@ -8297,32 +8392,63 @@ function ReportSelect({
   );
 }
 
-function UpgradePlaceholder({ info, onBack, credits = null }) {
-  const required = info?.requiredCredits ?? 0;
+function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", accessMode = "credits" }) {
+  const t = useT();
+  const required  = info?.requiredCredits ?? 0;
   const available = Number.isInteger(info?.availableCredits) ? info.availableCredits : credits;
+  const mode      = info?.accessMode || accessMode;
+  const p         = PAL.upload;
+
+  const CREDIT_PACKS = [
+    { label: "Starter",   credits: 3,  desc: "3 reports",    price: "$4"  },
+    { label: "Standard",  credits: 7,  desc: "Best value",   price: "$8"  },
+    { label: "Deep Dive", credits: 12, desc: "Full + extras", price: "$12" },
+  ];
+
+  const isPayments = mode === "payments";
+  const isTester   = userRole === "tester";
+
   return (
     <Shell sec="upload" prog={0} total={0}>
-      <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1, width:"100%", textAlign:"center" }}>
-        More credits needed
-      </div>
-      <div style={{ fontSize:14, color:"rgba(255,255,255,0.62)", lineHeight:1.65, textAlign:"center", width:"100%" }}>
-        {info?.message || "You need credits to run these reports."}
-      </div>
+      <T s={24}>{t("More credits needed")}</T>
+
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"16px", textAlign:"center" }}>
-          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.42)", marginBottom:6 }}>Available</div>
+        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
+          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:4 }}>{t("Available")}</div>
           <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{Number.isInteger(available) ? available : "—"}</div>
         </div>
-        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"16px", textAlign:"center" }}>
-          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.42)", marginBottom:6 }}>Required</div>
+        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
+          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:4 }}>{t("Required")}</div>
           <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{required}</div>
         </div>
       </div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.48)", lineHeight:1.6, textAlign:"center", width:"100%" }}>
-        Upgrade and payment controls will live here when payments are connected. For now, ask an admin to add credits.
-      </div>
-      <PrimaryButton onClick={onBack} color={PAL.upload.accent} textColor={PAL.upload.bg}>
-        Back to reports
+
+      {isPayments && !isTester ? (
+        <>
+          <Sub mt={2}>{t("Pick a credit pack to continue.")}</Sub>
+          <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+            {CREDIT_PACKS.map(pack => (
+              <div key={pack.label}
+                style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:18, padding:"14px 10px", textAlign:"center", cursor:"not-allowed", opacity:0.82 }}
+                title="Payments coming soon">
+                <div style={{ fontSize:10, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:p.accent, marginBottom:4 }}>{pack.label}</div>
+                <div style={{ fontSize:22, fontWeight:900, color:"#fff" }}>{pack.credits}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginBottom:4 }}>{t("credits")}</div>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginBottom:6 }}>{pack.desc}</div>
+                <div style={{ fontSize:13, fontWeight:700, color:p.accent }}>{pack.price}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.38)", textAlign:"center" }}>{t("Payment integration coming soon.")}</div>
+        </>
+      ) : isTester ? (
+        <Sub mt={2}>{t("You're in beta testing mode — credits are managed by the admin. Reach out to get more.")}</Sub>
+      ) : (
+        <Sub mt={2}>{info?.message || t("You need credits to run these reports. Ask an admin to add credits to your account.")}</Sub>
+      )}
+
+      <PrimaryButton onClick={onBack} color={p.accent} textColor={p.bg}>
+        ← {t("Back to reports")}
       </PrimaryButton>
     </Shell>
   );
@@ -8375,6 +8501,23 @@ async function getUserCredits() {
 
   if (error) throw error;
   return parseCreditBalance(data);
+}
+
+async function getUserProfile() {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) return { balance: null, role: "user" };
+
+  const { data, error } = await supabase
+    .from("credits")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  const balance = parseCreditBalance(data);
+  const role = String(data?.role || "user").trim().toLowerCase();
+  return { balance, role };
 }
 
 async function initialiseUserCredits(userEmail = null) {
@@ -9896,6 +10039,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [phase,            setPhase]            = useState("auth");
   const [authedUser,       setAuthedUser]       = useState(null);
   const [credits,          setCredits]          = useState(null);
+  const [userRole,         setUserRole]         = useState("user");
   const [accessMode,       setAccessModeState]  = useState(DEFAULT_ACCESS_MODE);
   const [messages,         setMessages]         = useState(null);
   const [math,             setMath]             = useState(null);
@@ -9936,7 +10080,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [debugRawText,     setDebugRawText]     = useState("");
   const [debugRawLabel,    setDebugRawLabel]    = useState("");
   const [debugRawBusy,     setDebugRawBusy]     = useState(false);
-  const consumedImportRef = useRef(null);
+  const consumedImportRef   = useRef(null);
+  const trialAutoRunDoneRef = useRef(false);
   const resolvedUiLang = resolveUiLang(uiLangPref, detectedLang?.code);
   const authedIsAdmin = isAdminUser(authedUser);
 
@@ -9949,26 +10094,30 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     if (!authedUser) {
       setCredits(null);
+      setUserRole("user");
       setUploadInfo("");
       return undefined;
     }
 
     if (authedIsAdmin) {
       setCredits(null);
+      setUserRole("user");
       setUploadInfo("");
       return undefined;
     }
 
     (async () => {
       try {
-        const balance = await getUserCredits();
+        const { balance, role } = await getUserProfile();
         if (cancelled) return;
         setCredits(balance);
+        setUserRole(role);
         if (typeof balance === "number" && balance > 0) setUploadInfo("");
       } catch (error) {
         if (cancelled) return;
         console.error("Credits load failed", error);
         setCredits(null);
+        setUserRole("user");
       }
     })();
 
@@ -10217,6 +10366,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // Step 1: file parsed → check thresholds, cap large groups, compute local stats, detect language
   const onParsed = (parsedInput) => {
+    trialAutoRunDoneRef.current = false;
     const payload = parsedInput?.payload || parsedInput || {};
     const msgs = Array.isArray(payload.messages) ? payload.messages : [];
     const tooShort = Boolean(payload.tooShort);
@@ -10294,8 +10444,25 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     onPendingImportedChatConsumed(pendingImportedChat.id);
   }, [authedUser, onPendingImportedChatConsumed, pendingImportedChat, phase]);
 
+  // Auto-trigger trial analysis when a payments-mode user (1 credit remaining) reaches
+  // the select screen — bypassing the report selector entirely.
+  useEffect(() => {
+    if (phase !== "select") return;
+    if (!messages?.length || !math) return;
+    if (authedIsAdmin || isOpenMode(accessMode)) return;
+    if (accessMode !== "payments" || credits !== 1) return;
+    if (trialAutoRunDoneRef.current) return;
+    trialAutoRunDoneRef.current = true;
+    runAnalysis(["trial_report"], math.isGroup ? null : relationshipType);
+  }, [phase, messages, math, credits, accessMode, authedIsAdmin, relationshipType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const generatePipelineResult = async (type, relType) => {
     const pipeline = REPORT_PIPELINES[type];
+
+    if (pipeline?.strategy === "trial") {
+      return await generateTrialDigest(messages, math, relType);
+    }
+
     if (pipeline?.strategy !== "family") return {};
 
     const family = pipeline.family || "connection";
@@ -10916,9 +11083,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>)
   );
   if (phase === "history")  return withUiLanguage(<Slide dir="fwd" id={sid}><MyResults onBack={() => { setPhase("upload"); setSid(s => s+1); }} onNew={() => { setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
-  if (phase === "upload")   return withUiLanguage(<Slide dir="fwd" id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setPhase("admin"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} onClearError={() => setUploadError("")} /></Slide>);
+  if (phase === "upload")   return withUiLanguage(<Slide dir="fwd" id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setPhase("admin"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} /></Slide>);
   if (phase === "tooshort") return withUiLanguage(<Slide dir="fwd" id={sid}><TooShort onBack={() => { setPhase("upload"); setSid(s => s+1); }} /></Slide>);
-  if (phase === "upgrade") return withUiLanguage(<Slide dir="fwd" id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} onBack={() => { setAnalysisError(""); setPhase("select"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "upgrade") return withUiLanguage(<Slide dir="fwd" id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={() => { setAnalysisError(""); setPhase("select"); setSid(s => s+1); }} /></Slide>);
   if (phase === "select") return (
     withUiLanguage(<Slide dir="fwd" id={sid}>
       <ReportSelect
@@ -10974,6 +11141,23 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>)
   );
   if (phase === "loading") return withUiLanguage(<Loading math={math} reportType={reportType} reportTypes={selectedReportTypes} loadingIndex={loadingReportIndex} />);
+
+  // ── Trial report routing ──
+  if (reportType === "trial_report") {
+    if (step < TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} />);
+    return wrap(
+      <TrialFinale
+        s={math}
+        restart={restart}
+        back={back}
+        onUpgrade={() => {
+          setUpgradeInfo({ message: "Get credits to unlock the full analysis.", accessMode, requiredCredits: 2 });
+          setPhase("upgrade");
+          setSid(s => s + 1);
+        }}
+      />
+    );
+  }
 
   // ── Premium report routing ──
   if (reportType === "toxicity") {
