@@ -7,6 +7,15 @@ import { MIN_MESSAGES } from "./import/whatsappParser";
 import BrandLockup, { wrapchatLogoTransparent } from "./BrandLockup";
 import AiDebugPanel from "../analysis-test/AiDebugPanel.jsx";
 import {
+  ACCESS_MODES,
+  DEFAULT_ACCESS_MODE,
+  checkReportAccess,
+  getAccessMode,
+  getAccessModeLabel,
+  isOpenMode,
+  setAccessMode,
+} from "./accessMode";
+import {
   buildDebugAnalysisExport,
   createAiDebugFileName,
   createAiRawDebugFileName,
@@ -26,6 +35,8 @@ import familyIcon from "../assets/family.svg";
 import friendIcon from "../assets/friend.svg";
 import colleagueIcon from "../assets/colleage.svg";
 import otherIcon from "../assets/other.svg";
+import cardShareIcon from "../assets/card-share.svg";
+import sumShareIcon from "../assets/sum-share.svg";
 
 // Provided by App during the results phase; Shell reads it to show the close button.
 // null means "no close button" (upload, auth, loading, etc.)
@@ -5167,6 +5178,187 @@ function canvasToBlob(canvas) {
   });
 }
 
+function getShareCaptureHeight(el) {
+  const rect = el.getBoundingClientRect();
+  const panes = Array.from(el.querySelectorAll(".wc-pane"));
+  const paneHeight = panes.reduce((max, pane) => Math.max(max, pane.scrollHeight || 0), 0);
+  return Math.ceil(Math.max((rect.height || 0) + 72, (el.scrollHeight || 0) + 72, paneHeight + 150));
+}
+
+async function waitForShareAssets(el) {
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  if (document.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // Continue: default fonts are better than a failed share.
+    }
+  }
+  const images = Array.from(el.querySelectorAll("img"));
+  await Promise.all(images.map(async img => {
+    if (img.complete && img.naturalWidth) return;
+    if (typeof img.decode === "function") {
+      try {
+        await img.decode();
+        return;
+      } catch {
+        // Fall back to load/error listeners below.
+      }
+    }
+    await new Promise(resolve => {
+      img.addEventListener("load", resolve, { once: true });
+      img.addEventListener("error", resolve, { once: true });
+    });
+  }));
+}
+
+async function buildTintedShareLogoMarkup(logoSrc, accentColor) {
+  if (!logoSrc) return "";
+  try {
+    const response = await fetch(logoSrc);
+    if (!response.ok) return "";
+    const svgText = await response.text();
+    return svgText
+      .replace(/#6cb9e0/gi, accentColor || "#6cb9e0")
+      .replace(/<\?xml[^>]*\?>\s*/i, "")
+      .replace(/<svg\b/i, '<svg width="34" height="30"');
+  } catch {
+    return "";
+  }
+}
+
+// Captures the active card or summary as a clean PNG.
+// Targets the active card or hidden summary render, strips UI chrome, and adds a branded footer.
+async function buildShareCanvas(type, logoSrc) {
+  const el = document.querySelector(`[data-share-capture="${type}"] .wc-root`)
+    || document.querySelector(`[data-share-type="${type}"]`)
+    || document.querySelector(".wc-root");
+  if (!el) return null;
+  await waitForShareAssets(el);
+
+  const rect = el.getBoundingClientRect();
+  const width = Math.ceil(rect.width || 420);
+  const height = getShareCaptureHeight(el);
+  const accentColor = el.dataset.shareAccent || "#6cb9e0";
+  const tintedLogoMarkup = await buildTintedShareLogoMarkup(logoSrc, accentColor);
+  el.setAttribute("data-share-active", "true");
+
+  try {
+    return await html2canvas(el, {
+      backgroundColor: null,
+      scale: window.devicePixelRatio || 2,
+      useCORS: true,
+      logging: false,
+      width,
+      height,
+      windowWidth: width,
+      windowHeight: height,
+      onclone: (clonedDoc) => {
+        clonedDoc.querySelectorAll("[data-share-hide]").forEach(n => { n.style.display = "none"; });
+        const root = clonedDoc.querySelector('[data-share-active="true"]');
+        if (!root) return;
+
+        const captureStyles = clonedDoc.createElement("style");
+        captureStyles.textContent = `
+          [data-share-active="true"],
+          [data-share-active="true"] * {
+            animation: none !important;
+            transition: none !important;
+          }
+          [data-share-active="true"] .wc-fadeup,
+          [data-share-active="true"] .wc-fadeup-2,
+          [data-share-active="true"] .wc-fadeup-3 {
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          [data-share-active="true"] .wc-pane {
+            opacity: 1 !important;
+            visibility: visible !important;
+          }
+        `;
+        clonedDoc.head.appendChild(captureStyles);
+
+        Object.assign(root.style, {
+          width: `${width}px`,
+          height: `${height}px`,
+          minHeight: `${height}px`,
+          overflow: "visible",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: "32px",
+        });
+
+        root.querySelectorAll(".wc-body").forEach(body => {
+          Object.assign(body.style, {
+            flex: "1 1 auto",
+            minHeight: "auto",
+            height: "auto",
+            overflow: "visible",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          });
+        });
+
+        root.querySelectorAll(".wc-pane").forEach(pane => {
+          Object.assign(pane.style, {
+            position: "relative",
+            inset: "auto",
+            flex: "0 0 auto",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            minHeight: "100%",
+            height: "auto",
+            overflow: "visible",
+            transform: "none",
+            animation: "none",
+            transition: "none",
+            willChange: "auto",
+          });
+        });
+
+        const brand = clonedDoc.createElement("div");
+        Object.assign(brand.style, {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          flex: "0 0 auto",
+          padding: "8px 20px 26px",
+          pointerEvents: "none",
+        });
+        if (tintedLogoMarkup) {
+          const logoWrap = clonedDoc.createElement("div");
+          logoWrap.innerHTML = tintedLogoMarkup;
+          Object.assign(logoWrap.style, {
+            width: "34px",
+            height: "30px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          });
+          const svg = logoWrap.querySelector("svg");
+          if (svg) {
+            svg.setAttribute("aria-hidden", "true");
+            Object.assign(svg.style, {
+              display: "block",
+              width: "34px",
+              height: "30px",
+            });
+          }
+          brand.appendChild(logoWrap);
+        }
+        root.appendChild(brand);
+      },
+    });
+  } finally {
+    el.removeAttribute("data-share-active");
+  }
+}
+
 function SharePicker({ open, busy, onCard, onSummary, onClose }) {
   if (!open) return null;
   const btnStyle = {
@@ -5196,12 +5388,12 @@ function SharePicker({ open, busy, onCard, onSummary, onClose }) {
         <div style={{ fontSize:18, fontWeight:800, letterSpacing:-0.5, marginBottom:16 }}>Share</div>
         <div style={{ display:"flex", gap:12 }}>
           <button className="wc-btn" onClick={onCard} disabled={busy} style={btnStyle}>
-            <span style={{ fontSize:26 }}>🃏</span>
+            <img src={cardShareIcon} alt="" aria-hidden="true" style={{ width:32, height:32, objectFit:"contain", filter:"brightness(0) invert(1)", opacity: busy ? 0.4 : 0.9 }} />
             <span style={{ fontSize:14, fontWeight:700 }}>{busy ? "Saving…" : "Card"}</span>
             <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>Current screen</span>
           </button>
           <button className="wc-btn" onClick={onSummary} disabled={busy} style={btnStyle}>
-            <span style={{ fontSize:26 }}>📋</span>
+            <img src={sumShareIcon} alt="" aria-hidden="true" style={{ width:32, height:32, objectFit:"contain", filter:"brightness(0) invert(1)", opacity: busy ? 0.4 : 0.9 }} />
             <span style={{ fontSize:14, fontWeight:700 }}>{busy ? "Saving…" : "Summary"}</span>
             <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>Results overview</span>
           </button>
@@ -5355,7 +5547,7 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-function Shell({ sec, prog, total, children, feedback=null }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) {
   const p = PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -5399,7 +5591,7 @@ function Shell({ sec, prog, total, children, feedback=null }) {
           to   { transform: translateX(0); }
         }
       `}</style>
-      <div className="wc-root" style={{
+      <div className="wc-root" data-share-type={shareType} data-share-accent={p.accent} style={{
         width: "min(420px, 100vw)",
         height: "100svh",
         margin: "0 auto",
@@ -5421,11 +5613,12 @@ function Shell({ sec, prog, total, children, feedback=null }) {
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
-        <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
         </div>
         {share?.onShare && (
           <button
+            data-share-hide
             onClick={share.onShare}
             className="wc-btn"
             aria-label={t("Share")}
@@ -5453,13 +5646,14 @@ function Shell({ sec, prog, total, children, feedback=null }) {
           </button>
         )}
         {feedback?.resultId && feedbackApi?.openFeedback && (
-          <div style={{ position:"absolute", top:14, right:onClose ? 54 : 14, zIndex:11 }}>
+          <div data-share-hide style={{ position:"absolute", top:14, right:onClose ? 54 : 14, zIndex:11 }}>
             <FeedbackButton onClick={() => feedbackApi.openFeedback(feedback)} />
           </div>
         )}
         {/* Close button */}
         {onClose && (
           <button
+            data-share-hide
             onClick={onClose}
             className="wc-btn"
             aria-label="Close results"
@@ -5489,10 +5683,10 @@ function Shell({ sec, prog, total, children, feedback=null }) {
         )}
 
         {/* ── SLIDING CONTENT AREA ── */}
-        <div style={{ flex:1, minHeight:0, position:"relative", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+        <div className="wc-body" style={{ flex:1, minHeight:0, position:"relative", overflow:"hidden", display:"flex", flexDirection:"column" }}>
           {/* Outgoing content */}
           {exitContent && (
-            <div className="wc-pane" style={{
+            <div data-share-hide className="wc-pane" style={{
               position:"absolute", inset:0,
               display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
               padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
@@ -5812,7 +6006,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next" }) {
   const t = useT();
   const p = useContext(SectionPaletteContext) || PAL.upload;
   return (
-    <div style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
+    <div data-share-hide style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
       {showBack && (
         <button onClick={back} className="wc-btn" style={{
           flex:1, padding:"14px", borderRadius:999,
@@ -6923,10 +7117,10 @@ function PremiumFinale({ s, restart, back, reportType }) {
   const sec = rtype?.palette || "upload";
   const p = PAL[sec] || PAL.upload;
   return (
-    <Shell sec={sec} prog={1} total={1}>
+    <Shell sec={sec} prog={1} total={1} shareType="summary">
       <T s={22}>{t(rtype?.label || "Report complete")}</T>
       <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
-      <div style={{ display:"flex", gap:10, marginTop:24, width:"100%" }}>
+      <div data-share-hide style={{ display:"flex", gap:10, marginTop:24, width:"100%" }}>
         <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
         <PrimaryButton onClick={restart} color={p.accent} textColor={p.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
       </div>
@@ -6978,7 +7172,7 @@ function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId }
           {label:"Best streak",value:t("{count} days", { count: s.streak })},
         ]);
   return (
-    <Shell sec="finale" prog={prog} total={total} feedback={feedback}>
+    <Shell sec="finale" prog={prog} total={total} feedback={feedback} shareType="summary">
       <T s={24}>{t(mode === "redflags" ? "Red flags, unwrapped." : (s.isGroup?"Your group, unwrapped.":"Your chat, unwrapped."))}</T>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:16,width:"100%"}}>
         {cells.map((c,i)=><Cell key={i} label={t(c.label)} value={c.value} />)}
@@ -6986,7 +7180,7 @@ function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId }
       {!aiLoading&&ai?.vibeOneLiner&&(
         <div style={{background:"rgba(0,0,0,0.2)",borderRadius:20,padding:"14px 18px",width:"100%",fontSize:14,fontStyle:"italic",color:"rgba(255,255,255,0.75)",textAlign:"center",lineHeight:1.6,fontWeight:500}}>"{ai.vibeOneLiner}"</div>
       )}
-      <div style={{display:"flex",gap:10,marginTop:20,width:"100%"}}>
+      <div data-share-hide style={{display:"flex",gap:10,marginTop:20,width:"100%"}}>
         <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
         <PrimaryButton onClick={restart} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
       </div>
@@ -7823,6 +8017,7 @@ function ReportSelect({
   error = "",
   selectedTypes = [],
   credits = null,
+  accessMode = DEFAULT_ACCESS_MODE,
   hideCredits = false,
   showDebugPanel = false,
   debugJson = "",
@@ -7843,9 +8038,10 @@ function ReportSelect({
   const selectedCount = selected.length;
   const neededCredits = selectedCount;
   const runLabel = selectedCount === 1 ? "Run 1 report" : `Run ${selectedCount} reports`;
-  const creditSummary = !hideCredits && Number.isInteger(credits)
+  const showCredits = !hideCredits && !isOpenMode(accessMode);
+  const creditSummary = showCredits && Number.isInteger(credits)
     ? `${credits} available • ${neededCredits} needed`
-    : selectedCount > 0
+    : showCredits && selectedCount > 0
       ? `${neededCredits} credit${neededCredits === 1 ? "" : "s"}`
       : "";
 
@@ -7878,6 +8074,11 @@ function ReportSelect({
       </div>
 
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
+      {isOpenMode(accessMode) && !hideCredits && (
+        <div style={{ fontSize:12, color:"rgba(176,244,200,0.9)", background:"rgba(20,160,80,0.12)", border:"1px solid rgba(20,160,80,0.24)", borderRadius:14, padding:"8px 14px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
+          Open testing is active — reports will not use credits.
+        </div>
+      )}
       {math?.cappedGroup && (
         <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", background:"rgba(255,255,255,0.08)", borderRadius:14, padding:"8px 14px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
           {t("Large group detected — analysing the top {cap} members out of {count}.", { cap: GROUP_PARTICIPANT_CAP, count: math.originalParticipantCount })}
@@ -8913,11 +9114,156 @@ function AdminUsersTab() {
   );
 }
 
-function AdminPanel({ onBack }) {
+const ACCESS_MODE_OPTIONS = [
+  {
+    id: ACCESS_MODES.OPEN,
+    label: "Open Testing",
+    description: "Everyone can run reports without using credits. Best for internal QA only.",
+  },
+  {
+    id: ACCESS_MODES.CREDITS,
+    label: "Credit Beta",
+    description: "Users need manually assigned credits. Best for controlled beta access.",
+  },
+  {
+    id: ACCESS_MODES.PAYMENTS,
+    label: "Payment Launch",
+    description: "Users can use trial or paid credits. Payment integration can plug in later.",
+  },
+];
+
+function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
+  const [mode, setMode] = useState(accessMode || DEFAULT_ACCESS_MODE);
+  const [err, setErr] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      setLoading(true);
+      setErr("");
+      try {
+        const current = await getAccessMode({ throwOnError: true });
+        if (!alive) return;
+        setMode(current);
+        onAccessModeChange?.(current);
+      } catch (error) {
+        if (!alive) return;
+        console.error("Admin access mode load failed", error);
+        setErr("Couldn't load access mode. The app falls back to Credit Beta.");
+        setMode(DEFAULT_ACCESS_MODE);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+    load();
+    return () => { alive = false; };
+  }, [onAccessModeChange]);
+
+  const updateMode = async (nextMode) => {
+    if (busy || nextMode === mode) return;
+    setBusy(true);
+    setErr("");
+    setNotice("");
+    try {
+      const savedMode = await setAccessMode(nextMode);
+      setMode(savedMode);
+      onAccessModeChange?.(savedMode);
+      setNotice(`Access mode set to ${getAccessModeLabel(savedMode)}.`);
+    } catch (error) {
+      console.error("Admin access mode update failed", error);
+      setErr(error.message || "Couldn't update access mode.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+          Access Mode
+        </div>
+        <div style={adminControlPillStyle()}>
+          {loading ? "Loading…" : getAccessModeLabel(mode)}
+        </div>
+      </div>
+
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.55)", lineHeight:1.6, width:"100%" }}>
+        This global setting controls who can run reports without redeploying the app.
+      </div>
+
+      {err && (
+        <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.15)", border:"1px solid rgba(200,60,20,0.3)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center", lineHeight:1.5 }}>{err}</div>
+      )}
+      {notice && (
+        <div style={{ fontSize:13, color:"rgba(176,244,200,0.9)", background:"rgba(20,160,80,0.12)", border:"1px solid rgba(20,160,80,0.26)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center", lineHeight:1.5 }}>{notice}</div>
+      )}
+
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+        {ACCESS_MODE_OPTIONS.map(option => {
+          const active = mode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => updateMode(option.id)}
+              disabled={busy || loading}
+              className="wc-btn"
+              style={{
+                width:"100%",
+                display:"flex",
+                flexDirection:"column",
+                gap:6,
+                textAlign:"left",
+                borderRadius:18,
+                padding:"14px 16px",
+                background: active ? "rgba(160,138,240,0.16)" : "rgba(255,255,255,0.04)",
+                border: active ? `1.5px solid ${PAL.upload.accent}` : "1px solid rgba(255,255,255,0.10)",
+                color:"#fff",
+                cursor:busy || loading ? "wait" : "pointer",
+                opacity:busy || loading ? 0.7 : 1,
+                transition:"all 0.18s",
+              }}
+            >
+              <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                <span style={{ fontSize:15, fontWeight:850, letterSpacing:-0.2 }}>{option.label}</span>
+                <span style={{
+                  width:20,
+                  height:20,
+                  borderRadius:"50%",
+                  border:active ? "none" : "1.5px solid rgba(255,255,255,0.22)",
+                  background:active ? PAL.upload.accent : "transparent",
+                  color:active ? PAL.upload.bg : "transparent",
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  fontSize:11,
+                  fontWeight:900,
+                  flexShrink:0,
+                }}>
+                  ✓
+                </span>
+              </div>
+              <div style={{ fontSize:12, color:"rgba(255,255,255,0.52)", lineHeight:1.55 }}>
+                {option.description}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
   const [tab, setTab] = useState("feedback");
   const tabs = [
     { id: "feedback", label: "Feedback" },
     { id: "users", label: "Users" },
+    { id: "settings", label: "Settings" },
   ];
 
   return (
@@ -8960,7 +9306,9 @@ function AdminPanel({ onBack }) {
         ))}
       </div>
 
-      {tab === "feedback" ? <AdminFeedbackTab /> : <AdminUsersTab />}
+      {tab === "feedback" && <AdminFeedbackTab />}
+      {tab === "users" && <AdminUsersTab />}
+      {tab === "settings" && <AdminAccessModeTab accessMode={accessMode} onAccessModeChange={onAccessModeChange} />}
 
       <Btn onClick={onBack}>← Back</Btn>
     </Shell>
@@ -9446,6 +9794,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [phase,            setPhase]            = useState("auth");
   const [authedUser,       setAuthedUser]       = useState(null);
   const [credits,          setCredits]          = useState(null);
+  const [accessMode,       setAccessModeState]  = useState(DEFAULT_ACCESS_MODE);
   const [messages,         setMessages]         = useState(null);
   const [math,             setMath]             = useState(null);
   const [ai,               setAi]               = useState(null);
@@ -9679,6 +10028,25 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!authedUser) {
+      setAccessModeState(DEFAULT_ACCESS_MODE);
+      return;
+    }
+
+    let alive = true;
+    getAccessMode()
+      .then(mode => {
+        if (alive) setAccessModeState(mode);
+      })
+      .catch(error => {
+        console.error("Access mode refresh failed", error);
+        if (alive) setAccessModeState(DEFAULT_ACCESS_MODE);
+      });
+
+    return () => { alive = false; };
+  }, [authedUser]);
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
@@ -9879,8 +10247,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return true;
   };
 
-  const deductCreditsBatch = async (count) => {
-    if (authedIsAdmin || count <= 0) return;
+  const deductCreditsBatch = async (count, mode = accessMode) => {
+    if (authedIsAdmin || isOpenMode(mode) || count <= 0) return;
     try {
       let nextBalance = credits;
       for (let i = 0; i < count; i += 1) {
@@ -9911,7 +10279,17 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
-    if (!authedIsAdmin) {
+    let activeAccessMode = accessMode;
+    try {
+      activeAccessMode = await getAccessMode({ throwOnError: true });
+      setAccessModeState(activeAccessMode);
+    } catch (error) {
+      console.error("Access mode check failed", error);
+      activeAccessMode = DEFAULT_ACCESS_MODE;
+      setAccessModeState(DEFAULT_ACCESS_MODE);
+    }
+
+    if (!authedIsAdmin && !isOpenMode(activeAccessMode)) {
       let availableCredits = credits;
       try {
         availableCredits = await getUserCredits();
@@ -9922,8 +10300,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCredits(null);
       }
 
-      if (availableCredits == null || availableCredits <= 0) {
-        setUploadInfo(OUT_OF_CREDITS_MESSAGE);
+      const access = checkReportAccess({
+        isAdmin: authedIsAdmin,
+        accessMode: activeAccessMode,
+        credits: availableCredits,
+        neededCredits: selectedTypes.length,
+      });
+
+      if (!access.allowed && (availableCredits == null || availableCredits <= 0)) {
+        setUploadInfo(access.message || OUT_OF_CREDITS_MESSAGE);
         setStep(0);
         setDir("bk");
         setPhase("upload");
@@ -9931,8 +10316,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         return;
       }
 
-      if (availableCredits < selectedTypes.length) {
-        setAnalysisError(`You need ${selectedTypes.length} credits to run ${selectedTypes.length === 1 ? "this report" : "these reports"}.`);
+      if (!access.allowed) {
+        setAnalysisError(access.message);
         return;
       }
     }
@@ -9986,7 +10371,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
-    void deductCreditsBatch(successfulRuns.length);
+    void deductCreditsBatch(successfulRuns.length, activeAccessMode);
 
     if (successfulRuns.length === 1) {
       const only = successfulRuns[0];
@@ -10225,21 +10610,38 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     closeFeedback(true);
     if (ok) setFeedbackThanks(true);
   };
-  const captureScreen = async (filename) => {
+
+  const getSummaryShareScreen = () => {
+    if (!math) return null;
+    const noop = () => {};
+    if (["toxicity", "lovelang", "growth", "accounta", "energy"].includes(reportType)) {
+      return <PremiumFinale s={math} restart={noop} back={noop} reportType={reportType} resultId={currentResultId} />;
+    }
+    const contentCount = math.isGroup ? GROUP_CASUAL_SCREENS : DUO_CASUAL_SCREENS;
+    const total = contentCount + 1;
+    return (
+      <Finale
+        s={math}
+        ai={ai}
+        aiLoading={aiLoading}
+        restart={noop}
+        back={noop}
+        prog={total}
+        total={total}
+        mode="casual"
+        resultId={currentResultId}
+      />
+    );
+  };
+
+  const captureScreen = async (type, filename) => {
     if (shareBusy) return;
     setShareBusy(true);
     setSharePicker(false);
     let blob = null;
     try {
-      const el = document.querySelector(".wc-root");
-      if (!el) return;
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const canvas = await html2canvas(el, {
-        backgroundColor: null,
-        scale: window.devicePixelRatio || 2,
-        useCORS: true,
-        logging: false,
-      });
+      const canvas = await buildShareCanvas(type, wrapchatLogoTransparent);
+      if (!canvas) return;
       blob = await canvasToBlob(canvas);
       const file = typeof File === "function"
         ? new File([blob], filename, { type: "image/png" })
@@ -10271,11 +10673,27 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
                 </CloseResultsContext.Provider>
               </Slide>
             </div>
+            <div
+              aria-hidden="true"
+              data-share-capture="summary"
+              style={{
+                position:"fixed",
+                top:0,
+                left:-10000,
+                width:"min(420px, 100vw)",
+                pointerEvents:"none",
+                zIndex:-1,
+              }}
+            >
+              <CloseResultsContext.Provider value={null}>
+                {getSummaryShareScreen()}
+              </CloseResultsContext.Provider>
+            </div>
             <SharePicker
               open={sharePicker}
               busy={shareBusy}
-              onCard={() => captureScreen(`wrapchat-${reportType || "general"}-card.png`)}
-              onSummary={() => captureScreen(`wrapchat-${reportType || "general"}-summary.png`)}
+              onCard={() => captureScreen("card", `wrapchat-${reportType || "general"}-card.png`)}
+              onSummary={() => captureScreen("summary", `wrapchat-${reportType || "general"}-summary.png`)}
               onClose={() => setSharePicker(false)}
             />
             <FeedbackSheet
@@ -10368,7 +10786,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   if (phase === "admin") return (
     withUiLanguage(<Slide dir="fwd" id={sid}>
       {isAdminUser(authedUser)
-        ? <AdminPanel onBack={() => { setPhase("upload"); setSid(s => s+1); }} onLogout={logout} />
+        ? <AdminPanel
+            onBack={() => { setPhase("upload"); setSid(s => s+1); }}
+            onLogout={logout}
+            accessMode={accessMode}
+            onAccessModeChange={setAccessModeState}
+          />
         : <AdminLocked onBack={() => { setPhase("upload"); setSid(s => s+1); }} />}
     </Slide>)
   );
@@ -10389,6 +10812,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         error={analysisError}
         selectedTypes={selectedReportTypes}
         credits={credits}
+        accessMode={accessMode}
         hideCredits={authedIsAdmin}
         showDebugPanel={authedIsAdmin && !!math?.isGroup}
         debugJson={debugExportJson}
