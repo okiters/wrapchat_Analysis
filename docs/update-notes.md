@@ -160,6 +160,32 @@ Auth footer and general footer added to the shell
 ## Pending (not yet committed)
 <!-- Add notes here before your next commit, then label with the next version -->
 
+## v2.0 — UI consistency pass
+**Files:** `src/App.jsx`
+
+### Back button system unified
+All back buttons across the app now use `GhostButton` from `theme.jsx`. Removed the old `Btn` component from all call sites (TooShort, AdminLocked, AdminPanel). Inline raw-button back buttons in RelationshipSelect, ReportSelect, SettingsScreen, MyResults (main list + bundle detail), and UpgradePlaceholder replaced with `GhostButton`. UpgradePlaceholder back was incorrectly using `PrimaryButton` — corrected to `GhostButton`.
+
+### Nav arrow logic fixed
+`Nav` component gained a `showArrow` prop (default `true`). The hardcoded ` →` suffix moved behind this flag. All five "Done" screens and the "See upgrade options" screen pass `showArrow={false}`. Forward-navigation calls ("Next", "See summary") keep the arrow via the default. Eliminated the double-arrow "Done →" and "See upgrade options → →" bugs.
+
+### AdminPanel back button moved to header
+The "← Back" button was at the bottom of the Admin panel, requiring scroll to reach. Moved into a sticky header row alongside the "Admin" title, matching the pattern used by MyResults and SettingsScreen. Title `fontWeight` corrected from 800 → 900. Tab strip `fontSize` corrected from 13 → 14 to match the Auth screen tab strip.
+
+### Loading screen palette per report
+`Loading` now resolves `sec` from the active report type's palette instead of always using `sec="upload"`. Toxicity loads red, Love Language pink, Growth teal, etc. — no more jarring green flash before entering a colored report section.
+
+### Credits pill moved inline
+The credit balance pill on the Upload screen was `position: absolute` top-right, risking overlap with Shell chrome buttons. Moved to an inline centered element between the logo and the upload zone, matching the natural content flow.
+
+### Emojis removed from all UI
+Removed all emoji from rendered UI: 🤐 (TooShort), 🔒 (AdminLocked), 💝/💕 (LoveLang screens), ⚡/🪫 (Energy screens). The AI-sourced `languageEmoji` field in LoveLang report data is no longer displayed. The locked-report list in TrialReportScreen now uses an inline SVG padlock icon. Regex patterns for chat analysis are unchanged.
+
+### Version label updated
+`HOMEPAGE_VERSION_LABEL` corrected from `"Version 1.3.2"` to `"Version 1.9"`.
+
+---
+
 ## v1.9 — Trial flow & payment gating
 **Files:** `src/App.jsx`, `src/trialReport.js`, `src/reportCredits.js`, `supabase/migrations/20260424160000_trial_and_roles.sql`
 
