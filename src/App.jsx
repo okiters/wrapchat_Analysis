@@ -5575,7 +5575,7 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true }) {
   const p = PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -5732,7 +5732,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
               transition:isFade ? `opacity 180ms ${SLIDE_EASE}` : `transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
               willChange:isFade ? "opacity" : "transform",
               pointerEvents:"none",
-              overflowY:"auto",
+              overflowY:scrollable ? "auto" : "hidden",
             }}>
               {exitContent.node}
             </div>
@@ -5749,7 +5749,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card" }) 
             animation: exitContent ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`) : "none",
             ["--wc-enter-from"]: enterFrom,
             willChange: exitContent ? (isFade ? "opacity, transform" : "transform") : "auto",
-            overflowY:"auto",
+            overflowY:scrollable ? "auto" : "hidden",
             overscrollBehavior:"contain",
           }}>
             {children}
@@ -7383,8 +7383,6 @@ function RelationshipSelect({
     { id:"other",     label:"Other",     icon:otherIcon,     accent:DA.faint },
   ];
 
-  const selectedAccent = [...romanticOptions, ...otherOptions].find(o => o.id === sel)?.accent || PAL.upload.accent;
-
   const RelCard = ({ opt, flex }) => {
     const active = sel === opt.id;
     return (
@@ -7484,7 +7482,7 @@ function RelationshipSelect({
       <PrimaryButton
         onClick={() => sel && onSelect(sel)}
         disabled={!sel}
-        color={sel ? selectedAccent : "rgba(255,255,255,0.12)"}
+        color={sel ? PAL.upload.accent : "rgba(255,255,255,0.12)"}
         textColor={sel ? DA.bg : "rgba(255,255,255,0.35)"}
       >
         {t("Continue")} →
@@ -7538,7 +7536,7 @@ function Auth() {
   };
 
   return (
-    <Shell sec="upload" prog={0} total={0}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <BrandLockup
         logoSrc={wrapchatLogoTransparent}
         logoSize={72}
@@ -7638,7 +7636,7 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
   const linkBtn = { background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
 
   return (
-    <Shell sec="upload" prog={step + 1} total={4}>
+    <Shell sec="upload" prog={step + 1} total={4} scrollable={false}>
 
       {/* ── Screen 1: hook ── */}
       {step === 0 && (<>
@@ -7811,7 +7809,7 @@ function TermsFlow({ onAccepted, onLogout }) {
   const linkBtn = { background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
 
   return (
-    <Shell sec="upload" prog={0} total={1}>
+    <Shell sec="upload" prog={0} total={1} scrollable={false}>
       <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>
         One thing before you start.
       </div>
@@ -7870,7 +7868,7 @@ function TermsFlow({ onAccepted, onLogout }) {
 
 function TooShort({ onBack }) {
   return (
-    <Shell sec="upload" prog={0} total={1}>
+    <Shell sec="upload" prog={0} total={1} scrollable={false}>
       <BrandLockup />
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:40, lineHeight:1 }}>🤐</div>
@@ -7891,7 +7889,7 @@ function TooShort({ onBack }) {
 
 function AdminLocked({ onBack }) {
   return (
-    <Shell sec="upload" prog={0} total={0}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <div style={{ fontSize:32, fontWeight:800, color:"#fff", letterSpacing:-1.2, lineHeight:1.1, textAlign:"center", width:"100%" }}>Admin access only</div>
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:36, lineHeight:1 }}>🔒</div>
@@ -7958,7 +7956,29 @@ function Upload({
     }
   };
   return (
-    <Shell sec="upload" prog={0} total={1}>
+    <Shell sec="upload" prog={0} total={1} scrollable={false}>
+      {creditLabel && (
+        <div
+          style={{
+            position:"absolute",
+            top:14,
+            right:14,
+            zIndex:6,
+            fontSize:12,
+            color:"rgba(255,244,214,0.88)",
+            textAlign:"center",
+            background:"rgba(255,214,120,0.14)",
+            border:"1px solid rgba(255,214,120,0.22)",
+            borderRadius:999,
+            padding:"8px 14px",
+            fontWeight:800,
+            boxShadow:"0 6px 18px rgba(0,0,0,0.08)",
+            pointerEvents:"none",
+          }}
+        >
+          {creditLabel}
+        </div>
+      )}
       <BrandLockup
         logoSrc={wrapchatLogoTransparent}
         logoSize={72}
@@ -8032,25 +8052,6 @@ function Upload({
         </div>
       )}
       <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", marginTop:8, textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
-      {creditLabel && (
-        <div
-          style={{
-            fontSize:12,
-            color:"rgba(255,244,214,0.88)",
-            marginTop:10,
-            textAlign:"center",
-            background:"rgba(255,214,120,0.14)",
-            border:"1px solid rgba(255,214,120,0.22)",
-            borderRadius:999,
-            padding:"8px 14px",
-            fontWeight:800,
-            boxShadow:"0 6px 18px rgba(0,0,0,0.08)",
-            alignSelf:"center",
-          }}
-        >
-          {creditLabel}
-        </div>
-      )}
       <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
         {onHistory && (
           <button onClick={onHistory} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
@@ -8097,7 +8098,7 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   const queue = normalizeSelectedReportTypes(reportTypes);
   const queuePrefix = queue.length > 1 ? `${Math.min(loadingIndex + 1, queue.length)}/${queue.length} · ` : "";
   return (
-    <Shell sec="upload" prog={tick+1} total={LOADING_STEPS.length}>
+    <Shell sec="upload" prog={tick+1} total={LOADING_STEPS.length} scrollable={false}>
       <BrandLockup />
       <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:500 }}>
         {queuePrefix}{t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
@@ -8143,7 +8144,7 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
 
   return (
     <>
-      <Shell sec="upload" prog={0} total={0}>
+      <Shell sec="upload" prog={0} total={0} scrollable={false}>
         <div style={{
           alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
           margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
@@ -9379,12 +9380,13 @@ function AdminFeedbackTab() {
   );
 }
 
-function AdminUsersTab() {
+function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [busyById, setBusyById] = useState({});
   const [amountById, setAmountById] = useState({});
   const [noticeById, setNoticeById] = useState({});
+  const canAdjustCredits = accessMode === ACCESS_MODES.CREDITS;
 
   useEffect(() => {
     let alive = true;
@@ -9414,6 +9416,11 @@ function AdminUsersTab() {
   };
 
   const adjustCredits = async (userId, delta) => {
+    if (!canAdjustCredits) {
+      setNoticeById(prev => ({ ...prev, [userId]: "Switch to Credit Beta to adjust user credits." }));
+      return;
+    }
+
     const rawValue = amountById[userId] ?? "1";
     const amount = Number.parseInt(String(rawValue), 10);
     if (!Number.isInteger(amount) || amount <= 0) {
@@ -9464,6 +9471,11 @@ function AdminUsersTab() {
       {err && (
         <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.15)", border:"1px solid rgba(200,60,20,0.3)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center" }}>{err}</div>
       )}
+      {!canAdjustCredits && (
+        <div style={{ fontSize:13, color:"rgba(255,255,255,0.72)", background:"rgba(160,138,240,0.12)", border:"1px solid rgba(160,138,240,0.24)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center", lineHeight:1.5 }}>
+          Switch to Credit Beta to adjust user credits.
+        </div>
+      )}
       {rows?.length === 0 && !err && (
         <div style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"32px 20px", textAlign:"center" }}>
           <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", lineHeight:1.6 }}>No users yet.</div>
@@ -9494,6 +9506,7 @@ function AdminUsersTab() {
                   min="1"
                   step="1"
                   value={inputValue}
+                  disabled={!canAdjustCredits || busy}
                   onChange={e => setAmount(row.user_id, e.target.value)}
                   style={{
                     width:88,
@@ -9505,12 +9518,13 @@ function AdminUsersTab() {
                     color:"#fff",
                     outline:"none",
                     fontFamily:"inherit",
+                    opacity:!canAdjustCredits ? 0.45 : 1,
                   }}
                 />
                 <button
                   type="button"
                   onClick={() => adjustCredits(row.user_id, 1)}
-                  disabled={busy}
+                  disabled={busy || !canAdjustCredits}
                   className="wc-btn"
                   style={{
                     background:"rgba(255,255,255,0.10)",
@@ -9518,11 +9532,11 @@ function AdminUsersTab() {
                     borderRadius:999,
                     color:"#fff",
                     fontSize:12,
-                    cursor:busy ? "default" : "pointer",
+                    cursor:busy || !canAdjustCredits ? "default" : "pointer",
                     padding:"10px 14px",
                     fontWeight:700,
                     letterSpacing:0.1,
-                    opacity:busy ? 0.6 : 1,
+                    opacity:busy || !canAdjustCredits ? 0.6 : 1,
                   }}
                 >
                   {busy ? "Adding…" : "Add credits"}
@@ -9530,7 +9544,7 @@ function AdminUsersTab() {
                 <button
                   type="button"
                   onClick={() => adjustCredits(row.user_id, -1)}
-                  disabled={busy}
+                  disabled={busy || !canAdjustCredits}
                   className="wc-btn"
                   style={{
                     background:"rgba(255,255,255,0.06)",
@@ -9538,11 +9552,11 @@ function AdminUsersTab() {
                     borderRadius:999,
                     color:"#fff",
                     fontSize:12,
-                    cursor:busy ? "default" : "pointer",
+                    cursor:busy || !canAdjustCredits ? "default" : "pointer",
                     padding:"10px 14px",
                     fontWeight:700,
                     letterSpacing:0.1,
-                    opacity:busy ? 0.6 : 1,
+                    opacity:busy || !canAdjustCredits ? 0.6 : 1,
                   }}
                 >
                   {busy ? "Removing…" : "Remove credits"}
@@ -9714,7 +9728,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
   ];
 
   return (
-    <Shell sec="upload" prog={0} total={0}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
         <div style={{ fontSize:28, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
           Admin
@@ -9754,7 +9768,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
       </div>
 
       {tab === "feedback" && <AdminFeedbackTab />}
-      {tab === "users" && <AdminUsersTab />}
+      {tab === "users" && <AdminUsersTab accessMode={accessMode} />}
       {tab === "settings" && <AdminAccessModeTab accessMode={accessMode} onAccessModeChange={onAccessModeChange} />}
 
       <Btn onClick={onBack}>← Back</Btn>

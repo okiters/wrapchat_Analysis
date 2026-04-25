@@ -50,6 +50,12 @@
   }
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
 }
@@ -60,6 +66,7 @@ body {
   margin: 0 auto;
   text-align: center;
   border-inline: 1px solid var(--border);
+  height: 100svh;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
