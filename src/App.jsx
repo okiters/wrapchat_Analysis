@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
+import _updateNotesRaw from "../docs/update-notes.md?raw";
 import { DA, Geo, PrimaryButton, GhostButton } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
@@ -4109,7 +4110,7 @@ const CORE_ANALYSIS_CACHE_VERSION = 6;
 const CORE_A_MAX_TOKENS = 2600;
 const CORE_B_MAX_TOKENS = 2600;
 const HOMEPAGE_VERSION = "67537";
-const HOMEPAGE_VERSION_LABEL = "Version 1.9";
+const HOMEPAGE_VERSION_LABEL = (_updateNotesRaw.match(/^## (v\d+\.\d+)/m) || [])[1] ?? "v?";
 
 function buildRelationshipContextBlock(relType) {
   const relCtx = relContextStr(relType);
@@ -5955,7 +5956,6 @@ function FeedbackSheet({ open, target, selected, note, submitting, onSelect, onN
         alignItems: "flex-end",
         transition: "background 0.28s ease",
         justifyContent: "center",
-        padding: "0 0 env(safe-area-inset-bottom, 0px)",
       }}
       onClick={onClose}
     >
@@ -6002,8 +6002,8 @@ function FeedbackSheet({ open, target, selected, note, submitting, onSelect, onN
           </div>
 
           {/* options */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 14 }}>
-            {FEEDBACK_OPTIONS.map(option => {
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
+            {FEEDBACK_OPTIONS.filter(o => o !== POSITIVE_FEEDBACK_OPTION).map(option => {
               const active = selected === option;
               return (
                 <button
@@ -6020,18 +6020,48 @@ function FeedbackSheet({ open, target, selected, note, submitting, onSelect, onN
                     lineHeight: 1.25,
                     fontWeight: 700,
                     cursor: "pointer",
-                  transition: "all 0.15s",
-                  background: active ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)",
-                  color: active ? "#fff" : "rgba(255,255,255,0.72)",
-                  textAlign: "center",
-                  boxSizing: "border-box",
-                }}
-              >
-                {t(option)}
-              </button>
+                    transition: "all 0.15s",
+                    background: active ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)",
+                    color: active ? "#fff" : "rgba(255,255,255,0.72)",
+                    textAlign: "center",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {t(option)}
+                </button>
               );
             })}
           </div>
+          {/* positive option — full width, green tint */}
+          {(() => {
+            const active = selected === POSITIVE_FEEDBACK_OPTION;
+            return (
+              <button
+                type="button"
+                onClick={() => onSelect(POSITIVE_FEEDBACK_OPTION)}
+                className="wc-btn"
+                style={{
+                  width: "100%",
+                  minHeight: 42,
+                  border: `1px solid ${active ? "rgba(80,200,110,0.55)" : "rgba(80,200,110,0.22)"}`,
+                  borderRadius: 16,
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  lineHeight: 1.25,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  background: active ? "rgba(80,200,110,0.22)" : "rgba(80,200,110,0.08)",
+                  color: active ? "#7BE39A" : "rgba(120,210,140,0.80)",
+                  textAlign: "center",
+                  boxSizing: "border-box",
+                  marginBottom: 14,
+                }}
+              >
+                {t(POSITIVE_FEEDBACK_OPTION)}
+              </button>
+            );
+          })()}
 
           {/* optional note */}
           <textarea
@@ -6136,22 +6166,20 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
 function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null }) {
   const t = useT();
   return (
-    <div data-share-hide style={{ width:"100%", display:"flex", flexDirection:"column", gap:8, flexShrink:0, paddingTop:8 }}>
-      {(back || action) && (
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          {back
-            ? <GhostButton onClick={back} style={{ width:"auto", flexShrink:0, padding:"7px 14px", fontSize:13 }}>← {t(backLabel)}</GhostButton>
-            : <div />
-          }
-          {action && <div style={{ flexShrink:0 }}>{action}</div>}
-        </div>
+    <div data-share-hide style={{ width:"100%", display:"flex", alignItems:"center", gap:10, flexShrink:0, paddingTop:8 }}>
+      {back && (
+        <GhostButton onClick={back} style={{ width:"auto", flexShrink:0, padding:"7px 14px", fontSize:13 }}>
+          ← {t(backLabel)}
+        </GhostButton>
       )}
       <div style={{
+        minWidth:0, flex:1,
         fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1,
-        overflowWrap:"anywhere",
+        textAlign:"left", overflowWrap:"anywhere",
       }}>
         {titleNode ?? t(title)}
       </div>
+      {action && <div style={{ flexShrink:0 }}>{action}</div>}
     </div>
   );
 }
@@ -10080,26 +10108,13 @@ function MyResults({ onBack, onRestoreResult }) {
         <div style={{
           alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
           margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+          position:"relative",
         }}>
           {/* Fixed header */}
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
             <ScreenHeader
               back={() => { exitEditing(); setBundleView(null); }}
               titleNode={bNames}
-              action={bRows.length > 0 && (
-                <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
-                  background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
-                  border:"1px solid rgba(255,255,255,0.18)",
-                  borderRadius:999, padding:"6px 10px",
-                  color: editing ? BUNDLE_PAL.accent : "rgba(255,255,255,0.7)",
-                  lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
-                }}>
-                  {editing
-                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  }
-                </button>
-              )}
             />
             <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
               {bDate} · {bRows.length} report{bRows.length !== 1 ? "s" : ""}
@@ -10179,6 +10194,33 @@ function MyResults({ onBack, onRestoreResult }) {
               );
             })}
           </div>
+          {bRows.length > 0 && (
+            <button
+              type="button"
+              onClick={() => editing ? exitEditing() : setEditing(true)}
+              className="wc-btn"
+              aria-label={editing ? "Done editing" : "Edit bundle"}
+              style={{
+                position:"absolute",
+                bottom:"calc(20px + env(safe-area-inset-bottom, 0px))",
+                right:20,
+                width:48, height:48,
+                borderRadius:"50%",
+                background: editing ? PAL.upload.accent : "rgba(255,255,255,0.12)",
+                border:"1px solid rgba(255,255,255,0.20)",
+                color: editing ? PAL.upload.bg : "#fff",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
+                cursor:"pointer",
+                zIndex:10,
+              }}
+            >
+              {editing
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              }
+            </button>
+          )}
         </div>
       </Shell>
     );
@@ -10189,35 +10231,44 @@ function MyResults({ onBack, onRestoreResult }) {
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+        position:"relative",
       }}>
         {/* Fixed header */}
         <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
           <ScreenHeader
             back={() => { exitEditing(); onBack(); }}
             title="My Results"
-            action={rows?.length > 0 && (
-              <button
-                type="button"
-                onClick={() => editing ? exitEditing() : setEditing(true)}
-                className="wc-btn"
-                aria-label={editing ? "Done editing" : "Edit results"}
-                title={editing ? "Done" : "Edit"}
-                style={{
-                  background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
-                  border:"1px solid rgba(255,255,255,0.18)",
-                  borderRadius:999, padding:"6px 10px",
-                  color: editing ? PAL.upload.accent : "rgba(255,255,255,0.7)",
-                  lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
-                }}
-              >
-                {editing
-                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                }
-              </button>
-            )}
           />
         </div>
+        </div>
+        {/* Floating edit FAB */}
+        {rows?.length > 0 && (
+          <button
+            type="button"
+            onClick={() => editing ? exitEditing() : setEditing(true)}
+            className="wc-btn"
+            aria-label={editing ? "Done editing" : "Edit results"}
+            style={{
+              position:"absolute",
+              bottom:"calc(20px + env(safe-area-inset-bottom, 0px))",
+              right:20,
+              width:48, height:48,
+              borderRadius:"50%",
+              background: editing ? PAL.upload.accent : "rgba(255,255,255,0.12)",
+              border:"1px solid rgba(255,255,255,0.20)",
+              color: editing ? PAL.upload.bg : "#fff",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
+              cursor:"pointer",
+              zIndex:10,
+            }}
+          >
+            {editing
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            }
+          </button>
+        )}
 
         {/* Scrollable list */}
         <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,

@@ -55,6 +55,7 @@ body {
   height: 100%;
   overflow: hidden;
   touch-action: manipulation;
+  background: #0c0c16;
 }
 
 body {
