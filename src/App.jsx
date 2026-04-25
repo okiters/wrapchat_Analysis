@@ -310,6 +310,14 @@ const UI_TRANSLATIONS = {
     "The Funny One": "En Komik Olan",
     "Spirit emojis": "Ruh emojileri",
     "Group spirit emoji": "Grubun ruh emojisi",
+    "Most used emojis": "En çok kullanılan emojiler",
+    "Most used words": "En çok kullanılan kelimeler",
+    "Stats": "İstatistikler",
+    "How you connect": "Nasıl bağlanıyorsunuz",
+    "Two reads from the AI.": "Yapay zekadan iki yorum.",
+    "The vibe": "Sohbet havası",
+    "My Results": "Sonuçlarım",
+    "Upgrade": "Yükselt",
     "Top 10 most used words": "En çok kullanılan 10 kelime",
     "Signature phrases": "İmza cümleler",
     "Message length": "Mesaj uzunluğu",
@@ -3434,13 +3442,22 @@ function localStats(messages) {
   const topBigrams = Object.entries(bigramFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
   const emojiRe = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu;
+  const STICKER_RE = /sticker omitted/i;
+  // Exclude emoji with Private Use Area codepoints — these render as blank squares on most devices.
+  const isRenderableEmoji = (e) => [...e].every(cp => { const c = cp.codePointAt(0); return c !== undefined && !(c >= 0xE000 && c <= 0xF8FF); });
   const emojiFreq = {};
-  messages.forEach(({body}) => (body.match(emojiRe)||[]).forEach(e => (emojiFreq[e]=(emojiFreq[e]||0)+1)));
+  messages.forEach(({body}) => {
+    if (STICKER_RE.test(body)) return;
+    (body.match(emojiRe)||[]).filter(isRenderableEmoji).forEach(e => (emojiFreq[e]=(emojiFreq[e]||0)+1));
+  });
   const spiritEmojiAll = Object.entries(emojiFreq).sort((a,b)=>b[1]-a[1])[0]?.[0]||"💬";
   const spiritByName = {};
   namesAll.forEach(n => {
     const ef = {};
-    byName[n].forEach(({body}) => (body.match(emojiRe)||[]).forEach(e => (ef[e]=(ef[e]||0)+1)));
+    byName[n].forEach(({body}) => {
+      if (STICKER_RE.test(body)) return;
+      (body.match(emojiRe)||[]).filter(isRenderableEmoji).forEach(e => (ef[e]=(ef[e]||0)+1));
+    });
     spiritByName[n] = Object.entries(ef).sort((a,b)=>b[1]-a[1])[0]?.[0]||"💬";
   });
 
@@ -4123,7 +4140,7 @@ function buildLangInstruction(chatLang) {
   if (!chatLang || chatLang === "en") return "";
   const label = LANG_META[chatLang];
   if (!label) return "";
-  return `\n\nOUTPUT LANGUAGE: Write all free-text fields (sentences, summaries, descriptions, examples, context, verdicts, reasons, and analysis) in ${label}. The JSON structure and all key names must remain exactly as specified in the schema.\n\nThe following fields are schema-critical control tokens — reproduce them EXACTLY as listed here, with zero translation:\n- "language" (careStyle): must be one of exactly: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed\n- "depthChange": must be one of exactly: deeper / shallower / about the same\n- "trajectory": must be one of exactly: closer / drifting / stable\n- "type" (energy): must be one of exactly: net positive / mixed / net draining\n- "dramaStarter": a first name as written in the chat, or exactly "Shared", or exactly "None clearly identified"\n- "toxicPerson": a first name as written in the chat, or exactly "Tie", or exactly "None clearly identified"\n- "funniestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "kindestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "whoChangedMore": a first name as written in the chat, or exactly "Both equally"\n- "powerHolder": a first name as written in the chat, or exactly "Balanced"\n- "person" in promise/apology fields: a first name as written in the chat, or exactly "None clearly identified"\n- All "name" fields: the exact first name as it appears in the chat\nDo NOT translate, paraphrase, or modify these control tokens under any circumstances. All descriptive text fields — everything else — must be in ${label}.`;
+  return `\n\nOUTPUT LANGUAGE: Write all free-text fields (sentences, summaries, descriptions, examples, context, verdicts, reasons, and analysis) directly and natively in ${label}. Do NOT draft in English first and then translate — compose every sentence directly in ${label} from scratch. The JSON structure and all key names must remain exactly as specified in the schema.\n\nThe following fields are schema-critical control tokens — reproduce them EXACTLY as listed here, with zero translation:\n- "language" (careStyle): must be one of exactly: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed\n- "depthChange": must be one of exactly: deeper / shallower / about the same\n- "trajectory": must be one of exactly: closer / drifting / stable\n- "type" (energy): must be one of exactly: net positive / mixed / net draining\n- "dramaStarter": a first name as written in the chat, or exactly "Shared", or exactly "None clearly identified"\n- "toxicPerson": a first name as written in the chat, or exactly "Tie", or exactly "None clearly identified"\n- "funniestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "kindestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "whoChangedMore": a first name as written in the chat, or exactly "Both equally"\n- "powerHolder": a first name as written in the chat, or exactly "Balanced"\n- "person" in promise/apology fields: a first name as written in the chat, or exactly "None clearly identified"\n- All "name" fields: the exact first name as it appears in the chat\nDo NOT translate, paraphrase, or modify these control tokens under any circumstances. All descriptive text fields — everything else — must be written natively in ${label}.`;
 }
 
 function buildAnalystSystemPrompt(role, relationshipType, extraRules = "", chatLang = "en", relationshipLine = "") {
@@ -4156,7 +4173,7 @@ function buildAnalystSystemPrompt(role, relationshipType, extraRules = "", chatL
 You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON. Never embed literal newline characters inside a JSON string value — keep every string on a single line.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
 }
 
-const CORE_A_WRITING_STYLE = `WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; bold only when earned by the chat. No therapist, report, or academic tone. Don't over-explain. INSIGHT STRUCTURE: observation first, concrete moment or repeated pattern second, short natural interpretation third. If evidence is thin, keep it simple instead of padding. For vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, relationshipSummary, mostLovingMoment, mostEnergising, and mostDraining, you may use one sharp grounded compression line, or 1-2 short sentences if one line feels flat. Keep those reads memorable and specific to this chat. For moment fields, choose the strongest supported moment or repeated pattern, not the blandest safe example. A strong read names who did what, the quote or move, and why it landed. biggestTopic should read like the chat's main ongoing storyline, not a generic category. It must be both recurring and important to the relationship or group dynamic; do not elevate minor logistics, one-note jokes, or low-stakes side debates just because they repeat. vibeOneLiner should feel like a friend's sharp summary after reading the whole chat. relationshipSummary should read like a specific human take on their actual pattern, not a label, verdict, or diagnosis. All other fields stay tighter and more functional.`;
+const CORE_A_WRITING_STYLE = `WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; bold only when earned by the chat. No therapist, report, or academic tone. Don't over-explain. INSIGHT STRUCTURE: observation first, concrete moment or repeated pattern second, short natural interpretation third. If evidence is thin, keep it simple instead of padding. For vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, relationshipSummary, mostLovingMoment, mostEnergising, and mostDraining, you may use one sharp grounded compression line, or 1-2 short sentences if one line feels flat. Keep those reads memorable and specific to this chat. For moment fields, choose the strongest supported moment or repeated pattern, not the blandest safe example. A strong read names who did what, the quote or move, and why it landed. biggestTopic should read like the chat's main ongoing storyline, not a generic category. It must be both recurring and important to the relationship or group dynamic; do not elevate minor logistics, one-note jokes, or low-stakes side debates just because they repeat. vibeOneLiner should feel like a friend's sharp summary after reading the whole chat. relationshipSummary should read like a specific human take on their actual pattern, not a label, verdict, or diagnosis. All other fields stay tighter and more functional. ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different moments — one focuses on a specific act of care or support, the other on a warm affectionate exchange; they must not reference the same event. No two fields across the full output should describe the same moment or quote. SIGNATURE PHRASES: Before assigning a phrase to a person, verify it by checking which sender's lines it appears on. signaturePhrases[0] must be a phrase only person 1 sends, signaturePhrases[1] must be a phrase only person 2 sends — never swap or guess attribution.`;
 
 function buildCoreASystemPrompt(role, relationshipType, extraRules = "", chatLang = "en", relationshipLine = "") {
   return buildAnalystSystemPrompt(role, relationshipType, `${CORE_A_WRITING_STYLE} ${extraRules}`, chatLang, relationshipLine);
@@ -6878,7 +6895,7 @@ function ScoreRing({ score, max=10, size=110, color="#fff" }) {
 // ─────────────────────────────────────────────────────────────────
 // TRIAL REPORT SCREENS
 // ─────────────────────────────────────────────────────────────────
-const TRIAL_SCREENS = 6;
+const TRIAL_SCREENS = 7;
 
 function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
   const t = useT();
@@ -6941,41 +6958,58 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
 
     <Shell sec="trial" prog={4} total={TRIAL_SCREENS + 1}>
       <T>{t("Chat texture")}</T>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:6, marginTop:4 }}>{t("Most used words")}</div>
       <Words words={s.topWords} bigrams={s.topBigrams} />
-      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:4 }}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:6, marginTop:10 }}>{t("Stats")}</div>
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
         <Cell label={t("Media")} value={mediaTotal.toLocaleString()} />
         <Cell label={t("Voice")} value={voiceTotal.toLocaleString()} />
         <Cell label={t("Links")} value={linkTotal.toLocaleString()} />
       </div>
-      <Sub mt={10}>{t("Spirit emojis")} · {(Array.isArray(s.spiritEmoji) ? s.spiritEmoji.join(" ") : s.spiritEmoji) || "💬"}</Sub>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:4, marginTop:10 }}>{t("Most used emojis")}</div>
+      <div style={{ width:"100%", background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"12px 16px", fontSize:22, letterSpacing:4 }}>
+        {(Array.isArray(s.spiritEmoji) ? s.spiritEmoji.join(" ") : s.spiritEmoji) || "💬"}
+      </div>
       <Nav back={back} next={next} />
     </Shell>,
 
     <Shell sec="trial" prog={5} total={TRIAL_SCREENS + 1}>
-      <T>{t("AI preview")}</T>
-      <Sub mt={4}>{t("Three quick reads from the trial report.")}</Sub>
-
-      <AICard label={t("The vibe")}               value={ai?.vibe}     loading={loading} />
+      <T>{t("How you connect")}</T>
+      <Sub mt={4}>{t("Two reads from the AI.")}</Sub>
       <AICard label={t("How you communicate")}    value={ai?.pattern}  loading={loading} />
       <AICard label={t("Most interesting thing")} value={ai?.takeaway} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
     <Shell sec="trial" prog={6} total={TRIAL_SCREENS + 1}>
+      <T>{t("The vibe")}</T>
+      <AICard label={t("Chat vibe")} value={ai?.vibe} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    <Shell sec="trial" prog={7} total={TRIAL_SCREENS + 1}>
       <T>{t("Full reports go deeper")}</T>
       <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"14px 16px" }}>
         <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:10 }}>
           {t("That was your free preview. Here's what the full reports include:")}
         </div>
-        {["General Wrapped — stats + full AI deep dive", "Toxicity & red flags", "Love Language Report", "Energy Report", "Growth over time", "Accountability"].map((label, i) => (
+        {[
+          { label: "General Wrapped — stats + full AI deep dive", type: "general" },
+          { label: "Toxicity & red flags",                        type: "toxicity" },
+          { label: "Love Language Report",                        type: "lovelang" },
+          { label: "Energy Report",                               type: "energy" },
+          { label: "Growth over time",                            type: "growth" },
+          { label: "Accountability",                              type: "accounta" },
+        ].map(({ label, type }, i) => (
           <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }} aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <div style={{ fontSize:13, color:"rgba(255,255,255,0.42)", flex:1 }}>{t(label)}</div>
+            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.30)", flexShrink:0 }}>{getReportCreditCost(type)} cr</div>
           </div>
         ))}
       </div>
 
-      <Nav back={back} next={next} nextLabel="See upgrade options" />
+      <Nav back={back} next={next} nextLabel="Upgrade" showArrow={false} />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -6985,9 +7019,9 @@ function TrialFinale({ s, restart, back, onUpgrade }) {
   const t = useT();
   const p = PAL.trial;
   const packs = [
-    { label: "Starter",   credits: 3,  desc: "3 reports",      price: "$4"  },
-    { label: "Standard",  credits: 7,  desc: "Best value",      price: "$8"  },
-    { label: "Deep Dive", credits: 12, desc: "Full + extras",   price: "$12" },
+    { label: "Starter",   credits: 4,  desc: "1 Vibe Bundle",   price: "$4"  },
+    { label: "Standard",  credits: 8,  desc: "1 Full Suite",    price: "$8"  },
+    { label: "Deep Dive", credits: 15, desc: "2 Full Suites",   price: "$12" },
   ];
   return (
     <Shell sec="trial" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 1} shareType="summary">
@@ -7395,18 +7429,21 @@ function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
 // ─────────────────────────────────────────────────────────────────
 // PREMIUM FINALE — wrap-up for non-general reports
 // ─────────────────────────────────────────────────────────────────
-function PremiumFinale({ s, restart, back, reportType }) {
+function PremiumFinale({ s, restart, back, reportType, fromHistory = false }) {
   const t = useT();
+  const closeResults = useContext(CloseResultsContext);
   const rtype = REPORT_TYPES.find(r => r.id === reportType);
   const sec = rtype?.palette || "upload";
   const p = PAL[sec] || PAL.upload;
+  const primaryAction = fromHistory ? closeResults : restart;
+  const primaryLabel  = fromHistory ? t("My Results") : t("Start over");
   return (
     <Shell sec={sec} prog={1} total={1} shareType="summary">
       <T s={22}>{t(rtype?.label || "Report complete")}</T>
       <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
       <div data-share-hide style={{ display:"flex", gap:10, marginTop:24, width:"100%" }}>
         <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
-        <PrimaryButton onClick={restart} color={p.accent} textColor={p.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
+        <PrimaryButton onClick={primaryAction} color={p.accent} textColor={p.bg} style={{ flex:1, width:"auto" }}>{primaryLabel}</PrimaryButton>
       </div>
     </Shell>
   );
@@ -7415,8 +7452,9 @@ function PremiumFinale({ s, restart, back, reportType }) {
 // ─────────────────────────────────────────────────────────────────
 // FINALE
 // ─────────────────────────────────────────────────────────────────
-function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId }) {
+function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId, fromHistory = false }) {
   const t = useT();
+  const closeResults = useContext(CloseResultsContext);
   const feedback = resultId && (mode === "redflags" || ai?.vibeOneLiner)
     ? { resultId, reportType: mode === "redflags" ? "toxicity" : "general", cardIndex: prog, cardTitle: mode === "redflags" ? "Red flags, unwrapped." : (s.isGroup ? "Your group, unwrapped." : "Your chat, unwrapped.") }
     : null;
@@ -7466,7 +7504,10 @@ function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId }
       )}
       <div data-share-hide style={{display:"flex",gap:10,marginTop:20,width:"100%"}}>
         <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
-        <PrimaryButton onClick={restart} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
+        {fromHistory
+          ? <PrimaryButton onClick={closeResults} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("My Results")}</PrimaryButton>
+          : <PrimaryButton onClick={restart} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
+        }
       </div>
     </Shell>
   );
@@ -8226,11 +8267,12 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   const rtype = REPORT_TYPES.find(r => r.id === reportType);
   const label = rtype?.label || "Analysis";
   const sec   = rtype?.palette || "upload";
+  const pal   = PAL[sec] || PAL.upload;
   const queue = normalizeSelectedReportTypes(reportTypes);
   const queuePrefix = queue.length > 1 ? `${Math.min(loadingIndex + 1, queue.length)}/${queue.length} · ` : "";
   return (
     <Shell sec={sec} prog={tick+1} total={LOADING_STEPS.length} scrollable={false}>
-      <BrandLockup />
+      <BrandLockup accentColor={reportType ? pal.accent : null} />
       <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:500 }}>
         {queuePrefix}{t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
       </div>
@@ -8765,9 +8807,9 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
   const p         = PAL.upload;
 
   const CREDIT_PACKS = [
-    { label: "Starter",   credits: 3,  desc: "3 reports",    price: "$4"  },
-    { label: "Standard",  credits: 7,  desc: "Best value",   price: "$8"  },
-    { label: "Deep Dive", credits: 12, desc: "Full + extras", price: "$12" },
+    { label: "Starter",   credits: 4,  desc: "1 Vibe Bundle",  price: "$4"  },
+    { label: "Standard",  credits: 8,  desc: "1 Full Suite",   price: "$8"  },
+    { label: "Deep Dive", credits: 15, desc: "2 Full Suites",  price: "$12" },
   ];
 
   const isPayments = mode === "payments";
@@ -9172,10 +9214,7 @@ function AdminFeedbackTab() {
     const load = async () => {
       setErr("");
       const { data: feedbackRows, error: feedbackError } = await supabase
-        .from("feedback")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .rpc("admin_list_feedback", { p_limit: 100 });
 
       if (!alive) return;
       if (feedbackError) {
@@ -11700,25 +11739,26 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   }
 
   // ── Premium report routing ──
+  const fromHistory = resultsOrigin === "history";
   if (reportType === "toxicity") {
     if (step < TOXICITY_SCREENS) return wrap(<ToxicityReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "lovelang") {
     if (step < LOVELANG_SCREENS) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "growth") {
     if (step < GROWTH_SCREENS) return wrap(<GrowthReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "accounta") {
     if (step < ACCOUNTA_SCREENS) return wrap(<AccountaReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "energy") {
     if (step < ENERGY_SCREENS) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
 
   // ── General Wrapped (existing casual analysis) ──
@@ -11730,7 +11770,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       ? <GroupScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} mode="casual" resultId={currentResultId} />
       : <DuoScreen   s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} mode="casual" relationshipType={relationshipType} resultId={currentResultId} />;
   } else {
-    screen = <Finale s={math} ai={ai} aiLoading={aiLoading} restart={restart} back={back} prog={total} total={total} mode="casual" resultId={currentResultId} />;
+    screen = <Finale s={math} ai={ai} aiLoading={aiLoading} restart={restart} back={back} prog={total} total={total} mode="casual" resultId={currentResultId} fromHistory={fromHistory} />;
   }
   return wrap(screen);
 }

@@ -10,6 +10,7 @@ export default function BrandLockup({
   titleLetterSpacing = -3,
   inline = false,
   logoSrc = wrapchatLogo,
+  accentColor = null,
 }) {
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -39,7 +40,7 @@ export default function BrandLockup({
           style={{
             fontSize: titleSize,
             fontWeight: 800,
-            color: "#fff",
+            color: accentColor || "#fff",
             letterSpacing: titleLetterSpacing,
             lineHeight: 1,
             textAlign: "center",

@@ -6,6 +6,14 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+## v2.1 — Admin feedback panel fix
+**Files:** `src/App.jsx`
+
+### Admin feedback panel now shows all users' feedback
+The admin feedback tab was querying the `feedback` table directly via the anon key, which is subject to Supabase RLS. Since the RLS SELECT policy restricts rows to `user_id = auth.uid()`, the admin could only see their own feedback rows. Replaced the direct table query with a call to a new `admin_list_feedback(p_limit)` RPC (which runs with `SECURITY DEFINER` to bypass RLS), matching the pattern already used by `admin_delete_feedback` and `admin_list_user_credits`. The corresponding SQL function must be created in Supabase — see the fix notes for the `CREATE OR REPLACE FUNCTION` statement.
+
+---
+
 ## v2.0 — UI consistency pass + iOS polish + translation fixes
 **Files:** `src/App.jsx`, `index.html`, `docs/update-notes.md`
 
