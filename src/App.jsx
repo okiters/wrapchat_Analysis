@@ -59,9 +59,9 @@ const SlideContext = createContext({ dir: "fwd", id: 0 });
 // Provided by Shell so inner components (AICard etc.) can auto-adopt the section palette.
 const SectionPaletteContext = createContext(null);
 
-// UI language preference — "english" stores as-is, "auto" follows detected chat lang.
+// UI language preference — language codes are manual, "auto" follows detected chat lang.
 // uiLang is the resolved code ("en","tr","es","pt","ar","fr","de","it").
-const UILanguageContext = createContext({ uiLang: "en", uiLangPref: "english", updateUiLangPref: () => {} });
+const UILanguageContext = createContext({ uiLang: "en", uiLangPref: "en", updateUiLangPref: () => {} });
 function useUILanguage() { return useContext(UILanguageContext); }
 function useT() {
   const { uiLang } = useUILanguage();
@@ -84,6 +84,7 @@ function GearIcon({ size = 15 }) {
 }
 
 const FEEDBACK_OPTIONS = [
+  "Nothing. Very accurate.",
   "Events are mixing",
   "Wrong person",
   "Didn't happen",
@@ -92,6 +93,11 @@ const FEEDBACK_OPTIONS = [
   "Missing context",
   "Other",
 ];
+const POSITIVE_FEEDBACK_OPTION = "Nothing. Very accurate.";
+
+function getFeedbackSentiment(option) {
+  return option === POSITIVE_FEEDBACK_OPTION ? "positive" : "negative";
+}
 
 const ADMIN_EMAILS = Array.from(new Set(
   String(import.meta.env.VITE_ADMIN_EMAILS || import.meta.env.VITE_ADMIN_EMAIL || "")
@@ -1966,16 +1972,18 @@ const UI_TRANSLATIONS = {
 
 const SUPPORTED_UI_LANGS = new Set(Object.keys(LANG_META));
 function normalizeUiLangPref(value) {
-  return value === "auto" ? "auto" : "english";
+  const pref = String(value || "").trim().toLowerCase();
+  if (pref === "auto") return "auto";
+  if (pref === "english") return "en";
+  return SUPPORTED_UI_LANGS.has(pref) ? pref : "en";
 }
 function normalizeUiLangCode(value) {
   const code = String(value || "en").trim().toLowerCase();
   return SUPPORTED_UI_LANGS.has(code) ? code : "en";
 }
 function resolveUiLang(uiLangPref, detectedCode) {
-  return normalizeUiLangPref(uiLangPref) === "auto"
-    ? normalizeUiLangCode(detectedCode)
-    : "en";
+  const pref = normalizeUiLangPref(uiLangPref);
+  return pref === "auto" ? normalizeUiLangCode(detectedCode) : normalizeUiLangCode(pref);
 }
 function formatUITranslation(value, vars = {}) {
   if (typeof value !== "string") return value;
@@ -4045,7 +4053,7 @@ const CORE_ANALYSIS_CACHE_VERSION = 6;
 const CORE_A_MAX_TOKENS = 2600;
 const CORE_B_MAX_TOKENS = 2600;
 const HOMEPAGE_VERSION = "67537";
-const HOMEPAGE_VERSION_LABEL = "Version 1.3.2";
+const HOMEPAGE_VERSION_LABEL = "Version 1.9";
 
 function buildRelationshipContextBlock(relType) {
   const relCtx = relContextStr(relType);
@@ -6040,7 +6048,7 @@ function FeedbackSheet({ open, target, selected, note, submitting, onSelect, onN
 function Btn({ onClick, children }) {
   return <button onClick={onClick} className="wc-btn" style={{ padding:"12px 28px", borderRadius:50, border:"none", background:"rgba(255,255,255,0.15)", color:"#fff", fontSize:15, cursor:"pointer", fontWeight:700, transition:"all 0.15s", flexShrink:0, letterSpacing:0.2 }}>{children}</button>;
 }
-function Nav({ back, next, showBack=true, nextLabel="Next" }) {
+function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
   const t = useT();
   const p = useContext(SectionPaletteContext) || PAL.upload;
   return (
@@ -6058,7 +6066,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next" }) {
         background:p.accent, border:"none",
         fontFamily:"'Nunito Sans',sans-serif", color:p.bg,
         fontSize:15, fontWeight:800,
-      }}>{t(nextLabel)} →</button>
+      }}>{t(nextLabel)}{showArrow ? " →" : ""}</button>
     </div>
   );
 }
@@ -6777,13 +6785,13 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
         </div>
         {["General Wrapped — stats + full AI deep dive", "Toxicity & red flags", "Love Language Report", "Energy Report", "Growth over time", "Accountability"].map((label, i) => (
           <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
-            <div style={{ fontSize:13, color:"rgba(255,255,255,0.28)" }}>🔒</div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }} aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <div style={{ fontSize:13, color:"rgba(255,255,255,0.42)", flex:1 }}>{t(label)}</div>
           </div>
         ))}
       </div>
 
-      <Nav back={back} next={next} showBack={false} nextLabel={t("See upgrade options →")} />
+      <Nav back={back} next={next} showBack={false} nextLabel="See upgrade options" />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -6902,7 +6910,7 @@ function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resultId }) 
       <Sub mt={8}>{t("Overall chat health score.")}</Sub>
       <AICard label={t("Final read")} value={ai?.verdict} loading={loading} />
       <Sub mt={8}>{t("Reflects patterns in this sample — not a final judgment.")}</Sub>
-      <Nav back={back} next={next} nextLabel="Done" />
+      <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -6925,20 +6933,14 @@ function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resultId }) 
   const screens = [
     <Shell sec="lovelang" prog={1} total={LOVELANG_SCREENS} feedback={feedback(personATitle, 1)}>
       <T>{loading ? "…" : t("{name}'s love language", { name: ai?.personA?.name || s.names[0] })}</T>
-      <div style={{ marginTop:12, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-        <div style={{ fontSize:60, lineHeight:1 }}>{loading ? "💝" : (ai?.personA?.languageEmoji || "💝")}</div>
-        <Big>{loading ? "…" : reportControl(ai?.personA?.language || "—")}</Big>
-      </div>
+      <Big>{loading ? "…" : reportControl(ai?.personA?.language || "—")}</Big>
       <AICard label={t("How they show it")} value={ai?.personA?.examples} loading={loading} />
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
     <Shell sec="lovelang" prog={2} total={LOVELANG_SCREENS} feedback={feedback(personBTitle, 2)}>
       <T>{loading ? "…" : t("{name}'s love language", { name: ai?.personB?.name || s.names[1]||s.names[0] })}</T>
-      <div style={{ marginTop:12, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-        <div style={{ fontSize:60, lineHeight:1 }}>{loading ? "💝" : (ai?.personB?.languageEmoji || "💝")}</div>
-        <Big>{loading ? "…" : reportControl(ai?.personB?.language || "—")}</Big>
-      </div>
+      <Big>{loading ? "…" : reportControl(ai?.personB?.language || "—")}</Big>
       <AICard label={t("How they show it")} value={ai?.personB?.examples} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
@@ -6951,7 +6953,6 @@ function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resultId }) 
 
     <Shell sec="lovelang" prog={4} total={LOVELANG_SCREENS} feedback={feedback("Most loving moment", 4)}>
       <T>{t("Most loving moment")}</T>
-      <div style={{ fontSize:40, textAlign:"center", marginTop:16 }}>💕</div>
       <AICard label={t("The moment")} value={ai?.mostLovingMoment} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
@@ -6962,7 +6963,7 @@ function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resultId }) 
         <ScoreRing score={loading ? 0 : (ai?.compatibilityScore||5)} max={10} size={130} color="#F08EBF" />
       </div>
       <AICard label={t("Compatibility read")} value={ai?.compatibilityRead} loading={loading} />
-      <Nav back={back} next={next} nextLabel="Done" />
+      <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -7027,7 +7028,7 @@ function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
       <div style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:14, padding:"1.4rem 1.5rem", width:"100%", textAlign:"center", marginTop:16, fontSize:16, lineHeight:1.7, fontStyle:"italic", color:"#fff", minHeight:80, display:"flex", alignItems:"center", justifyContent:"center" }}>
         {loading ? <Dots /> : (ai?.arcSummary||"—")}
       </div>
-      <Nav back={back} next={next} nextLabel="Done" />
+      <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -7126,7 +7127,7 @@ function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resultId }) 
             </div>
           </div>
       }
-      <Nav back={back} next={next} nextLabel="Done" />
+      <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -7180,14 +7181,12 @@ function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
 
     <Shell sec="energy" prog={4} total={ENERGY_SCREENS} feedback={feedback("Most energising moment", 4)}>
       <T>{t("Most energising moment")}</T>
-      <div style={{ fontSize:40, textAlign:"center", marginTop:16 }}>⚡</div>
       <AICard label={t("The moment")} value={ai?.mostEnergising} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
     <Shell sec="energy" prog={5} total={ENERGY_SCREENS} feedback={feedback("Most draining moment", 5)}>
       <T>{t("Most draining moment")}</T>
-      <div style={{ fontSize:40, textAlign:"center", marginTop:16 }}>🪫</div>
       <AICard label={t("The moment")} value={ai?.mostDraining} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
@@ -7203,7 +7202,7 @@ function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
         ))}
       </div>
       <AICard label={t("Overall read")} value={ai?.compatibility} loading={loading} />
-      <Nav back={back} next={next} nextLabel="Done" />
+      <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -7426,12 +7425,7 @@ function RelationshipSelect({
 
   return (
     <Shell sec="upload" prog={1} total={3}>
-      <button onClick={onBack} className="wc-btn" style={{
-        alignSelf:"flex-start",
-        background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
-        borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
-        color:"rgba(255,255,255,0.75)",
-      }}>← {t("Back")}</button>
+      <GhostButton onClick={onBack} style={{ width:"auto", alignSelf:"flex-start", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
 
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase",
         color:DA.faint, width:"100%", marginBottom:-10 }}>
@@ -7630,7 +7624,7 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
     thenCb?.();
   };
 
-  const handleSkip   = () => markOnboarded("english", () => onOnboarded?.("english"));
+  const handleSkip   = () => markOnboarded("en", () => onOnboarded?.("en"));
   const handleFinish = () => markOnboarded(selectedUiLang, () => onOnboarded?.(selectedUiLang));
 
   const linkBtn = { background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
@@ -7696,7 +7690,7 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
         </div>
         <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           {[
-            { id:"english", title:"English", desc:"Use English for the interface." },
+            { id:"en", title:"English", desc:"Use English for the interface." },
             { id:"auto", title:"Auto-detect", desc:"UI follows the detected chat language." },
           ].map(option => {
             const active = selectedUiLang === option.id;
@@ -7871,8 +7865,7 @@ function TooShort({ onBack }) {
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
       <BrandLockup />
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
-        <div style={{ fontSize:40, lineHeight:1 }}>🤐</div>
-        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, marginTop:14, lineHeight:1.2 }}>
+        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
           Not enough messages to wrap
         </div>
         <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginTop:10, lineHeight:1.75 }}>
@@ -7882,7 +7875,7 @@ function TooShort({ onBack }) {
       <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", textAlign:"center", lineHeight:1.8 }}>
         Try exporting a longer chat history.
       </div>
-      <Btn onClick={onBack}>← Upload a different file</Btn>
+      <GhostButton onClick={onBack}>← Upload a different file</GhostButton>
     </Shell>
   );
 }
@@ -7892,14 +7885,11 @@ function AdminLocked({ onBack }) {
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <div style={{ fontSize:32, fontWeight:800, color:"#fff", letterSpacing:-1.2, lineHeight:1.1, textAlign:"center", width:"100%" }}>Admin access only</div>
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
-        <div style={{ fontSize:36, lineHeight:1 }}>🔒</div>
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.58)", marginTop:12, lineHeight:1.7 }}>
+        <div style={{ fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.7 }}>
           This panel is only visible to the configured admin email.
         </div>
       </div>
-      <div style={{ width:"100%", display:"flex", justifyContent:"center", marginTop:8 }}>
-        <Btn onClick={onBack}>← Back</Btn>
-      </div>
+      <GhostButton onClick={onBack}>← Back</GhostButton>
     </Shell>
   );
 }
@@ -7918,7 +7908,6 @@ function Upload({
   accessMode = DEFAULT_ACCESS_MODE,
   onClearError,
 }) {
-  const { uiLangPref, updateUiLangPref } = useUILanguage();
   const t = useT();
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -7957,59 +7946,25 @@ function Upload({
   };
   return (
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
-      {creditLabel && (
-        <div
-          style={{
-            position:"absolute",
-            top:14,
-            right:14,
-            zIndex:6,
-            fontSize:12,
-            color:"rgba(255,244,214,0.88)",
-            textAlign:"center",
-            background:"rgba(255,214,120,0.14)",
-            border:"1px solid rgba(255,214,120,0.22)",
-            borderRadius:999,
-            padding:"8px 14px",
-            fontWeight:800,
-            boxShadow:"0 6px 18px rgba(0,0,0,0.08)",
-            pointerEvents:"none",
-          }}
-        >
-          {creditLabel}
-        </div>
-      )}
       <BrandLockup
         logoSrc={wrapchatLogoTransparent}
         logoSize={72}
         subtitle={t("Your chats, unwrapped.")}
-        subtitleMarginBottom={8}
+        subtitleMarginBottom={creditLabel ? 4 : 8}
       />
-      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.34)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>{t("UI language")}</div>
-        {["english", "auto"].map(option => {
-          const active = uiLangPref === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => updateUiLangPref(option)}
-              className="wc-btn"
-              style={{
-                border:`1px solid ${active ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.14)"}`,
-                borderRadius:999,
-                padding:"6px 12px",
-                fontSize:12,
-                fontWeight:700,
-                color: active ? "#fff" : "rgba(255,255,255,0.55)",
-                background: active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
-              }}
-            >
-              {t(option === "english" ? "English" : "Auto-detect")}
-            </button>
-          );
-        })}
-      </div>
+      {creditLabel && (
+        <div style={{
+          fontSize:12, fontWeight:800,
+          color:"rgba(255,244,214,0.88)",
+          background:"rgba(255,214,120,0.14)",
+          border:"1px solid rgba(255,214,120,0.22)",
+          borderRadius:999,
+          padding:"7px 18px",
+          textAlign:"center",
+        }}>
+          {creditLabel}
+        </div>
+      )}
       <label
         htmlFor={uploadInputId}
         onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files[0]); }}
@@ -8094,11 +8049,13 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   const t = useT();
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick(x => Math.min(x+1, LOADING_STEPS.length-1)), 1800); return () => clearInterval(t); }, []);
-  const label = REPORT_TYPES.find(r => r.id === reportType)?.label || "Analysis";
+  const rtype = REPORT_TYPES.find(r => r.id === reportType);
+  const label = rtype?.label || "Analysis";
+  const sec   = rtype?.palette || "upload";
   const queue = normalizeSelectedReportTypes(reportTypes);
   const queuePrefix = queue.length > 1 ? `${Math.min(loadingIndex + 1, queue.length)}/${queue.length} · ` : "";
   return (
-    <Shell sec="upload" prog={tick+1} total={LOADING_STEPS.length} scrollable={false}>
+    <Shell sec={sec} prog={tick+1} total={LOADING_STEPS.length} scrollable={false}>
       <BrandLockup />
       <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:500 }}>
         {queuePrefix}{t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
@@ -8118,9 +8075,12 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
 
 function SettingsScreen({ onBack, onAccountDeleted }) {
   const t = useT();
+  const { uiLangPref, updateUiLangPref } = useUILanguage();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const autoLanguage = uiLangPref === "auto";
+  const selectedManualLang = autoLanguage ? "en" : normalizeUiLangCode(uiLangPref);
 
   const closeConfirm = () => {
     if (deleteBusy) return;
@@ -8151,18 +8111,75 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
         }}>
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
             <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-              <button onClick={onBack} className="wc-btn" style={{
-                position:"absolute", left:0,
-                background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
-                borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
-                color:"rgba(255,255,255,0.75)",
-              }}>← {t("Back")}</button>
+              <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
               <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
                 {t("Settings")}
               </div>
             </div>
           </div>
-          <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"12px 20px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
+          <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, padding:"12px 20px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
+            <div style={{
+              width:"100%",
+              background:"rgba(255,255,255,0.06)",
+              border:"1px solid rgba(255,255,255,0.10)",
+              borderRadius:18,
+              padding:"15px 16px",
+              display:"flex",
+              flexDirection:"column",
+              gap:12,
+            }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#fff" }}>{t("UI language")}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
+                  {t("Auto selection will recognize the language from your chats.")}
+                </div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"minmax(0, 1fr) auto", gap:8, alignItems:"center" }}>
+                <select
+                  value={selectedManualLang}
+                  onChange={e => updateUiLangPref(e.target.value)}
+                  aria-label={t("Manual language")}
+                  style={{
+                    minWidth:0,
+                    height:42,
+                    background:"rgba(0,0,0,0.22)",
+                    border:`1px solid ${autoLanguage ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.28)"}`,
+                    borderRadius:14,
+                    color:"#fff",
+                    fontSize:14,
+                    fontWeight:700,
+                    padding:"0 12px",
+                    outline:"none",
+                    fontFamily:"inherit",
+                  }}
+                >
+                  {LANG_OPTIONS.map(option => (
+                    <option key={option.code} value={option.code}>
+                      {t(option.label)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => updateUiLangPref("auto")}
+                  className="wc-btn"
+                  style={{
+                    height:42,
+                    border:`1px solid ${autoLanguage ? "rgba(255,255,255,0.32)" : "rgba(255,255,255,0.12)"}`,
+                    background:autoLanguage ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.06)",
+                    borderRadius:999,
+                    color:autoLanguage ? "#fff" : "rgba(255,255,255,0.62)",
+                    fontSize:13,
+                    fontWeight:800,
+                    padding:"0 14px",
+                    cursor:"pointer",
+                    whiteSpace:"nowrap",
+                  }}
+                >
+                  {t("Auto-detect")}
+                </button>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
@@ -8349,12 +8366,7 @@ function ReportSelect({
 
   return (
     <Shell sec="upload" prog={stepProg} total={stepTotal}>
-      <button onClick={onBack} className="wc-btn" style={{
-        alignSelf:"flex-start",
-        background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
-        borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
-        color:"rgba(255,255,255,0.75)",
-      }}>← {t("Back")}</button>
+      <GhostButton onClick={onBack} style={{ width:"auto", alignSelf:"flex-start", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
 
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase",
         color:DA.faint, width:"100%", marginBottom:-10 }}>
@@ -8640,9 +8652,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
         <Sub mt={2}>{info?.message || t("You need credits to run these reports. Ask an admin to add credits to your account.")}</Sub>
       )}
 
-      <PrimaryButton onClick={onBack} color={p.accent} textColor={p.bg}>
-        ← {t("Back to reports")}
-      </PrimaryButton>
+      <GhostButton onClick={onBack}>← {t("Back to reports")}</GhostButton>
     </Shell>
   );
 }
@@ -8783,12 +8793,14 @@ async function submitFeedback({ resultId, reportType, cardIndex, cardTitle, erro
     if (!resultId || !reportType || !cardTitle || !errorType) return false;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
+    const sentiment = getFeedbackSentiment(errorType);
     const { error } = await supabase.from("feedback").insert({
       user_id: user.id,
       result_id: resultId,
       report_type: reportType,
       card_index: cardIndex,
       card_title: cardTitle,
+      sentiment,
       error_type: errorType,
       error_note: String(errorNote || "").trim() || null,
     });
@@ -9075,6 +9087,8 @@ function AdminFeedbackTab() {
 
   const errorTypeColor = (type) => {
     switch (type) {
+      case POSITIVE_FEEDBACK_OPTION:
+        return { bg:"rgba(80,190,120,0.16)",  border:"rgba(80,190,120,0.32)",  text:"#7BE39A" };
       case "Events are mixing":  return { bg:"rgba(240,160,40,0.15)",  border:"rgba(240,160,40,0.3)",  text:"#F0A040" };
       case "Wrong person":       return { bg:"rgba(220,80,60,0.15)",   border:"rgba(220,80,60,0.3)",   text:"#E06060" };
       case "Didn't happen":      return { bg:"rgba(180,60,200,0.15)",  border:"rgba(180,60,200,0.3)",  text:"#C070E0" };
@@ -9170,6 +9184,10 @@ function AdminFeedbackTab() {
             ? new Date(row.created_at).toLocaleString("en-US", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
             : "Unknown";
           const tagStyle = errorTypeColor(row.error_type);
+          const sentiment = row.sentiment === "positive" || row.error_type === POSITIVE_FEEDBACK_OPTION ? "positive" : "negative";
+          const sentimentStyle = sentiment === "positive"
+            ? { bg:"rgba(80,190,120,0.14)", border:"rgba(80,190,120,0.30)", text:"#7BE39A", label:"Positive" }
+            : { bg:"rgba(224,90,80,0.13)", border:"rgba(224,90,80,0.28)", text:"#FF9A8F", label:"Negative" };
           const isDeleting = deletingId === row.id;
           const isConfirming = confirmId === row.id;
 
@@ -9307,8 +9325,13 @@ function AdminFeedbackTab() {
                         ))}
                       </div>
                     )}
-                    <div style={{ background:tagStyle.bg, border:`1px solid ${tagStyle.border}`, borderRadius:999, padding:"5px 11px", fontSize:12, fontWeight:700, color:tagStyle.text, whiteSpace:"nowrap" }}>
-                      {row.error_type || "Other"}
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+                      <div style={{ background:sentimentStyle.bg, border:`1px solid ${sentimentStyle.border}`, borderRadius:999, padding:"4px 10px", fontSize:11, fontWeight:800, color:sentimentStyle.text, whiteSpace:"nowrap", letterSpacing:"0.04em", textTransform:"uppercase" }}>
+                        {sentimentStyle.label}
+                      </div>
+                      <div style={{ background:tagStyle.bg, border:`1px solid ${tagStyle.border}`, borderRadius:999, padding:"5px 11px", fontSize:12, fontWeight:700, color:tagStyle.text, whiteSpace:"nowrap" }}>
+                        {row.error_type || "Other"}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -9729,8 +9752,9 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
-      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-        <div style={{ fontSize:28, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
+        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
           Admin
         </div>
       </div>
@@ -9753,7 +9777,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
               border:"none",
               borderRadius:999,
               padding:"10px 0",
-              fontSize:13,
+              fontSize:14,
               fontWeight:700,
               cursor:"pointer",
               transition:"all 0.2s",
@@ -9770,8 +9794,6 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
       {tab === "feedback" && <AdminFeedbackTab />}
       {tab === "users" && <AdminUsersTab accessMode={accessMode} />}
       {tab === "settings" && <AdminAccessModeTab accessMode={accessMode} onAccessModeChange={onAccessModeChange} />}
-
-      <Btn onClick={onBack}>← Back</Btn>
     </Shell>
   );
 }
@@ -9937,11 +9959,7 @@ function MyResults({ onBack, onRestoreResult }) {
           {/* Fixed header */}
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
-              <button onClick={() => { exitEditing(); setBundleView(null); }} className="wc-btn" style={{
-                background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
-                borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
-                color:"rgba(255,255,255,0.75)",
-              }}>← Back</button>
+              <GhostButton onClick={() => { exitEditing(); setBundleView(null); }} style={{ width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
               {bRows.length > 0 && (
                 <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
                   background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
@@ -10052,11 +10070,7 @@ function MyResults({ onBack, onRestoreResult }) {
         <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
           {/* Row 1: back + edit icon */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
-            <button onClick={() => { exitEditing(); onBack(); }} className="wc-btn" style={{
-              background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)",
-              borderRadius:999, padding:"7px 14px", fontSize:13, fontWeight:700,
-              color:"rgba(255,255,255,0.75)",
-            }}>← Back</button>
+            <GhostButton onClick={() => { exitEditing(); onBack(); }} style={{ width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
           </div>
           {/* Row 2: title + new */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", marginTop:8 }}>
@@ -10275,7 +10289,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [relationshipType, setRelationshipType] = useState(null);
   const [chatLang,         setChatLang]         = useState("en");  // detected or user-selected
   const [detectedLang,     setDetectedLang]     = useState(null);  // { code, label, confidence }
-  const [uiLangPref,       setUiLangPref]       = useState("english");
+  const [uiLangPref,       setUiLangPref]       = useState("en");
   const [step,             setStep]             = useState(0);
   const [dir,              setDir]              = useState("fwd");
   const [sid,              setSid]              = useState(0);
@@ -10569,7 +10583,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   };
 
   // Called when onboarding completes → proceed to terms acceptance
-  const onOnboarded = (pref = "english") => {
+  const onOnboarded = (pref = "en") => {
     const nextPref = normalizeUiLangPref(pref);
     const userEmail = authedUser?.email || null;
     setUiLangPref(nextPref);
