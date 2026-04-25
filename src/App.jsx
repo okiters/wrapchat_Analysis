@@ -10240,7 +10240,6 @@ function MyResults({ onBack, onRestoreResult }) {
             title="My Results"
           />
         </div>
-        </div>
         {/* Floating edit FAB */}
         {rows?.length > 0 && (
           <button
