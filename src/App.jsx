@@ -283,6 +283,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "Sohbetini yükle",
     "Reading your chat…": "Sohbetin okunuyor…",
     "My Results": "Sonuçlarım",
+    "Settings": "Ayarlar",
+    "Delete my account": "Hesabımı sil",
+    "Relationship": "İlişki",
+    "Report Type": "Rapor Türü",
+    "Are you sure you want to delete your account?": "Hesabınızı silmek istediğinizden emin misiniz?",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "Tüm kayıtlı sonuçların silinecek. Bu işlem WrapChat hesabını kalıcı olarak siler ve geri alınamaz.",
+    "Delete account": "Hesabı sil",
+    "Deleting...": "Siliniyor...",
     "Edit": "Düzenle",
     "Your chats, unwrapped.": "Sohbetlerinin şifresi çözülüyor.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "Grup ya da ikili sohbet otomatik algılanır. Sohbetin yapay zekâ ile analiz edilir ve asla saklanmaz. Yalnızca sonuçlar kaydedilir.",
@@ -619,6 +627,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "Sube tu chat",
     "Reading your chat…": "Leyendo tu chat…",
     "My Results": "Mis resultados",
+    "Settings": "Ajustes",
+    "Delete my account": "Eliminar mi cuenta",
+    "Relationship": "Relación",
+    "Report Type": "Tipo de informe",
+    "Are you sure you want to delete your account?": "¿Estás seguro de que quieres eliminar tu cuenta?",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "Todos tus resultados guardados se perderán. Esto elimina permanentemente tu cuenta de WrapChat y no se puede deshacer.",
+    "Delete account": "Eliminar cuenta",
+    "Deleting...": "Eliminando...",
     "Edit": "Editar",
     "Your chats, unwrapped.": "Tus chats, al descubierto.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "Se detecta automáticamente si es grupo o dúo. Tu chat se analiza con IA y nunca se guarda. Solo se guardan los resultados.",
@@ -854,6 +870,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "Envie sua conversa",
     "Reading your chat…": "Lendo sua conversa…",
     "My Results": "Meus resultados",
+    "Settings": "Configurações",
+    "Delete my account": "Excluir minha conta",
+    "Relationship": "Relacionamento",
+    "Report Type": "Tipo de relatório",
+    "Are you sure you want to delete your account?": "Tem certeza de que deseja excluir sua conta?",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "Todos os seus resultados salvos serão perdidos. Isso exclui permanentemente sua conta WrapChat e não pode ser desfeito.",
+    "Delete account": "Excluir conta",
+    "Deleting...": "Excluindo...",
     "Edit": "Editar",
     "Your chats, unwrapped.": "Seus chats, revelados.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "Grupo ou dupla detectado automaticamente. Sua conversa é analisada por IA e nunca armazenada. Apenas os resultados são salvos.",
@@ -1089,6 +1113,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "ارفع محادثتك",
     "Reading your chat…": "جارٍ قراءة محادثتك…",
     "My Results": "نتائجي",
+    "Settings": "الإعدادات",
+    "Delete my account": "حذف حسابي",
+    "Relationship": "العلاقة",
+    "Report Type": "نوع التقرير",
+    "Are you sure you want to delete your account?": "هل أنت متأكد أنك تريد حذف حسابك؟",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "ستفقد جميع نتائجك المحفوظة. سيتم حذف حساب WrapChat الخاص بك بشكل دائم ولا يمكن التراجع عن ذلك.",
+    "Delete account": "حذف الحساب",
+    "Deleting...": "جارٍ الحذف...",
     "Edit": "تعديل",
     "Your chats, unwrapped.": "محادثاتك كما هي.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "يتم اكتشاف المجموعة أو المحادثة الثنائية تلقائيًا. يتم تحليل محادثتك بالذكاء الاصطناعي ولا يتم حفظها أبدًا. يتم حفظ النتائج فقط.",
@@ -1324,6 +1356,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "Téléversez votre chat",
     "Reading your chat…": "Lecture de votre chat…",
     "My Results": "Mes résultats",
+    "Settings": "Paramètres",
+    "Delete my account": "Supprimer mon compte",
+    "Relationship": "Relation",
+    "Report Type": "Type de rapport",
+    "Are you sure you want to delete your account?": "Êtes-vous sûr de vouloir supprimer votre compte ?",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "Tous vos résultats enregistrés seront perdus. Ceci supprime définitivement votre compte WrapChat et ne peut pas être annulé.",
+    "Delete account": "Supprimer le compte",
+    "Deleting...": "Suppression...",
     "Edit": "Modifier",
     "Your chats, unwrapped.": "Vos chats, déballés.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "Groupe ou duo détecté automatiquement. Votre chat est analysé par l'IA et n'est jamais stocké. Seuls les résultats sont enregistrés.",
@@ -1559,6 +1599,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "Chat hochladen",
     "Reading your chat…": "Dein Chat wird gelesen…",
     "My Results": "Meine Ergebnisse",
+    "Settings": "Einstellungen",
+    "Delete my account": "Mein Konto löschen",
+    "Relationship": "Beziehung",
+    "Report Type": "Berichtstyp",
+    "Are you sure you want to delete your account?": "Bist du sicher, dass du dein Konto löschen möchtest?",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "Alle deine gespeicherten Ergebnisse werden gelöscht. Dies löscht dein WrapChat-Konto dauerhaft und kann nicht rückgängig gemacht werden.",
+    "Delete account": "Konto löschen",
+    "Deleting...": "Wird gelöscht...",
     "Edit": "Bearbeiten",
     "Your chats, unwrapped.": "Deine Chats, aufgedeckt.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "Gruppe oder Duo wird automatisch erkannt. Dein Chat wird von KI analysiert und nie gespeichert. Nur die Ergebnisse werden gespeichert.",
@@ -1794,6 +1842,14 @@ const UI_TRANSLATIONS = {
     "Upload your chat": "Carica la tua chat",
     "Reading your chat…": "Sto leggendo la tua chat…",
     "My Results": "I miei risultati",
+    "Settings": "Impostazioni",
+    "Delete my account": "Elimina il mio account",
+    "Relationship": "Relazione",
+    "Report Type": "Tipo di report",
+    "Are you sure you want to delete your account?": "Sei sicuro di voler eliminare il tuo account?",
+    "All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.": "Tutti i tuoi risultati salvati andranno persi. Questo elimina definitivamente il tuo account WrapChat e non può essere annullato.",
+    "Delete account": "Elimina account",
+    "Deleting...": "Eliminazione...",
     "Edit": "Modifica",
     "Your chats, unwrapped.": "Le tue chat, svelate.",
     "Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.": "Gruppo o duo rilevato automaticamente. La tua chat viene analizzata dall'IA e non viene mai archiviata. Vengono salvati solo i risultati.",
@@ -6080,20 +6136,22 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
 function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null }) {
   const t = useT();
   return (
-    <div data-share-hide style={{ width:"100%", display:"flex", alignItems:"center", gap:10, flexShrink:0, paddingTop:2 }}>
-      {back && (
-        <GhostButton onClick={back} style={{ width:"auto", flexShrink:0, padding:"7px 14px", fontSize:13 }}>
-          ← {t(backLabel)}
-        </GhostButton>
+    <div data-share-hide style={{ width:"100%", display:"flex", flexDirection:"column", gap:8, flexShrink:0, paddingTop:8 }}>
+      {(back || action) && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          {back
+            ? <GhostButton onClick={back} style={{ width:"auto", flexShrink:0, padding:"7px 14px", fontSize:13 }}>← {t(backLabel)}</GhostButton>
+            : <div />
+          }
+          {action && <div style={{ flexShrink:0 }}>{action}</div>}
+        </div>
       )}
       <div style={{
-        minWidth:0, flex:1,
         fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1,
-        textAlign:"left", overflowWrap:"anywhere",
+        overflowWrap:"anywhere",
       }}>
         {titleNode ?? t(title)}
       </div>
-      {action && <div style={{ marginLeft:"auto", flexShrink:0 }}>{action}</div>}
     </div>
   );
 }
@@ -7523,7 +7581,7 @@ function RelationshipSelect({
 
   return (
     <Shell sec="upload" prog={1} total={3} contentAlign="start">
-      <ScreenHeader back={onBack} title="Who is this chat with?" />
+      <ScreenHeader back={onBack} title="Relationship" />
       <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
         {t("This helps the AI frame the analysis correctly.")}
       </div>
@@ -8320,10 +8378,10 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
             }}
           >
             <div id="delete-account-title" style={{ fontSize:20, fontWeight:900, letterSpacing:-0.5, lineHeight:1.15 }}>
-              Are you sure you want to delete your account?
+              {t("Are you sure you want to delete your account?")}
             </div>
             <div style={{ marginTop:10, fontSize:14, lineHeight:1.6, color:"rgba(255,255,255,0.66)" }}>
-              All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.
+              {t("All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.")}
             </div>
             {deleteError && (
               <div style={{ marginTop:14, fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.18)", border:"1px solid rgba(200,60,20,0.28)", padding:"10px 12px", borderRadius:14, lineHeight:1.45 }}>
@@ -8348,7 +8406,7 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
                   opacity:deleteBusy ? 0.55 : 1,
                 }}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="button"
@@ -8367,7 +8425,7 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
                   opacity:deleteBusy ? 0.7 : 1,
                 }}
               >
-                {deleteBusy ? "Deleting..." : "Delete account"}
+                {deleteBusy ? t("Deleting...") : t("Delete account")}
               </button>
             </div>
           </div>
@@ -8449,7 +8507,7 @@ function ReportSelect({
 
   return (
     <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start">
-      <ScreenHeader back={onBack} title="Choose your report" />
+      <ScreenHeader back={onBack} title="Report Type" />
       <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
         {math?.totalMessages?.toLocaleString()} {t("messages")} · {math?.names?.slice(0,3).join(", ") || ""}{(math?.names?.length||0)>3?` +${math.names.length-3}`:""}
       </div>
