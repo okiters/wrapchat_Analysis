@@ -5583,7 +5583,7 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center" }) {
   const p = PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -5609,11 +5609,17 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = p.bg;
+  }, [p.bg]);
+
   prevContentRef.current = children;
 
   const isFade = dir === "fade";
   const enterFrom = dir === "fwd" ? "100%"  : "-100%";
   const exitTo    = dir === "fwd" ? "-100%" : "100%";
+  const paneJustify = contentAlign === "start" ? "flex-start" : "safe center";
 
   return (
     <SectionPaletteContext.Provider value={p}>
@@ -5649,6 +5655,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         display: "flex",
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
+        paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
         {/* ── DECORATIVE GEO SHAPES ── */}
         <Geo shape="sq-r"   size={90}  color={p.accent} top={60}    right={-24} rotate={18}  opacity={0.18} />
@@ -5658,7 +5665,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
+        <div data-share-hide style={{ position:"absolute", top:"env(safe-area-inset-top, 0px)", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
         </div>
         {share?.onShare && (
@@ -5670,7 +5677,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             disabled={share.busy}
             style={{
               position:"absolute",
-              top:14, left:14,
+              top:"calc(14px + env(safe-area-inset-top, 0px))", left:14,
               minWidth:66, height:30,
               borderRadius:999,
               border:"none",
@@ -5691,7 +5698,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           </button>
         )}
         {feedback?.resultId && feedbackApi?.openFeedback && (
-          <div data-share-hide style={{ position:"absolute", top:14, right:onClose ? 54 : 14, zIndex:11 }}>
+          <div data-share-hide style={{ position:"absolute", top:"calc(14px + env(safe-area-inset-top, 0px))", right:onClose ? 54 : 14, zIndex:11 }}>
             <FeedbackButton onClick={() => feedbackApi.openFeedback(feedback)} />
           </div>
         )}
@@ -5704,7 +5711,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             aria-label="Close results"
             style={{
               position: "absolute",
-              top: 14, right: 14,
+              top: "calc(14px + env(safe-area-inset-top, 0px))", right: 14,
               width: 30, height: 30,
               borderRadius: "50%",
               border: "none",
@@ -5733,7 +5740,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           {exitContent && (
             <div data-share-hide className="wc-pane" style={{
               position:"absolute", inset:0,
-              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"safe center",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:paneJustify,
               padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
               transform:isFade ? "none" : `translateX(${exitTo})`,
               opacity:isFade ? 0 : 1,
@@ -5750,7 +5757,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             position: exitContent ? "absolute" : "relative",
             inset: exitContent ? 0 : "auto",
             flex: exitContent ? "none" : 1,
-            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"safe center",
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:paneJustify,
             width:"100%",
             minHeight:0,
             padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
@@ -6067,6 +6074,26 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
         fontFamily:"'Nunito Sans',sans-serif", color:p.bg,
         fontSize:15, fontWeight:800,
       }}>{t(nextLabel)}{showArrow ? " →" : ""}</button>
+    </div>
+  );
+}
+function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null }) {
+  const t = useT();
+  return (
+    <div data-share-hide style={{ width:"100%", display:"flex", alignItems:"center", gap:10, flexShrink:0, paddingTop:2 }}>
+      {back && (
+        <GhostButton onClick={back} style={{ width:"auto", flexShrink:0, padding:"7px 14px", fontSize:13 }}>
+          ← {t(backLabel)}
+        </GhostButton>
+      )}
+      <div style={{
+        minWidth:0, flex:1,
+        fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1,
+        textAlign:"left", overflowWrap:"anywhere",
+      }}>
+        {titleNode ?? t(title)}
+      </div>
+      {action && <div style={{ marginLeft:"auto", flexShrink:0 }}>{action}</div>}
     </div>
   );
 }
@@ -6763,22 +6790,93 @@ function ScoreRing({ score, max=10, size=110, color="#fff" }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TOXICITY REPORT SCREENS  (7 cards)
+// TRIAL REPORT SCREENS
 // ─────────────────────────────────────────────────────────────────
-const TRIAL_SCREENS = 1;
+const TRIAL_SCREENS = 6;
 
 function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
   const t = useT();
   const loading = aiLoading && !ai;
+  const names = s.names || [];
+  const msgCounts = s.msgCounts || [];
+  const colors = ["#E06030", "#4A90D4", "#3ABDA0", "#C4809A", "#8A70D4", "#D4A840"];
+  const topMembers = names.slice(0, Math.min(s.isGroup ? 5 : 2, names.length));
+  const maxMessages = Math.max(...msgCounts, 1);
+  const mediaTotal = (s.mediaCounts || []).reduce((sum, count) => sum + (count || 0), 0);
+  const voiceTotal = (s.voiceCounts || []).reduce((sum, count) => sum + (count || 0), 0);
+  const linkTotal = (s.linkCounts || []).reduce((sum, count) => sum + (count || 0), 0);
+  const topMonth = s.topMonths?.[0];
+  const ghostValue = s.isGroup
+    ? (s.ghost || "—")
+    : (s.ghostEqual ? t("Balanced") : (s.ghostName || "—"));
+  const firstCardTitle = s.isGroup ? "Group snapshot" : "Chat snapshot";
   const screens = [
     <Shell sec="trial" prog={1} total={TRIAL_SCREENS + 1}>
-      <T>{t("Chat preview")}</T>
-      <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
+      <T>{t(firstCardTitle)}</T>
+      <Sub mt={4}>{names.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:8 }}>
+        <Cell label={t("Messages")} value={s.totalMessages?.toLocaleString() || "—"} />
+        <Cell label={t(s.isGroup ? "People" : "Chatters")} value={names.length || "—"} />
+        <Cell label={t("Best streak")} value={t("{count} days", { count: s.streak || 0 })} />
+        <Cell label={t("Top month")} value={topMonth ? `${topMonth[0]} · ${topMonth[1].toLocaleString()}` : "—"} />
+      </div>
+      <Nav back={back} next={next} showBack={false} />
+    </Shell>,
+
+    <Shell sec="trial" prog={2} total={TRIAL_SCREENS + 1}>
+      <T>{t(s.isGroup ? "Who carries the chat?" : "Message balance")}</T>
+      <div style={{ width:"100%", marginTop:12 }}>
+        {topMembers.map((name, i) => (
+          <Bar key={name} value={msgCounts[i] || 0} max={maxMessages} color={colors[i % colors.length]} label={name} delay={i * 90} />
+        ))}
+      </div>
+      <Sub mt={12}>
+        {s.isGroup
+          ? t("{name} is the main character in this sample.", { name: s.mainChar || names[0] || "—" })
+          : t("{pct}% of all messages came from {name}.", {
+              pct: Math.round(((msgCounts[0] || 0) / Math.max(s.totalMessages || 1, 1)) * 100),
+              name: names[0] || "—",
+            })}
+      </Sub>
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    <Shell sec="trial" prog={3} total={TRIAL_SCREENS + 1}>
+      <T>{t("Conversation rhythm")}</T>
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:8 }}>
+        <Cell label={t(s.isGroup ? "Main character" : "Ghost award")} value={s.isGroup ? (s.mainChar || "—") : ghostValue} />
+        <Cell label={t(s.isGroup ? "The ghost" : "Reply times")} value={s.isGroup ? (s.ghost || "—") : (s.ghostAvg?.join(" / ") || "—")} />
+        <Cell label={t("Starts most")} value={s.convStarter || "—"} />
+        <Cell label={t("Last word")} value={s.convKiller || "—"} />
+      </div>
+      <Sub mt={12}>{t("Started {pct} of all conversations.", { pct: s.convStarterPct || "—" })}</Sub>
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    <Shell sec="trial" prog={4} total={TRIAL_SCREENS + 1}>
+      <T>{t("Chat texture")}</T>
+      <Words words={s.topWords} bigrams={s.topBigrams} />
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:4 }}>
+        <Cell label={t("Media")} value={mediaTotal.toLocaleString()} />
+        <Cell label={t("Voice")} value={voiceTotal.toLocaleString()} />
+        <Cell label={t("Links")} value={linkTotal.toLocaleString()} />
+      </div>
+      <Sub mt={10}>{t("Spirit emojis")} · {(Array.isArray(s.spiritEmoji) ? s.spiritEmoji.join(" ") : s.spiritEmoji) || "💬"}</Sub>
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    <Shell sec="trial" prog={5} total={TRIAL_SCREENS + 1}>
+      <T>{t("AI preview")}</T>
+      <Sub mt={4}>{t("Three quick reads from the trial report.")}</Sub>
 
       <AICard label={t("The vibe")}               value={ai?.vibe}     loading={loading} />
       <AICard label={t("How you communicate")}    value={ai?.pattern}  loading={loading} />
       <AICard label={t("Most interesting thing")} value={ai?.takeaway} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
 
+    <Shell sec="trial" prog={6} total={TRIAL_SCREENS + 1}>
+      <T>{t("Full reports go deeper")}</T>
       <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"14px 16px" }}>
         <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:10 }}>
           {t("That was your free preview. Here's what the full reports include:")}
@@ -6791,7 +6889,7 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
         ))}
       </div>
 
-      <Nav back={back} next={next} showBack={false} nextLabel="See upgrade options" />
+      <Nav back={back} next={next} nextLabel="See upgrade options" />
     </Shell>,
   ];
   return screens[step] ?? null;
@@ -6806,7 +6904,7 @@ function TrialFinale({ s, restart, back, onUpgrade }) {
     { label: "Deep Dive", credits: 12, desc: "Full + extras",   price: "$12" },
   ];
   return (
-    <Shell sec="trial" prog={2} total={2} shareType="summary">
+    <Shell sec="trial" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 1} shareType="summary">
       <T s={22}>{t("Want the full picture?")}</T>
       <Sub mt={4}>{s.names?.join(" & ") || ""} · {t("Your preview is done. Unlock deeper analysis with credits.")}</Sub>
 
@@ -7424,13 +7522,8 @@ function RelationshipSelect({
   };
 
   return (
-    <Shell sec="upload" prog={1} total={3}>
-      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
-        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
-          {t("Who is this chat with?")}
-        </div>
-      </div>
+    <Shell sec="upload" prog={1} total={3} contentAlign="start">
+      <ScreenHeader back={onBack} title="Who is this chat with?" />
       <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
         {t("This helps the AI frame the analysis correctly.")}
       </div>
@@ -7878,13 +7971,8 @@ function TooShort({ onBack }) {
 
 function AdminLocked({ onBack }) {
   return (
-    <Shell sec="upload" prog={0} total={0} scrollable={false}>
-      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
-        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
-          Admin access only
-        </div>
-      </div>
+    <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
+      <ScreenHeader back={onBack} title="Admin access only" />
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.7 }}>
           This panel is only visible to the configured admin email.
@@ -8104,18 +8192,13 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
 
   return (
     <>
-      <Shell sec="upload" prog={0} total={0} scrollable={false}>
+      <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
         <div style={{
           alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
           margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
         }}>
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-            <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-              <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
-              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
-                {t("Settings")}
-              </div>
-            </div>
+            <ScreenHeader back={onBack} title="Settings" />
           </div>
           <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, padding:"12px 20px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
             <div style={{
@@ -8365,13 +8448,8 @@ function ReportSelect({
   const stepTotal = math?.isGroup ? 2 : 3;
 
   return (
-    <Shell sec="upload" prog={stepProg} total={stepTotal}>
-      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
-        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
-          {t("Choose your report")}
-        </div>
-      </div>
+    <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start">
+      <ScreenHeader back={onBack} title="Choose your report" />
       <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
         {math?.totalMessages?.toLocaleString()} {t("messages")} · {math?.names?.slice(0,3).join(", ") || ""}{(math?.names?.length||0)>3?` +${math.names.length-3}`:""}
       </div>
@@ -8610,13 +8688,8 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
   const isTester   = userRole === "tester";
 
   return (
-    <Shell sec="upload" prog={0} total={0}>
-      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back to reports")}</GhostButton>
-        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
-          {t("More credits needed")}
-        </div>
-      </div>
+    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+      <ScreenHeader back={onBack} backLabel="Back to reports" title="More credits needed" />
 
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
@@ -9242,7 +9315,7 @@ function AdminFeedbackTab() {
               )}
 
               {isConfirming && !isDeleting && (
-                <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, padding:"18px 20px", background:"rgba(16,16,22,0.88)", zIndex:3 }}>
+                <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, padding:"18px 20px", background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)", zIndex:3, borderRadius:22 }}>
                   <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center", lineHeight:1.45 }}>Delete this feedback report?</div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
                     <button
@@ -9750,13 +9823,8 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
   ];
 
   return (
-    <Shell sec="upload" prog={0} total={0} scrollable={false}>
-      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
-        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
-          Admin
-        </div>
-      </div>
+    <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
+      <ScreenHeader back={onBack} title="Admin" />
 
       {!ADMIN_EMAILS.length && (
         <div style={{ fontSize:12, color:"#FFB090", background:"rgba(200,60,20,0.15)", border:"1px solid rgba(200,60,20,0.3)", padding:"10px 14px", borderRadius:14, width:"100%", lineHeight:1.6 }}>
@@ -9950,19 +10018,18 @@ function MyResults({ onBack, onRestoreResult }) {
     const bNames = bRows.length ? rowNames(bRows[0]) : "—";
     const bDate  = bRows.length ? formatDate(bRows[0].created_at) : "";
     return (
-      <Shell sec="upload" prog={0} total={0}>
+      <Shell sec="upload" prog={0} total={0} contentAlign="start">
         <div style={{
           alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
           margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
         }}>
           {/* Fixed header */}
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-            <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-              <GhostButton onClick={() => { exitEditing(); setBundleView(null); }} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
-              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1, textAlign:"center", maxWidth:"60%" }}>{bNames}</div>
-              {bRows.length > 0 && (
+            <ScreenHeader
+              back={() => { exitEditing(); setBundleView(null); }}
+              titleNode={bNames}
+              action={bRows.length > 0 && (
                 <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
-                  position:"absolute", right:0,
                   background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
                   border:"1px solid rgba(255,255,255,0.18)",
                   borderRadius:999, padding:"6px 10px",
@@ -9975,7 +10042,7 @@ function MyResults({ onBack, onRestoreResult }) {
                   }
                 </button>
               )}
-            </div>
+            />
             <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
               {bDate} · {bRows.length} report{bRows.length !== 1 ? "s" : ""}
             </div>
@@ -10039,7 +10106,8 @@ function MyResults({ onBack, onRestoreResult }) {
                   )}
                   {isConfirming && !isDeleting && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
+                      alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
+                      background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                       <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this report?</div>
                       <div style={{ display:"flex", gap:8 }}>
                         <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
@@ -10059,19 +10127,17 @@ function MyResults({ onBack, onRestoreResult }) {
   }
 
   return (
-    <Shell sec="upload" prog={0} total={0}>
+    <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
       }}>
         {/* Fixed header */}
         <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-          <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
-            <GhostButton onClick={() => { exitEditing(); onBack(); }} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
-            <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
-              My Results
-            </div>
-            {rows?.length > 0 && (
+          <ScreenHeader
+            back={() => { exitEditing(); onBack(); }}
+            title="My Results"
+            action={rows?.length > 0 && (
               <button
                 type="button"
                 onClick={() => editing ? exitEditing() : setEditing(true)}
@@ -10079,7 +10145,6 @@ function MyResults({ onBack, onRestoreResult }) {
                 aria-label={editing ? "Done editing" : "Edit results"}
                 title={editing ? "Done" : "Edit"}
                 style={{
-                  position:"absolute", right:0,
                   background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
                   border:"1px solid rgba(255,255,255,0.18)",
                   borderRadius:999, padding:"6px 10px",
@@ -10093,7 +10158,7 @@ function MyResults({ onBack, onRestoreResult }) {
                 }
               </button>
             )}
-          </div>
+          />
         </div>
 
         {/* Scrollable list */}
@@ -10160,7 +10225,8 @@ function MyResults({ onBack, onRestoreResult }) {
                 )}
                 {isConfirming && !isDeleting && (
                   <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                    alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
+                    alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
+                    background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                     <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this result?</div>
                     <div style={{ display:"flex", gap:8 }}>
                       <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
@@ -10240,7 +10306,8 @@ function MyResults({ onBack, onRestoreResult }) {
               )}
               {isConfirmingBundle && !isDeletingBundle && (
                 <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                  alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px" }}>
+                  alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
+                  background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                   <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {bundleRows.length} reports?</div>
                   <div style={{ display:"flex", gap:8 }}>
                     <button type="button" onClick={() => handleDeleteBundle(bundleId, bundleRows)} className="wc-btn"
@@ -10723,13 +10790,26 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // Auto-trigger trial analysis when a payments-mode user (1 credit remaining) reaches
   // the select screen — bypassing the report selector entirely.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (phase !== "select") return;
     if (!messages?.length || !math) return;
     if (authedIsAdmin || isOpenMode(accessMode)) return;
     if (accessMode !== "payments" || credits !== 1) return;
     if (trialAutoRunDoneRef.current) return;
     trialAutoRunDoneRef.current = true;
+    setAnalysisError("");
+    setUploadInfo("");
+    setUpgradeInfo(null);
+    setStep(0);
+    setDir("fwd");
+    setSelectedReportTypes(["trial_report"]);
+    setReportType("trial_report");
+    setLoadingReportIndex(0);
+    setCurrentResultId(null);
+    setAiLoading(true);
+    setAi(null);
+    setPhase("loading");
+    setSid(s => s + 1);
     runAnalysis(["trial_report"], math.isGroup ? null : relationshipType);
   }, [phase, messages, math, credits, accessMode, authedIsAdmin, relationshipType]); // eslint-disable-line react-hooks/exhaustive-deps
 
