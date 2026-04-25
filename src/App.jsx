@@ -7425,17 +7425,13 @@ function RelationshipSelect({
 
   return (
     <Shell sec="upload" prog={1} total={3}>
-      <GhostButton onClick={onBack} style={{ width:"auto", alignSelf:"flex-start", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
-
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase",
-        color:DA.faint, width:"100%", marginBottom:-10 }}>
-        STEP 2 OF 3
+      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
+        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+          {t("Who is this chat with?")}
+        </div>
       </div>
-
-      <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1, width:"100%" }}>
-        {t("Who is this chat with?")}
-      </div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%", marginTop:-8 }}>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
         {t("This helps the AI frame the analysis correctly.")}
       </div>
 
@@ -7883,13 +7879,17 @@ function TooShort({ onBack }) {
 function AdminLocked({ onBack }) {
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
-      <div style={{ fontSize:32, fontWeight:800, color:"#fff", letterSpacing:-1.2, lineHeight:1.1, textAlign:"center", width:"100%" }}>Admin access only</div>
+      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
+        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+          Admin access only
+        </div>
+      </div>
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.7 }}>
           This panel is only visible to the configured admin email.
         </div>
       </div>
-      <GhostButton onClick={onBack}>← Back</GhostButton>
     </Shell>
   );
 }
@@ -8366,17 +8366,13 @@ function ReportSelect({
 
   return (
     <Shell sec="upload" prog={stepProg} total={stepTotal}>
-      <GhostButton onClick={onBack} style={{ width:"auto", alignSelf:"flex-start", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
-
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase",
-        color:DA.faint, width:"100%", marginBottom:-10 }}>
-        {stepLabel}
+      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back")}</GhostButton>
+        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+          {t("Choose your report")}
+        </div>
       </div>
-
-      <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1, width:"100%" }}>
-        {t("Choose your report")}
-      </div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%", marginTop:-8 }}>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
         {math?.totalMessages?.toLocaleString()} {t("messages")} · {math?.names?.slice(0,3).join(", ") || ""}{(math?.names?.length||0)>3?` +${math.names.length-3}`:""}
       </div>
 
@@ -8615,7 +8611,12 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
 
   return (
     <Shell sec="upload" prog={0} total={0}>
-      <T s={24}>{t("More credits needed")}</T>
+      <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+        <GhostButton onClick={onBack} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← {t("Back to reports")}</GhostButton>
+        <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+          {t("More credits needed")}
+        </div>
+      </div>
 
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
@@ -8651,8 +8652,6 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
       ) : (
         <Sub mt={2}>{info?.message || t("You need credits to run these reports. Ask an admin to add credits to your account.")}</Sub>
       )}
-
-      <GhostButton onClick={onBack}>← {t("Back to reports")}</GhostButton>
     </Shell>
   );
 }
@@ -9958,10 +9957,12 @@ function MyResults({ onBack, onRestoreResult }) {
         }}>
           {/* Fixed header */}
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
-              <GhostButton onClick={() => { exitEditing(); setBundleView(null); }} style={{ width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
+            <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+              <GhostButton onClick={() => { exitEditing(); setBundleView(null); }} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
+              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1, textAlign:"center", maxWidth:"60%" }}>{bNames}</div>
               {bRows.length > 0 && (
                 <button type="button" onClick={() => editing ? exitEditing() : setEditing(true)} className="wc-btn" style={{
+                  position:"absolute", right:0,
                   background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
                   border:"1px solid rgba(255,255,255,0.18)",
                   borderRadius:999, padding:"6px 10px",
@@ -9975,11 +9976,8 @@ function MyResults({ onBack, onRestoreResult }) {
                 </button>
               )}
             </div>
-            <div style={{ marginTop:8 }}>
-              <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>{bNames}</div>
-              <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:4, fontWeight:600 }}>
-                {bDate} · {bRows.length} report{bRows.length !== 1 ? "s" : ""}
-              </div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
+              {bDate} · {bRows.length} report{bRows.length !== 1 ? "s" : ""}
             </div>
           </div>
           {/* Scrollable list */}
@@ -10068,12 +10066,8 @@ function MyResults({ onBack, onRestoreResult }) {
       }}>
         {/* Fixed header */}
         <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-          {/* Row 1: back + edit icon */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
-            <GhostButton onClick={() => { exitEditing(); onBack(); }} style={{ width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
-          </div>
-          {/* Row 2: title + new */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", marginTop:8 }}>
+          <div style={{ width:"100%", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", minHeight:34 }}>
+            <GhostButton onClick={() => { exitEditing(); onBack(); }} style={{ position:"absolute", left:0, width:"auto", padding:"7px 14px", fontSize:13 }}>← Back</GhostButton>
             <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1 }}>
               My Results
             </div>
@@ -10085,6 +10079,7 @@ function MyResults({ onBack, onRestoreResult }) {
                 aria-label={editing ? "Done editing" : "Edit results"}
                 title={editing ? "Done" : "Edit"}
                 style={{
+                  position:"absolute", right:0,
                   background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
                   border:"1px solid rgba(255,255,255,0.18)",
                   borderRadius:999, padding:"6px 10px",
