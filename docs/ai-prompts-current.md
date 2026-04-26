@@ -12,6 +12,7 @@ Active live prompt paths:
 3. Growth digest
 4. Risk digest
 5. Translation overlay
+6. Trial report
 
 ## Provider Request Envelope
 
@@ -44,6 +45,7 @@ Active max token caps:
 - growth digest: `2600`
 - risk digest: `2600`
 - translation overlay: `1800`
+- trial report: `360`
 
 ## Shared Prompt Pieces
 
@@ -56,7 +58,7 @@ RELATIONSHIP CONTEXT: ${relCtx}. Frame all analysis, tone, and language accordin
 ### `buildLangInstruction(chatLang)`
 
 ```txt
-OUTPUT LANGUAGE: Write all free-text fields (sentences, summaries, descriptions, examples, context, verdicts, reasons, and analysis) in ${label}. The JSON structure and all key names must remain exactly as specified in the schema.
+OUTPUT LANGUAGE: Write all free-text fields (sentences, summaries, descriptions, examples, context, verdicts, reasons, and analysis) directly and natively in ${label}. Do NOT draft in English first and then translate — compose every sentence directly in ${label} from scratch. The JSON structure and all key names must remain exactly as specified in the schema.
 
 The following fields are schema-critical control tokens — reproduce them EXACTLY as listed here, with zero translation:
 - "language" (careStyle): must be one of exactly: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed
@@ -71,7 +73,7 @@ The following fields are schema-critical control tokens — reproduce them EXACT
 - "powerHolder": a first name as written in the chat, or exactly "Balanced"
 - "person" in promise/apology fields: a first name as written in the chat, or exactly "None clearly identified"
 - All "name" fields: the exact first name as it appears in the chat
-Do NOT translate, paraphrase, or modify these control tokens under any circumstances. All descriptive text fields — everything else — must be in ${label}.
+Do NOT translate, paraphrase, or modify these control tokens under any circumstances. All descriptive text fields — everything else — must be written natively in ${label}.
 ```
 
 ### `buildAnalystSystemPrompt(role, relationshipType, extraRules, chatLang, relationshipLine)`
@@ -397,6 +399,36 @@ Translate the following WrapChat report text fields into ${LANG_META[lang]}. Kee
 Source items:
 ${JSON.stringify(sourceEntries, null, 2)}
 ```
+
+## 6. Trial Report
+
+Source:
+- [src/trialReport.js](/Users/ozgekiter/Desktop/Apps/wrapchat_Analysis/src/trialReport.js)
+
+Used in `payments` access mode for `tester`-role users. A lightweight 1-credit preview that runs on a capped 80-message sample (evenly spread across the full chat). Cost target: ~$0.01 per call.
+
+### System prompt
+
+```txt
+You are reading a WhatsApp chat between ${names} (relationship: ${rel}). Write like a perceptive friend who just read the whole thing — specific, direct, a little playful. Avoid "this shows that", "it seems like", "they communicate well". Use actual names. Each field must be distinct: vibe is the overall feeling, pattern is a real communication habit you noticed, takeaway is the most surprising or interesting thing.
+
+Return ONLY valid JSON with exactly these three keys:
+{
+  "vibe":      "one sentence — the specific emotional tone of this chat, not a mood label",
+  "pattern":   "one sentence — a real repeated communication habit: who does what and how",
+  "takeaway":  "one sentence — the single most interesting or unexpected thing about this chat"
+}
+No markdown, no extra keys. Never start a sentence with 'This', 'It seems', or 'Overall'.
+```
+
+### User prompt
+
+```txt
+Chat export:
+${sample}
+```
+
+---
 
 ## Not Included Here
 

@@ -53,7 +53,9 @@ The current app behaves like a state machine with these main phases:
 8. `loading`
 9. `results`
 10. `history`
-11. `admin` for admin users only
+11. `settings`
+12. `upgrade` when credit check fails in payments mode
+13. `admin` for admin users only
 
 Expected flow:
 
@@ -377,12 +379,20 @@ Responsibilities:
 
 ### 11. Admin
 
-Responsibilities:
+Three-tab panel, visible only to admin-email users.
 
-- inspect user/feedback operations
-- review submitted feedback
-- delete feedback records
-- use debug tooling where enabled
+**Feedback tab** — review submitted feedback records, delete individual records. Feedback is fetched via `admin_list_feedback` RPC (security definer) so RLS does not filter by the admin's own user_id.
+
+**Users tab** — list all users with their credit balance and role. In `credits` access mode, admin can add credits to any user. In `payments` mode, credit adjustment is disabled.
+
+**Settings tab** — change the global access mode (`free` / `credits` / `payments`). This controls whether credit checks and payment gates are active app-wide.
+
+### 12. Settings
+
+User-facing account screen. Responsibilities:
+
+- show account info (email, sign-in method)
+- allow account deletion (with confirmation)
 
 ## Functional UI System
 
@@ -447,6 +457,7 @@ Feedback is attached to a specific saved result card, not just the overall repor
 
 Current functional feedback options:
 
+- Nothing. Very accurate. *(positive sentiment — shown separately as a confirm option)*
 - Events are mixing
 - Wrong person
 - Didn't happen
@@ -463,12 +474,23 @@ Functional requirements:
 
 ## Credits and Access Control
 
+Three access modes controlled by admin settings:
+
+- `free` — no credit checks, all reports available to all users
+- `credits` — credits required; admin can issue credits manually to users
+- `payments` — credit purchase flow; tester-role users get a free trial run
+
 Functional rules:
 
 - Non-admin users consume credits when reports are generated.
 - Credit check happens before running analysis.
 - Multi-report runs require at least as many credits as selected reports.
-- Admin users bypass normal credit constraints.
+- If a credit check fails, the app transitions to the `upgrade` phase (`UpgradePlaceholder` screen) instead of running analysis.
+- Admin users bypass normal credit constraints in all modes.
+
+## Trial Report
+
+In `payments` mode, users with a `tester` role get one free trial run when they first sign up (granted by the `initialise_credits` RPC). The trial generates a lightweight 3-field preview (vibe, pattern, takeaway) from a capped 80-message sample. It costs 1 credit. After the trial credit is used, the user sees the upgrade/paywall screen.
 
 ## Saved Result Restoration
 
