@@ -2050,6 +2050,18 @@ function resolveUiLang(uiLangPref, detectedCode) {
   const pref = normalizeUiLangPref(uiLangPref);
   return pref === "auto" ? normalizeUiLangCode(detectedCode) : normalizeUiLangCode(pref);
 }
+function isReliableDetectedLanguage(detectedLang) {
+  const code = normalizeUiLangCode(detectedLang?.code);
+  return code !== "en" || Number(detectedLang?.confidence || 0) >= LANG_CONFIDENCE_MIN;
+}
+function resolveReportContentLanguage(chatLang, detectedLang, uiLang) {
+  const selectedCode = normalizeUiLangCode(chatLang);
+  const detectedCode = normalizeUiLangCode(detectedLang?.code);
+  const userSelectedDifferentLang = detectedLang && selectedCode !== detectedCode;
+  if (userSelectedDifferentLang) return selectedCode;
+  if (detectedLang && isReliableDetectedLanguage(detectedLang)) return detectedCode;
+  return normalizeUiLangCode(uiLang);
+}
 function formatUITranslation(value, vars = {}) {
   if (typeof value !== "string") return value;
   return value.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? "");
@@ -2836,7 +2848,7 @@ function buildRelationshipLine(relationshipContext, userSelectedType) {
   const reasoning = relationshipContext?.reasoning || `Use the user-selected relationship type "${userSelectedType}" as a hard boundary. Only refine within that category; never switch into a different one.`;
   const evidence = relationshipContext?.evidence ? `Strongest evidence: ${relationshipContext.evidence}.` : "";
   const warning = relationshipContext?.endearmentWarning
-    ? `IMPORTANT ENDEARMENT WARNING: ${relationshipContext.endearmentWarning} — do not interpret that word as a literal family title.`
+    ? `IMPORTANT ENDEARMENT WARNING: ${relationshipContext.endearmentWarning}. Do not interpret that word as a literal family title.`
     : "";
   return `CONFIRMED RELATIONSHIP: Describe the two participants as ${specific} (category: ${category}, confidence: ${confidence}). ${reasoning} ${evidence} ${warning} The user-selected category is the top-priority boundary. Never replace it with a different romance, family, friendship, or work label.`;
 }
@@ -2872,6 +2884,9 @@ CRITICAL RULES:
 - Pick the most specific allowed label only when the wording supports it. Otherwise fall back to the broadest allowed label for that category.
 - Confidence should be "high" only for explicit direct-address evidence or repeated unambiguous evidence. Use "medium" for decent but not perfect support. Use "low" if the evidence is thin or mostly indirect.
 
+STYLE:
+Keep reasoning plain, short, and evidence-based. Do not use the em dash punctuation mark.
+
 Return ONLY a JSON object with no extra text:
 {
   "category": "one of: partner / dating / ex / family / friend / colleague / other / unknown",
@@ -2879,7 +2894,7 @@ Return ONLY a JSON object with no extra text:
   "confidence": "high / medium / low",
   "reasoning": "one sentence explaining the key evidence",
   "evidence": "a short quote or paraphrase from the strongest direct-address snippet",
-  "endearmentWarning": "if any keyword appears to be used as a term of endearment rather than a literal title, name it here — e.g. 'kızım is used as affection not literal daughter'. Otherwise null."
+  "endearmentWarning": "if any keyword appears to be used as a term of endearment rather than a literal title, name it here, e.g. 'kızım is used as affection not literal daughter'. Otherwise null."
 }`;
 
   const userContent = `Here are relationship-call snippets from a chat between ${names[0]} and ${names[1]}. The user selected relationship type is "${selectedCategory}". Use these snippets to confirm the most specific relationship label inside that category.\n\n${snippetText}`;
@@ -3755,6 +3770,8 @@ function mergeIntervals(intervals) {
 
 // Human-readable label for a chunk header, derived from its tag set
 function chunkLabel(tags = []) {
+  if (tags.includes("energy-high"))   return "positive energy";
+  if (tags.includes("energy-low"))    return "draining energy";
   if (tags.includes("conflict"))      return "conflict";
   if (tags.includes("apology"))       return "apology";
   if (tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger")) return "funny moment";
@@ -3900,6 +3917,168 @@ function buildSampleText(messages) {
     return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
   }
   return formatChunksForAI(messages, buildChunks(messages));
+}
+
+const ENERGY_KEYWORDS = Object.freeze({
+  highEnergy: Object.freeze({
+    en: ["love", "happy", "excited", "proud", "thank you", "thanks", "miss you", "perfect", "amazing", "fun", "funny", "laugh", "hahaha", "lol", "lmao", "yay", "can't wait", "so sweet", "cute", "best", "great", "good news"],
+    tr: ["seviyorum", "mutlu", "heyecan", "gurur", "teşekkür", "tesekkur", "özledim", "ozledim", "mükemmel", "mukemmel", "harika", "komik", "güldüm", "guldum", "hahaha", "ahahah", "çok tatlı", "cok tatli", "en iyi", "iyi haber"],
+    es: ["amo", "feliz", "emocion", "orgullo", "gracias", "te extraño", "perfecto", "increible", "divertido", "risa", "jajaja", "lol", "que lindo", "me encanta", "genial", "buenas noticias"],
+    pt: ["amo", "feliz", "animado", "orgulho", "obrigado", "obrigada", "saudade", "perfeito", "incrivel", "divertido", "risada", "kkkk", "haha", "que fofo", "adorei", "otimo", "boa noticia"],
+    ar: ["احب", "أحب", "سعيد", "مبسوط", "متحمس", "فخور", "شكرا", "شكرًا", "اشتقت", "ممتاز", "رائع", "حلو", "ضحك", "هههه", "جميل", "خبر حلو"],
+    fr: ["aime", "heureux", "heureuse", "content", "contente", "excite", "fier", "fiere", "merci", "tu me manques", "parfait", "incroyable", "drole", "haha", "mdr", "trop mignon", "genial", "bonne nouvelle"],
+    de: ["liebe", "glucklich", "glücklich", "freue", "stolz", "danke", "vermiss", "perfekt", "unglaublich", "lustig", "haha", "lol", "suss", "süß", "super", "toll", "gute nachricht"],
+    it: ["amo", "felice", "contento", "contenta", "emozionato", "orgoglioso", "grazie", "mi manchi", "perfetto", "incredibile", "divertente", "rido", "ahaha", "lol", "che carino", "adoro", "bella notizia"],
+  }),
+  lowEnergy: Object.freeze({
+    en: ["tired", "exhausted", "drained", "sad", "angry", "annoyed", "upset", "stress", "stressed", "anxious", "sorry", "fight", "argue", "hurt", "cry", "crying", "ignored", "lonely", "overwhelmed", "can't do this"],
+    tr: ["yorgun", "bitkin", "tükendim", "tukendim", "üzgün", "uzgun", "kızgın", "kizgin", "sinir", "stres", "kaygı", "kaygi", "üzgünüm", "uzgunum", "kavga", "tartış", "tartis", "kırıldım", "kirildim", "ağlı", "agli", "yalnız", "yalniz", "bunaldım"],
+    es: ["cansado", "cansada", "agotado", "triste", "enojado", "molesto", "estres", "ansioso", "ansiosa", "perdon", "pelea", "discutir", "dolido", "lloro", "llorando", "ignorado", "solo", "sola", "abrumado"],
+    pt: ["cansado", "cansada", "exausto", "triste", "irritado", "chateado", "estresse", "ansioso", "ansiosa", "desculpa", "briga", "discutir", "machucado", "chorar", "chorando", "ignorado", "sozinho", "sobrecarregado"],
+    ar: ["تعبان", "مرهق", "حزين", "زعلان", "غاضب", "متضايق", "توتر", "قلق", "اسف", "آسف", "مشكلة", "خناق", "وجع", "بكاء", "ابكي", "تجاهل", "وحيد", "ضغط"],
+    fr: ["fatigue", "fatigué", "fatiguee", "epuise", "triste", "enerve", "stress", "angoisse", "desole", "desolee", "dispute", "mal", "pleure", "ignore", "seul", "seule", "deborde"],
+    de: ["mude", "müde", "erschopft", "erschöpft", "traurig", "wutend", "wütend", "genervt", "stress", "gestresst", "angst", "sorry", "streit", "verletzt", "weine", "ignoriert", "allein", "uberfordert", "überfordert"],
+    it: ["stanco", "stanca", "esausto", "triste", "arrabbiato", "arrabbiata", "stress", "ansioso", "ansiosa", "scusa", "litigio", "discutere", "ferito", "piango", "ignorato", "solo", "sola", "sopraffatto"],
+  }),
+});
+
+const ENERGY_POSITIVE_EXCLUDE_KEYWORDS = Object.freeze({
+  en: ["sex", "sexual", "horny", "nude", "naked", "creepy", "awkward", "weird", "sarcasm", "sarcastic", "kidding", "jk", "whatever", "shut up"],
+  tr: ["seks", "cinsel", "azgın", "azgin", "çıplak", "ciplak", "garip", "tuhaf", "rahatsız", "rahatsiz", "alay", "sarkazm", "şaka", "saka", "neyse", "sus"],
+  es: ["sexo", "sexual", "caliente", "desnudo", "desnuda", "raro", "incomodo", "incómodo", "sarcasmo", "sarcastico", "broma", "da igual", "callate"],
+  pt: ["sexo", "sexual", "tesao", "tesão", "nu", "nua", "estranho", "esquisito", "desconfortavel", "sarcasmo", "sarcastico", "brincadeira", "tanto faz", "cala a boca"],
+  ar: ["جنس", "جنسي", "عارية", "غريب", "مريب", "محرج", "سخرية", "امزح", "مزح", "اخرس"],
+  fr: ["sexe", "sexuel", "nu", "nue", "bizarre", "genant", "gênant", "malaisant", "sarcasme", "sarcastique", "blague", "tais-toi"],
+  de: ["sex", "sexuell", "nackt", "komisch", "unheimlich", "peinlich", "sarkasmus", "sarkastisch", "spass", "spaß", "egal", "halt die klappe"],
+  it: ["sesso", "sessuale", "nudo", "nuda", "strano", "inquietante", "imbarazzante", "sarcasmo", "sarcastico", "scherzo", "zitto", "zitta"],
+});
+
+function normalizeEnergyText(value) {
+  return String(value || "")
+    .toLocaleLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function flattenEnergyTerms(group) {
+  return Object.values(group).flat().map(normalizeEnergyText).filter(Boolean);
+}
+
+const ENERGY_HIGH_TERMS = flattenEnergyTerms(ENERGY_KEYWORDS.highEnergy);
+const ENERGY_LOW_TERMS = flattenEnergyTerms(ENERGY_KEYWORDS.lowEnergy);
+const ENERGY_POSITIVE_EXCLUDE_TERMS = flattenEnergyTerms(ENERGY_POSITIVE_EXCLUDE_KEYWORDS);
+
+function countEnergyMatches(text, terms) {
+  return terms.reduce((count, term) => count + (text.includes(term) ? 1 : 0), 0);
+}
+
+function scoreEnergyMessage(msg, index, messages) {
+  const body = /^<(Voice|Media) omitted>$/.test(msg?.body || "") ? "" : (msg?.body || "");
+  const text = normalizeEnergyText(body);
+  if (!text || text.length < 3) return null;
+
+  const highMatches = countEnergyMatches(text, ENERGY_HIGH_TERMS);
+  const lowMatches = countEnergyMatches(text, ENERGY_LOW_TERMS);
+  if (!highMatches && !lowMatches) return null;
+
+  const expressive =
+    (/[!?]{1,3}/.test(body) ? 2 : 0) +
+    (/(😂|🤣|💀|❤️|❤|💕|🥰|😍|😭|✨|🔥)/.test(body) ? 3 : 0) +
+    (body.length >= 24 && body.length <= 220 ? 2 : 0) +
+    (body.length > 220 ? 1 : 0);
+  const next = messages[index + 1];
+  const quickReplyBoost = next && next.name !== msg.name && (next.date - msg.date) / 60000 < 10 ? 1 : 0;
+  const hasPositiveBlock = ENERGY_POSITIVE_EXCLUDE_TERMS.some(term => text.includes(term));
+  const highScore = highMatches * 5 + expressive + quickReplyBoost - (hasPositiveBlock ? 99 : 0);
+  const lowScore = lowMatches * 5 + expressive + quickReplyBoost;
+  const tags = [];
+  if (highScore > 0 && highScore >= lowScore) tags.push("energy-high");
+  if (lowScore > 0) tags.push("energy-low");
+  if (expressive >= 3) tags.push("expressive");
+  if (!tags.includes("energy-high") && !tags.includes("energy-low")) return null;
+
+  return {
+    i: index,
+    score: Math.max(highScore, lowScore),
+    tags,
+  };
+}
+
+function buildEnergyChunks(messages) {
+  if (!messages.length) return [];
+  const n = messages.length;
+  const MSG_LINE_LIMIT = 1400;
+  const energyCandidates = messages
+    .map((msg, index) => scoreEnergyMessage(msg, index, messages))
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+
+  const windows = [];
+  const taken = new Set();
+  const addCandidateWindow = (candidate) => {
+    for (let k = Math.max(0, candidate.i - 5); k <= Math.min(n - 1, candidate.i + 5); k++) {
+      if (taken.has(k)) return false;
+    }
+    for (let k = Math.max(0, candidate.i - 5); k <= Math.min(n - 1, candidate.i + 5); k++) taken.add(k);
+    windows.push([
+      Math.max(0, candidate.i - 4),
+      Math.min(n - 1, candidate.i + 6),
+      candidate.tags,
+    ]);
+    return true;
+  };
+
+  let highCount = 0;
+  let lowCount = 0;
+  for (const candidate of energyCandidates) {
+    if (candidate.tags.includes("energy-high") && highCount < 12 && addCandidateWindow(candidate)) highCount += 1;
+  }
+  for (const candidate of energyCandidates) {
+    if (candidate.tags.includes("energy-low") && lowCount < 12 && addCandidateWindow(candidate)) lowCount += 1;
+  }
+  for (const candidate of energyCandidates) {
+    if (windows.length >= 42) break;
+    addCandidateWindow(candidate);
+  }
+
+  const baseline = buildChunks(messages);
+  const mergedEnergy = mergeIntervals(windows);
+  const covered = new Set();
+  mergedEnergy.forEach(([start, end]) => {
+    for (let i = start; i <= end; i += 1) covered.add(i);
+  });
+
+  let lines = 0;
+  const selected = [];
+  for (const chunk of mergedEnergy) {
+    const size = chunk[1] - chunk[0] + 1;
+    if (lines + size > MSG_LINE_LIMIT) continue;
+    selected.push(chunk);
+    lines += size;
+  }
+
+  const baselineFill = baseline.filter(([start, end]) => {
+    for (let i = start; i <= end; i += 1) {
+      if (covered.has(i)) return false;
+    }
+    return true;
+  });
+  for (const chunk of baselineFill) {
+    const size = chunk[1] - chunk[0] + 1;
+    if (lines + size > MSG_LINE_LIMIT) break;
+    selected.push(chunk);
+    lines += size;
+  }
+
+  return mergeIntervals(selected).sort((a, b) => a[0] - b[0]);
+}
+
+function buildEnergySampleText(messages) {
+  if (!messages.length) return "";
+  if (messages.length <= 600) {
+    return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
+  }
+  return formatChunksForAI(messages, buildEnergyChunks(messages));
 }
 
 async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMode = "analysis") {
@@ -4140,27 +4319,27 @@ function buildLangInstruction(chatLang) {
   if (!chatLang || chatLang === "en") return "";
   const label = LANG_META[chatLang];
   if (!label) return "";
-  return `\n\nOUTPUT LANGUAGE: Write all free-text fields (sentences, summaries, descriptions, examples, context, verdicts, reasons, and analysis) directly and natively in ${label}. Do NOT draft in English first and then translate — compose every sentence directly in ${label} from scratch. The JSON structure and all key names must remain exactly as specified in the schema.\n\nThe following fields are schema-critical control tokens — reproduce them EXACTLY as listed here, with zero translation:\n- "language" (careStyle): must be one of exactly: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed\n- "depthChange": must be one of exactly: deeper / shallower / about the same\n- "trajectory": must be one of exactly: closer / drifting / stable\n- "type" (energy): must be one of exactly: net positive / mixed / net draining\n- "dramaStarter": a first name as written in the chat, or exactly "Shared", or exactly "None clearly identified"\n- "toxicPerson": a first name as written in the chat, or exactly "Tie", or exactly "None clearly identified"\n- "funniestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "kindestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "whoChangedMore": a first name as written in the chat, or exactly "Both equally"\n- "powerHolder": a first name as written in the chat, or exactly "Balanced"\n- "person" in promise/apology fields: a first name as written in the chat, or exactly "None clearly identified"\n- All "name" fields: the exact first name as it appears in the chat\nDo NOT translate, paraphrase, or modify these control tokens under any circumstances. All descriptive text fields — everything else — must be written natively in ${label}.`;
+  return `\n\nOUTPUT LANGUAGE: Write all free-text fields (sentences, summaries, descriptions, examples, context, verdicts, reasons, and analysis) directly and natively in ${label}. Do NOT draft in English first and then translate, compose every sentence directly in ${label} from scratch. The JSON structure and all key names must remain exactly as specified in the schema.\n\nThe following fields are schema-critical control tokens, reproduce them EXACTLY as listed here, with zero translation:\n- "language" (careStyle): must be one of exactly: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed\n- "depthChange": must be one of exactly: deeper / shallower / about the same\n- "trajectory": must be one of exactly: closer / drifting / stable\n- "type" (energy): must be one of exactly: net positive / mixed / net draining\n- "dramaStarter": a first name as written in the chat, or exactly "Shared", or exactly "None clearly identified"\n- "toxicPerson": a first name as written in the chat, or exactly "Tie", or exactly "None clearly identified"\n- "funniestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "kindestPerson": a first name as written in the chat, or exactly "None clearly identified"\n- "whoChangedMore": a first name as written in the chat, or exactly "Both equally"\n- "powerHolder": a first name as written in the chat, or exactly "Balanced"\n- "person" in promise/apology fields: a first name as written in the chat, or exactly "None clearly identified"\n- All "name" fields: the exact first name as it appears in the chat\nDo NOT translate, paraphrase, or modify these control tokens under any circumstances. All descriptive text fields, everything else, must be written natively in ${label}.`;
 }
 
 function buildAnalystSystemPrompt(role, relationshipType, extraRules = "", chatLang = "en", relationshipLine = "") {
-  return `PRIORITY RULES — READ FIRST, OVERRIDE EVERYTHING ELSE:
+  return `PRIORITY RULES: READ FIRST, OVERRIDE EVERYTHING ELSE:
 
-1. RELATIONSHIP LABEL: ${relationshipLine || `Use the user-selected relationship type "${relationshipType}". Never override it. Cousins are not father-daughter. Friends are not partners. Use only the confirmed label — never infer relationship from tone, warmth, or emoji use.`}
+1. RELATIONSHIP LABEL: ${relationshipLine || `Use the user-selected relationship type "${relationshipType}". Never override it. Cousins are not father-daughter. Friends are not partners. Use only the confirmed label, never infer relationship from tone, warmth, or emoji use.`}
 
-2. FUNNY ATTRIBUTION — LAUGH TYPES:
+2. FUNNY ATTRIBUTION, LAUGH TYPES:
    Keyboard mashes (random consonant clusters like 'skdjfhsdf', 'ŞUHAJDADGHKFD', 'fjdksj') are LAUGH REACTIONS, not jokes. They mean the person is laughing.
    UPPERCASE keyboard mashes (e.g. 'ŞUHAJDADGHKFD', 'SKDJFHDF') = extremely hard laughter.
    lowercase keyboard mashes (e.g. 'skdjfhsdf') = regular laughter.
    😂 💀 🤣 lol lmao haha 'im dead' = laugh reactions.
-   The FUNNY PERSON is whoever sent the line that triggered the laugh reaction — never the person doing the laughing.
+   The FUNNY PERSON is whoever sent the line that triggered the laugh reaction, never the person doing the laughing.
    If Aslı sends 'ŞUHAJDADGHKFD' after Ozge's message, Ozge is funny. Aslı is the audience.
 
 3. DIRECTION OF ACTIONS: The actor is always the sender of that exact message line. Never reverse who did what to whom.
 
-4. SIGNATURE PHRASES: signaturePhrases must be actual repeated text phrases or expressions — never emojis alone, never keyboard mashes, never laugh sounds. Only real words or short sentences that a person uses repeatedly.
+4. SIGNATURE PHRASES: signaturePhrases must be actual repeated text phrases or expressions, never emojis alone, never keyboard mashes, never laugh sounds. Only real words or short sentences that a person uses repeatedly.
 
-5. DRAMA SCOPE: dramaStarter and dramaContext must consider ALL drama in the chat — not just conflict between the two participants. This includes personal dramas they share with each other about third parties, work stress, relationship issues, life problems. The drama starter is whoever brings drama into the conversation most often, regardless of whether it is directed at the other person.
+5. DRAMA SCOPE: dramaStarter and dramaContext must consider ALL drama in the chat, not just conflict between the two participants. This includes personal dramas they share with each other about third parties, work stress, relationship issues, life problems. The drama starter is whoever brings drama into the conversation most often, regardless of whether it is directed at the other person.
 
 6. TRANSLATION: Never translate quoted messages. Reproduce all quotes exactly as written in the chat in their original language. Do not add translations in parentheses.
 
@@ -4170,10 +4349,80 @@ function buildAnalystSystemPrompt(role, relationshipType, extraRules = "", chatL
 
 9. CONTROLLED INTERPRETATION: You may compress clearly supported patterns into short reads like "easy flow", "awkwardness", "chaos", "natural ghosting", or "therapist mode", or similarly compact grounded tags, only when repeated or concrete evidence supports them. Never infer motives, inner states, diagnoses, or emotional certainty.
 
-You are WrapChat, ${role}. Be specific, grounded, and evidence-led. Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON. Never embed literal newline characters inside a JSON string value — keep every string on a single line.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
+You are WrapChat, ${role}. Be specific, grounded, and evidence-led.
+
+INTERPRETATION RULE:
+You are allowed to interpret patterns when they are supported by repeated behavior, even if the chat does not explicitly name the pattern. Do not stay at surface description. Convert behavior into a short, natural insight. Keep interpretations soft and grounded, never diagnostic or absolute.
+
+PUNCTUATION:
+Never use the em dash punctuation mark in any user-facing text field. Use commas, semicolons, periods, or natural sentence flow instead.
+
+Reference real patterns, real phrases, and real moments from the chat instead of generic observations. Be conservative before singling out one person: if the evidence is mixed, close, or mostly based on tone, prefer balanced labels like "Tie", "Shared", "Balanced", or "None clearly identified" instead of over-assigning blame. Do not pile onto the loudest or most active person unless multiple distinct examples support it. Keep the tone honest but not cruel, mocking, or absolute. Avoid repetitive wording across fields: if two answers overlap, make them distinct in angle and concrete detail rather than repeating the same judgment. When negative and positive evidence coexist, acknowledge both. Return ONLY valid JSON with no markdown fences or explanation outside the JSON. Never embed literal newline characters inside a JSON string value, keep every string on a single line.${buildRelationshipContextBlock(relationshipType)}${extraRules ? ` ${extraRules}` : ""}${buildLangInstruction(chatLang)}`;
 }
 
-const CORE_A_WRITING_STYLE = `WRITING STYLE: Write like a perceptive human friend, not an AI. Avoid "this shows that", "it seems like", "overall". Prefer specific observations over abstract summaries. Warm and slightly playful; bold only when earned by the chat. No therapist, report, or academic tone. Don't over-explain. INSIGHT STRUCTURE: observation first, concrete moment or repeated pattern second, short natural interpretation third. If evidence is thin, keep it simple instead of padding. For vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, relationshipSummary, mostLovingMoment, mostEnergising, and mostDraining, you may use one sharp grounded compression line, or 1-2 short sentences if one line feels flat. Keep those reads memorable and specific to this chat. For moment fields, choose the strongest supported moment or repeated pattern, not the blandest safe example. A strong read names who did what, the quote or move, and why it landed. biggestTopic should read like the chat's main ongoing storyline, not a generic category. It must be both recurring and important to the relationship or group dynamic; do not elevate minor logistics, one-note jokes, or low-stakes side debates just because they repeat. vibeOneLiner should feel like a friend's sharp summary after reading the whole chat. relationshipSummary should read like a specific human take on their actual pattern, not a label, verdict, or diagnosis. All other fields stay tighter and more functional. ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different moments — one focuses on a specific act of care or support, the other on a warm affectionate exchange; they must not reference the same event. No two fields across the full output should describe the same moment or quote. SIGNATURE PHRASES: Before assigning a phrase to a person, verify it by checking which sender's lines it appears on. signaturePhrases[0] must be a phrase only person 1 sends, signaturePhrases[1] must be a phrase only person 2 sends — never swap or guess attribution.`;
+const CORE_A_WRITING_STYLE = `WRITING STYLE:
+Write like an observant friend who has read the entire chat and formed specific opinions, not an analyst, not a therapist, not a report generator.
+
+VOICE:
+- Warm, perceptive, and lightly playful
+- Slightly ironic when the chat supports it, but never cruel, mocking, or judgmental
+- Emotionally aware, but grounded in actual behavior
+- The output should feel like "you were already thinking this, now someone said it clearly"
+
+SPECIFICITY:
+- Use real names, recurring topics, repeated situations, places, timing patterns, or short exact quotes when possible
+- Avoid generic statements that could apply to any random chat
+- Every insight should feel like it belongs only to this chat
+
+PATTERN FOCUS:
+- Do not only summarize what happened
+- Identify the recurring pattern, role, or dynamic behind the behavior
+- Assign soft roles when clearly supported, such as "the planner", "the therapist friend", "the chaos-bringer", "the one who disappears", "the emotional translator"
+- Do not force roles if evidence is weak
+
+COINED MICRO-PHRASES:
+- When natural, compress a pattern into a short memorable phrase
+- Examples: "natural ghosting", "friendship dependency", "low-effort check-ins", "emotional admin", "accidental disappearing act"
+- Do not overdo this. Use it only when it makes the insight sharper
+
+STRUCTURE:
+Each free-text insight should usually follow:
+specific observation + recurring pattern or concrete moment + short interpretation
+
+Good examples:
+- "Maya keeps bringing the chaos, and Alex keeps translating it into something manageable, very therapist-friend energy."
+- "The slow replies are not pure ghosting, they feel more like timing chaos, one person is mid-crisis while the other arrives six hours later."
+- "Their sweetest moments are not dramatic speeches, they are tiny check-ins that say, 'I know your life, and I am still here.'"
+
+BAD examples:
+- "They have a strong connection."
+- "This shows that they support each other."
+- "Overall, their communication is healthy."
+- "It seems like they care about each other."
+
+TONE CONTROL:
+- No therapy language
+- No diagnosis
+- No advice
+- No moralizing
+- No over-explaining
+- No "this shows that", "it seems like", "overall", "in general", "the analysis suggests"
+- State observations directly when supported by evidence
+
+PUNCTUATION RULE:
+- Do not use the em dash punctuation mark
+- Prefer commas, semicolons, periods, or natural sentence flow
+- The tone should feel like spoken thought, not polished editorial prose
+
+COMPRESSION:
+- Keep text compact but layered
+- Prefer one strong sentence over two weak generic sentences
+- Avoid filler and repeated ideas
+
+ANTI-GENERIC RULE:
+Before finalizing any free-text field, check whether it could fit another random chat. If yes, rewrite it with specific evidence, names, or a more precise dynamic.
+
+ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different moments, one focuses on a specific act of care or support, the other on a warm affectionate exchange; they must not reference the same event. No two fields across the full output should describe the same moment or quote. SIGNATURE PHRASES: Before assigning a phrase to a person, verify it by checking which sender's lines it appears on. signaturePhrases[0] must be a phrase only person 1 sends, signaturePhrases[1] must be a phrase only person 2 sends, never swap or guess attribution.`;
 
 function buildCoreASystemPrompt(role, relationshipType, extraRules = "", chatLang = "en", relationshipLine = "") {
   return buildAnalystSystemPrompt(role, relationshipType, `${CORE_A_WRITING_STYLE} ${extraRules}`, chatLang, relationshipLine);
@@ -4801,10 +5050,11 @@ async function generateCoreAnalysisA(messages, math, relationshipType, chatLang 
   return normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
 }
 
-async function generateConnectionDigest(messages, math, relationshipType, chatLang = "en") {
+async function generateConnectionDigest(messages, math, relationshipType, chatLang = "en", options = {}) {
   const names = math.names || [];
   const isGroup = !!math?.isGroup;
   const relationshipContext = !isGroup ? await resolveRelationshipContext(messages, names, relationshipType) : null;
+  const energyFocus = options?.energyFocus === true;
   const request = prepareConnectionDigestRequest({
     messages,
     math,
@@ -4813,12 +5063,15 @@ async function generateConnectionDigest(messages, math, relationshipType, chatLa
     relationshipContext,
     buildAnalystSystemPrompt: buildCoreASystemPrompt,
     buildRelationshipLine,
-    buildSampleText,
+    buildSampleText: energyFocus ? buildEnergySampleText : buildSampleText,
+    extraConnectionRules: energyFocus
+      ? "ENERGY QUOTES: Choose quotes that clearly reflect the emotional tone. For positive energy examples, avoid sexual, sarcastic, awkward, or irrelevant messages."
+      : "",
     coreAnalysisVersion: CORE_ANALYSIS_VERSION,
     maxTokens: CORE_A_MAX_TOKENS,
   });
 
-  if (import.meta.env.DEV) console.log("[ConnectionDigest] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
+  if (import.meta.env.DEV) console.log("[ConnectionDigest] chatLang:", chatLang, "| energyFocus:", energyFocus, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callClaude(request.systemPrompt, request.userContent, request.maxTokens, request.schemaMode);
   return normalizeConnectionDigest(raw, math, relationshipType, relationshipContext);
 }
@@ -5125,16 +5378,17 @@ function mergeTranslatedResult(base, overlay) {
   return source;
 }
 
-function buildStoredResultData(baseResult, displayLanguage = "en", translationOverlay = null) {
+function buildStoredResultData(baseResult, displayLanguage = "en", translationOverlay = null, sourceLanguage = "en") {
   const canonical = stripStoredResultMeta(baseResult);
   const lang = normalizeUiLangCode(displayLanguage);
+  const sourceLang = normalizeUiLangCode(sourceLanguage);
   const translations = {};
   if (lang !== "en" && isPlainObject(translationOverlay) && Object.keys(translationOverlay).length) {
     translations[lang] = translationOverlay;
   }
   return {
     ...canonical,
-    sourceLanguage: "en",
+    sourceLanguage: sourceLang,
     displayLanguage: lang,
     analysisCacheVersion: CORE_ANALYSIS_CACHE_VERSION,
     translations,
@@ -5148,8 +5402,8 @@ function getDisplayResultData(result, preferredLanguage = null) {
   const overlay = isPlainObject(translations[lang]) ? translations[lang] : null;
   return {
     ...mergeTranslatedResult(canonical, overlay),
-    sourceLanguage: "en",
-    displayLanguage: overlay ? lang : "en",
+    sourceLanguage: normalizeUiLangCode(result?.sourceLanguage || "en"),
+    displayLanguage: overlay ? lang : normalizeUiLangCode(result?.sourceLanguage || "en"),
     translations,
   };
 }
@@ -5206,6 +5460,9 @@ async function translateResultOverlay(reportType, result, targetLang = "en") {
     "Return only valid JSON in the exact schema requested.",
     "Keep every path value mapped to the same path.",
     "Translate natural-language explanations into the target language.",
+    "Preserve the original WrapChat tone: specific, natural, lightly playful, and spoken-flow.",
+    "Do not make translations more formal, therapeutic, academic, or dramatic.",
+    "Do not add the em dash punctuation mark.",
     "Preserve names exactly as written.",
     "If a value contains a direct quote from the chat, keep the quote itself as-is and only translate the surrounding explanation if needed.",
   ].join(" ");
@@ -5706,6 +5963,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         .wc-fadeup-2 { animation: fadeUp 0.4s 0.07s cubic-bezier(.2,0,.1,1) both; }
         .wc-fadeup-3 { animation: fadeUp 0.4s 0.14s cubic-bezier(.2,0,.1,1) both; }
         .wc-btn:hover { opacity:0.82; transform:scale(0.98); }
+        .wc-exit-pane [data-nav-row="true"] { visibility:hidden; }
         @media (max-width: 430px) { .wc-root { border-radius: 0 !important; } }
         @keyframes wcContentIn {
           from { transform: translateX(var(--wc-enter-from)); }
@@ -5812,7 +6070,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         <div className="wc-body" style={{ flex:1, minHeight:0, position:"relative", overflow:"hidden", display:"flex", flexDirection:"column" }}>
           {/* Outgoing content */}
           {exitContent && (
-            <div data-share-hide className="wc-pane" style={{
+            <div data-share-hide className="wc-pane wc-exit-pane" style={{
               position:"absolute", inset:0,
               display:"flex", flexDirection:"column", alignItems:"center", justifyContent:paneJustify,
               padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
@@ -6162,7 +6420,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
   const t = useT();
   const p = useContext(SectionPaletteContext) || PAL.upload;
   return (
-    <div data-share-hide style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
+    <div data-share-hide data-nav-row="true" style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
       {showBack && (
         <button onClick={back} className="wc-btn" style={{
           flex:1, padding:"14px", borderRadius:999,
@@ -7205,14 +7463,8 @@ function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
     <Shell sec="growth" prog={1} total={GROWTH_SCREENS} feedback={feedback("Then vs Now", 1)}>
       <T>{t("Then vs Now")}</T>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:16 }}>
-        <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"16px 18px", borderLeft:"3px solid rgba(255,255,255,0.2)" }}>
-          <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.5)", marginBottom:6 }}>{t("Early messages")}</div>
-          <div style={{ fontSize:14, color:"#fff", lineHeight:1.6 }}>{loading ? <Dots /> : (ai?.thenDepth||"—")}</div>
-        </div>
-        <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"16px 18px", borderLeft:"3px solid #3AF0C0" }}>
-          <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.5)", marginBottom:6 }}>{t("Recent messages")}</div>
-          <div style={{ fontSize:14, color:"#fff", lineHeight:1.6 }}>{loading ? <Dots /> : (ai?.nowDepth||"—")}</div>
-        </div>
+        <AICard label={t("Early messages")} value={ai?.thenDepth} loading={loading} />
+        <AICard label={t("Recent messages")} value={ai?.nowDepth} loading={loading} />
       </div>
       {!loading && ai?.depthChange && (
         <Sub mt={8}>Conversations got <strong style={{color:"#3AF0C0"}}>{reportControl(ai.depthChange)}</strong> {arrowMap[ai.depthChange]||""} over time.</Sub>
@@ -7243,9 +7495,7 @@ function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
 
     <Shell sec="growth" prog={5} total={GROWTH_SCREENS} feedback={feedback("The arc", 5)}>
       <T>{t("The arc")}</T>
-      <div style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:14, padding:"1.4rem 1.5rem", width:"100%", textAlign:"center", marginTop:16, fontSize:16, lineHeight:1.7, fontStyle:"italic", color:"#fff", minHeight:80, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        {loading ? <Dots /> : (ai?.arcSummary||"—")}
-      </div>
+      <AICard label={t("Overall read")} value={ai?.arcSummary} loading={loading} />
       <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
@@ -9993,13 +10243,13 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onRestoreResult }) {
+function MyResults({ onBack, onRestoreResult, initialBundleId = null }) {
   const [rows,           setRows]           = useState(null);
   const [err,            setErr]            = useState("");
   const [editing,        setEditing]        = useState(false);
   const [confirmId,      setConfirmId]      = useState(null);
   const [deletingId,     setDeletingId]     = useState(null);
-  const [bundleView,     setBundleView]     = useState(null); // null | string (bundle_id)
+  const [bundleView,     setBundleView]     = useState(initialBundleId); // null | string (bundle_id)
   const [confirmBundle,  setConfirmBundle]  = useState(null);
   const [deletingBundle, setDeletingBundle] = useState(null);
 
@@ -10018,7 +10268,7 @@ function MyResults({ onBack, onRestoreResult }) {
 
   useEffect(() => {
     if (bundleView && rows && !rows.some(r => r.math_data?.bundle_id === bundleView)) {
-      setBundleView(null);
+      queueMicrotask(() => setBundleView(null));
     }
   }, [rows, bundleView]);
 
@@ -10057,6 +10307,44 @@ function MyResults({ onBack, onRestoreResult }) {
     setDeletingBundle(null);
   };
 
+  const shortName = (name, fallback = "—") => String(name || fallback).trim().split(/\s+/)[0] || fallback;
+
+  const rankedPeople = (people, scoreKey) => people
+    .filter(Boolean)
+    .map(person => ({
+      ...person,
+      previewScore: Number(person?.[scoreKey]),
+    }))
+    .filter(person => Number.isFinite(person.previewScore))
+    .sort((a, b) => b.previewScore - a.previewScore);
+
+  const energyKeyword = (person, lang) => {
+    const type = String(person?.type || "").toLowerCase();
+    if (type === "net positive") return translateControlValue(lang, "net positive") || "positive";
+    if (type === "net draining") return translateControlValue(lang, "net draining") || "draining";
+    if (type === "mixed") return translateControlValue(lang, "mixed") || "mixed";
+    if (person?.previewScore >= 7) return "positive";
+    if (person?.previewScore <= 4) return "draining";
+    return "mixed";
+  };
+
+  const accountabilityKeyword = (person) => {
+    const kept = Number(person?.kept) || 0;
+    const broken = Number(person?.broken) || 0;
+    if (person?.previewScore >= 8 && kept >= broken) return "reliable";
+    if (broken > kept) return "follow-through";
+    if (person?.previewScore >= 6) return "steady";
+    return "mixed";
+  };
+
+  const participantPreview = (people, scoreKey, keywordFor) => {
+    const ranked = rankedPeople(people, scoreKey).slice(0, 2);
+    if (!ranked.length) return "—";
+    return ranked
+      .map(person => `${shortName(person.name)} ${person.previewScore}/10 ${keywordFor(person)}`)
+      .join(" • ");
+  };
+
   const headline = (row) => {
     const displayLang = getStoredResultDisplayLanguage(row.result_data);
     const ai   = getDisplayResultData(row.result_data, displayLang);
@@ -10066,8 +10354,8 @@ function MyResults({ onBack, onRestoreResult }) {
       case "toxicity": return chatHealthLabel(ai.chatHealthScore) || math.toxicityLevel || "—";
       case "lovelang": return ai.compatibilityScore != null ? `${ai.compatibilityScore}/10 compatibility` : "—";
       case "growth":   return translateControlValue(displayLang, ai.trajectory) || "—";
-      case "accounta": return ai.overallVerdict || "—";
-      case "energy":   return ai.compatibility  || "—";
+      case "accounta": return participantPreview([ai.personA, ai.personB], "score", accountabilityKeyword);
+      case "energy":   return participantPreview([ai.personA, ai.personB], "netScore", person => energyKeyword(person, displayLang));
       default:         return "—";
     }
   };
@@ -10185,7 +10473,7 @@ function MyResults({ onBack, onRestoreResult }) {
               );
               if (!editing) {
                 return (
-                  <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
+                  <button key={row.id} onClick={() => onRestoreResult(row, { origin: "bundle", bundleId: bundleView })} className="wc-btn"
                     style={{ display:"flex", alignItems:"center", gap:16,
                       background:pal.bg, border:`1px solid ${pal.accent}28`,
                       borderRadius:20, padding:"16px 18px",
@@ -10503,6 +10791,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [dir,              setDir]              = useState("fwd");
   const [sid,              setSid]              = useState(0);
   const [resultsOrigin,    setResultsOrigin]    = useState("upload"); // "upload" | "history"
+  const [reportRouteState, setReportRouteState] = useState(null);
+  const [historyBundleView, setHistoryBundleView] = useState(null);
   const [shareBusy,        setShareBusy]        = useState(false);
   const [sharePicker,      setSharePicker]      = useState(false);
   const [currentResultId,  setCurrentResultId]  = useState(null);
@@ -10524,6 +10814,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const consumedImportRef   = useRef(null);
   const trialAutoRunDoneRef = useRef(false);
   const resolvedUiLang = resolveUiLang(uiLangPref, detectedLang?.code);
+  const reportContentLang = resolveReportContentLanguage(chatLang, detectedLang, resolvedUiLang);
   const authedIsAdmin = isAdminUser(authedUser);
 
   useEffect(() => {
@@ -10640,13 +10931,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       if (!data) return;
 
       const displayLang = getStoredResultDisplayLanguage(data.result_data);
+      const sourceLang = normalizeUiLangCode(data.result_data?.sourceLanguage || displayLang);
       const displayResult = getDisplayResultData(data.result_data, displayLang);
       const canReuseCore = data.result_data?.analysisCacheVersion === CORE_ANALYSIS_CACHE_VERSION;
 
       setAi(displayResult || {});
       if (canReuseCore && data.result_data?.coreAnalysis?.part === "connection") {
+        const cacheFamily = data.report_type === "energy" ? "connection:energy" : "connection";
         setConnectionDigest(data.result_data.coreAnalysis);
-        setConnectionDigestKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "connection", "en"));
+        setConnectionDigestKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, cacheFamily, sourceLang));
         setCoreAnalysisA(null);
         setCoreAnalysisAKey("");
         setCoreAnalysisB(null);
@@ -10655,7 +10948,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setConnectionDigest(null);
         setConnectionDigestKey("");
         setCoreAnalysisA(data.result_data.coreAnalysis);
-        setCoreAnalysisAKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "growth", "en"));
+        setCoreAnalysisAKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "growth", sourceLang));
         setCoreAnalysisB(null);
         setCoreAnalysisBKey("");
       } else if (canReuseCore && (data.result_data?.coreAnalysis?.part === "risk" || data.result_data?.coreAnalysis?.part === "b")) {
@@ -10664,7 +10957,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCoreAnalysisA(null);
         setCoreAnalysisAKey("");
         setCoreAnalysisB(data.result_data.coreAnalysis);
-        setCoreAnalysisBKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "risk", "en"));
+        setCoreAnalysisBKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "risk", sourceLang));
       } else {
         setConnectionDigest(null);
         setConnectionDigestKey("");
@@ -10684,6 +10977,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setStep(0);
       setDir("fwd");
       setResultsOrigin("upload");
+      setReportRouteState(null);
+      setHistoryBundleView(null);
       setPhase("results");
       setSid(s => s + 1);
     };
@@ -10769,6 +11064,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setStep(0);
     setDir("fade");
     setResultsOrigin("upload");
+    setReportRouteState(null);
+    setHistoryBundleView(null);
     setShareBusy(false);
     setSharePicker(false);
     setCurrentResultId(null);
@@ -10821,6 +11118,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUploadError("");
     setUploadInfo("");
     setAnalysisError("");
+    setReportRouteState(null);
+    setHistoryBundleView(null);
     setStep(0);
     setDir("fade");
     setPhase("upload");
@@ -10839,6 +11138,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSelectedReportTypes([]);
     setLoadingReportIndex(0);
     setCurrentResultId(null);
+    setReportRouteState(null);
+    setHistoryBundleView(null);
     setFeedbackTarget(null); setFeedbackChoice(""); setFeedbackNote(""); setFeedbackBusy(false); setFeedbackThanks(false);
     setChatLang("en"); setDetectedLang(null);
     setUploadError("");
@@ -10892,8 +11193,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           m.originalParticipantCount = originalParticipantCount;
         }
         const detected = detectLanguage(cappedMsgs);
+        const initialContentLang = resolveReportContentLanguage(
+          detected.code,
+          detected,
+          resolveUiLang(uiLangPref, detected.code)
+        );
         setDetectedLang(detected);
-        setChatLang(detected.code);
+        setChatLang(initialContentLang);
         setMessages(cappedMsgs);
         setMath(m);
         setAi(null);
@@ -10907,6 +11213,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setSelectedReportTypes([]);
         setLoadingReportIndex(0);
         setCurrentResultId(null);
+        setReportRouteState(null);
+        setHistoryBundleView(null);
         setDebugRelType(null);
         setDir("fwd");
         setPhase(m?.isGroup ? "select" : "relationship");
@@ -10960,37 +11268,39 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     runAnalysis(["trial_report"], math.isGroup ? null : relationshipType);
   }, [phase, messages, math, credits, accessMode, authedIsAdmin, relationshipType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const generatePipelineResult = async (type, relType) => {
+  const generatePipelineResult = async (type, relType, contentLang = reportContentLang) => {
     const pipeline = REPORT_PIPELINES[type];
+    const lang = normalizeUiLangCode(contentLang);
 
     if (pipeline?.strategy === "trial") {
-      return await generateTrialDigest(messages, math, relType);
+      return await generateTrialDigest(messages, math, relType, lang);
     }
 
     if (pipeline?.strategy !== "family") return {};
 
     const family = pipeline.family || "connection";
-    const cacheKey = getAnalysisFamilyCacheKey(math, relType, family, "en");
+    const cacheFamily = type === "energy" && family === "connection" ? "connection:energy" : family;
+    const cacheKey = getAnalysisFamilyCacheKey(math, relType, cacheFamily, lang);
     let core = null;
 
     if (family === "connection") {
       core = connectionDigestKey === cacheKey ? connectionDigest : null;
       if (!core) {
-        core = await generateConnectionDigest(messages, math, relType, "en");
+        core = await generateConnectionDigest(messages, math, relType, lang, { energyFocus: type === "energy" });
         setConnectionDigest(core);
         setConnectionDigestKey(cacheKey);
       }
     } else if (family === "growth") {
       core = coreAnalysisAKey === cacheKey ? coreAnalysisA : null;
       if (!core) {
-        core = await generateGrowthDigest(messages, math, relType, "en");
+        core = await generateGrowthDigest(messages, math, relType, lang);
         setCoreAnalysisA(core);
         setCoreAnalysisAKey(cacheKey);
       }
     } else if (family === "risk") {
       core = coreAnalysisBKey === cacheKey ? coreAnalysisB : null;
       if (!core) {
-        core = await generateRiskDigest(messages, math, relType, "en");
+        core = await generateRiskDigest(messages, math, relType, lang);
         setCoreAnalysisB(core);
         setCoreAnalysisBKey(cacheKey);
       }
@@ -11015,6 +11325,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setCurrentResultId(savedId || null);
     setAiLoading(false);
     setResultsOrigin("upload");
+    setReportRouteState(null);
+    setHistoryBundleView(null);
+    if (typeof window !== "undefined") {
+      window.history.pushState({ wrapchatPhase: "results" }, "", window.location.href);
+    }
     setDir("fwd");
     setPhase("results");
     setStep(0);
@@ -11047,6 +11362,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   // Run AI analysis with the selected report type(s) and relationship type
   const runAnalysis = async (types, relType) => {
     const selectedTypes = normalizeSelectedReportTypes(Array.isArray(types) ? types : [types]).filter(Boolean);
+    const contentLang = reportContentLang;
     setAnalysisError("");
     if (!selectedTypes.length) {
       setAnalysisError("Choose at least one report.");
@@ -11114,6 +11430,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSelectedReportTypes(selectedTypes);
     setLoadingReportIndex(0);
     setCurrentResultId(null);
+    setReportRouteState(null);
+    setHistoryBundleView(null);
     const bundleId = selectedTypes.length > 1 ? crypto.randomUUID() : null;
     const successfulRuns = [];
     const failedTypes = [];
@@ -11125,17 +11443,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
       try {
         // eslint-disable-next-line no-await-in-loop
-        const canonicalResult = await generatePipelineResult(type, relType);
+        const canonicalResult = await generatePipelineResult(type, relType, contentLang);
         let translationOverlay = null;
-        if (chatLang !== "en") {
+        if (type === "trial_report" && contentLang !== "en") {
           try {
             // eslint-disable-next-line no-await-in-loop
-            translationOverlay = await translateResultOverlay(type, canonicalResult, chatLang);
+            translationOverlay = await translateResultOverlay(type, canonicalResult, contentLang);
           } catch (translationError) {
-            console.error(`Translation failed for report "${type}" [lang=${chatLang}]`, translationError);
+            console.error(`Translation failed for report "${type}" [lang=${contentLang}]`, translationError);
           }
         }
-        const result = buildStoredResultData(canonicalResult, translationOverlay ? chatLang : "en", translationOverlay);
+        const sourceLang = type === "trial_report" ? "en" : contentLang;
+        const resultLang = translationOverlay ? contentLang : sourceLang;
+        const result = buildStoredResultData(canonicalResult, resultLang, translationOverlay, sourceLang);
         if (!result) {
           failedTypes.push(type);
           continue;
@@ -11150,7 +11470,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         const saved = await saveResult(type, result, math, bundleId, creditMeta);
         successfulRuns.push({ type, result, savedId: saved?.id || null });
       } catch (error) {
-        console.error(`Analysis failed for report "${type}" [lang=${chatLang}]`, error);
+        console.error(`Analysis failed for report "${type}" [lang=${contentLang}]`, error);
         failedTypes.push(type);
       }
     }
@@ -11170,6 +11490,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     setAiLoading(false);
     setResultsOrigin("history");
+    setReportRouteState(null);
+    setHistoryBundleView(bundleId);
     setDir("fwd");
     setPhase("history");
     setStep(0);
@@ -11213,6 +11535,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const buildAdminAiDebugRequests = () => {
     if (!messages?.length || !math) return null;
 
+    const contentLang = reportContentLang;
     const selectedRelationshipType = math.isGroup ? null : (relationshipType || debugRelType || null);
     if (!math.isGroup && !selectedRelationshipType) return null;
 
@@ -11224,7 +11547,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       messages,
       math,
       relationshipType: selectedRelationshipType,
-      chatLang: "en",
+      chatLang: contentLang,
       relationshipContext,
       buildAnalystSystemPrompt: buildCoreASystemPrompt,
       buildRelationshipLine,
@@ -11237,7 +11560,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       messages,
       math,
       relationshipType: selectedRelationshipType,
-      chatLang: "en",
+      chatLang: contentLang,
       relationshipContext,
       buildAnalystSystemPrompt: buildCoreASystemPrompt,
       buildRelationshipLine,
@@ -11250,7 +11573,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       messages,
       math,
       relationshipType: selectedRelationshipType,
-      chatLang: "en",
+      chatLang: contentLang,
       relationshipContext,
       buildAnalystSystemPrompt,
       buildRelationshipLine,
@@ -11374,9 +11697,20 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const closeResults = () => {
     const dest = resultsOrigin === "history" ? "history" : "upload";
-    if (dest === "upload") setDir("fade");
+    if (dest === "history") {
+      setHistoryBundleView(reportRouteState?.origin === "bundle" ? reportRouteState.bundleId : null);
+    } else {
+      setDir("fade");
+      setHistoryBundleView(null);
+    }
+    setReportRouteState(null);
     setPhase(dest);
     setSid(s => s + 1);
+  };
+
+  const backFromReport = () => {
+    if (step > 0) back();
+    else closeResults();
   };
 
   const goBackFromCurrent = () => {
@@ -11444,7 +11778,17 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [phase, step, math, sharePicker, feedbackTarget, resultsOrigin]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, step, math, sharePicker, feedbackTarget, resultsOrigin, reportRouteState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (phase !== "results") return undefined;
+    const onPopState = () => {
+      if (step > 0) back();
+      else closeResults();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [phase, step, resultsOrigin, reportRouteState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFeedback = (target) => {
     setFeedbackTarget(target);
@@ -11588,14 +11932,24 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </UILanguageContext.Provider>
   );
 
-  const onRestoreResult = (row) => {
+  const pushReportHistoryEntry = () => {
+    if (typeof window === "undefined") return;
+    window.history.pushState({ wrapchatPhase: "results" }, "", window.location.href);
+  };
+
+  const onRestoreResult = (row, routeState = null) => {
+    const nextRouteState = routeState?.origin === "bundle" && routeState.bundleId
+      ? { origin: "bundle", bundleId: routeState.bundleId }
+      : null;
     setMath(row.math_data);
     const displayLang = getStoredResultDisplayLanguage(row.result_data);
+    const sourceLang = normalizeUiLangCode(row.result_data?.sourceLanguage || displayLang);
     const canReuseCore = row.result_data?.analysisCacheVersion === CORE_ANALYSIS_CACHE_VERSION;
     setAi(getDisplayResultData(row.result_data, displayLang));
     if (canReuseCore && row.result_data?.coreAnalysis?.part === "connection") {
+      const cacheFamily = row.report_type === "energy" ? "connection:energy" : "connection";
       setConnectionDigest(row.result_data.coreAnalysis);
-      setConnectionDigestKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "connection", "en"));
+      setConnectionDigestKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, cacheFamily, sourceLang));
       setCoreAnalysisA(null);
       setCoreAnalysisAKey("");
       setCoreAnalysisB(null);
@@ -11604,7 +11958,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setConnectionDigest(null);
       setConnectionDigestKey("");
       setCoreAnalysisA(row.result_data.coreAnalysis);
-      setCoreAnalysisAKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "growth", "en"));
+      setCoreAnalysisAKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "growth", sourceLang));
       setCoreAnalysisB(null);
       setCoreAnalysisBKey("");
     } else if (canReuseCore && (row.result_data?.coreAnalysis?.part === "risk" || row.result_data?.coreAnalysis?.part === "b")) {
@@ -11613,7 +11967,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setCoreAnalysisA(null);
       setCoreAnalysisAKey("");
       setCoreAnalysisB(row.result_data.coreAnalysis);
-      setCoreAnalysisBKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "risk", "en"));
+      setCoreAnalysisBKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "risk", sourceLang));
     } else {
       setConnectionDigest(null);
       setConnectionDigestKey("");
@@ -11626,6 +11980,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSelectedReportTypes(row.report_type ? [row.report_type] : []);
     setLoadingReportIndex(0);
     setCurrentResultId(row.id || null);
+    setReportRouteState(nextRouteState);
+    setHistoryBundleView(null);
     setRelationshipType(row.result_data?.relationshipType ?? null);
     setChatLang(displayLang);
     setAiLoading(false);
@@ -11633,6 +11989,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDir("fwd");
     setResultsOrigin("history");
     setPhase("results");
+    pushReportHistoryEntry();
     setSid(s => s + 1);
   };
 
@@ -11660,8 +12017,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>)
   );
   if (phase === "settings") return withUiLanguage(<Slide dir={dir} id={sid}><SettingsScreen onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} onAccountDeleted={handleAccountDeleted} /></Slide>);
-  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
-  if (phase === "upload")   return withUiLanguage(<Slide dir={dir} id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setDir("fwd"); setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} /></Slide>);
+  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults initialBundleId={historyBundleView} onBack={() => { setDir("fade"); setHistoryBundleView(null); setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
+  if (phase === "upload")   return withUiLanguage(<Slide dir={dir} id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setHistoryBundleView(null); setDir("fwd"); setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} /></Slide>);
   if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} /></Slide>);
   if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={() => { setAnalysisError(""); setDir("bk"); setPhase("select"); setSid(s => s+1); }} /></Slide>);
   if (phase === "select") return (
@@ -11722,12 +12079,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // ── Trial report routing ──
   if (reportType === "trial_report") {
-    if (step < TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} />);
+    if (step < TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} />);
     return wrap(
       <TrialFinale
         s={math}
         restart={restart}
-        back={back}
+        back={backFromReport}
         onUpgrade={() => {
           setUpgradeInfo({ message: "Get credits to unlock the full analysis.", accessMode, requiredCredits: 2 });
           setDir("fwd");
@@ -11741,24 +12098,24 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   // ── Premium report routing ──
   const fromHistory = resultsOrigin === "history";
   if (reportType === "toxicity") {
-    if (step < TOXICITY_SCREENS) return wrap(<ToxicityReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < TOXICITY_SCREENS) return wrap(<ToxicityReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "lovelang") {
-    if (step < LOVELANG_SCREENS) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < LOVELANG_SCREENS) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "growth") {
-    if (step < GROWTH_SCREENS) return wrap(<GrowthReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < GROWTH_SCREENS) return wrap(<GrowthReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "accounta") {
-    if (step < ACCOUNTA_SCREENS) return wrap(<AccountaReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < ACCOUNTA_SCREENS) return wrap(<AccountaReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "energy") {
-    if (step < ENERGY_SCREENS) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={back} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < ENERGY_SCREENS) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
 
   // ── General Wrapped (existing casual analysis) ──
@@ -11767,10 +12124,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   let screen;
   if (step < contentCount) {
     screen = math.isGroup
-      ? <GroupScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} mode="casual" resultId={currentResultId} />
-      : <DuoScreen   s={math} ai={ai} aiLoading={aiLoading} step={step} back={back} next={next} mode="casual" relationshipType={relationshipType} resultId={currentResultId} />;
+      ? <GroupScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} mode="casual" resultId={currentResultId} />
+      : <DuoScreen   s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} mode="casual" relationshipType={relationshipType} resultId={currentResultId} />;
   } else {
-    screen = <Finale s={math} ai={ai} aiLoading={aiLoading} restart={restart} back={back} prog={total} total={total} mode="casual" resultId={currentResultId} fromHistory={fromHistory} />;
+    screen = <Finale s={math} ai={ai} aiLoading={aiLoading} restart={restart} back={backFromReport} prog={total} total={total} mode="casual" resultId={currentResultId} fromHistory={fromHistory} />;
   }
   return wrap(screen);
 }
