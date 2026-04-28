@@ -3770,6 +3770,9 @@ function mergeIntervals(intervals) {
 
 // Human-readable label for a chunk header, derived from its tag set
 function chunkLabel(tags = []) {
+  if (tags.includes("accountability-kept")) return "kept commitment";
+  if (tags.includes("accountability-broken")) return "missed commitment";
+  if (tags.includes("accountability-promise")) return "commitment";
   if (tags.includes("energy-high"))   return "positive energy";
   if (tags.includes("energy-low"))    return "draining energy";
   if (tags.includes("conflict"))      return "conflict";
@@ -4079,6 +4082,193 @@ function buildEnergySampleText(messages) {
     return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
   }
   return formatChunksForAI(messages, buildEnergyChunks(messages));
+}
+
+const ACCOUNTABILITY_KEYWORDS = Object.freeze({
+  commitments: Object.freeze({
+    en: ["i will", "i'll", "i can", "i'll do", "i'm going to", "i promise", "promise", "let's", "we will", "we'll", "i booked", "i ordered", "i sent", "i'll bring", "i'll call", "i'll send", "i'll pick", "i'll pay"],
+    tr: ["yapacağım", "yapacagim", "ederim", "gideceğim", "gidecegim", "söz", "soz", "hallederim", "ararım", "ararim", "gönderirim", "gonderirim", "alırım", "alirim", "getiririm", "bakarım", "bakarim"],
+    es: ["voy a", "prometo", "te prometo", "puedo", "lo hago", "lo hare", "lo haré", "mando", "envio", "envío", "llamo", "traigo", "pago", "reservé", "reserve"],
+    pt: ["vou", "prometo", "eu faço", "eu faco", "posso", "mando", "envio", "ligo", "trago", "pago", "reservei", "comprei"],
+    ar: ["سأ", "راح", "هعمل", "هسوي", "اوعد", "أوعد", "وعد", "ابعت", "أبعت", "ارسل", "أرسل", "اجيب", "أجيب", "اتصل", "أدفع"],
+    fr: ["je vais", "je peux", "je promets", "promis", "j'envoie", "j'appelle", "je ramene", "je ramène", "je paie", "j'ai reserve", "j'ai réservé"],
+    de: ["ich werde", "ich kann", "versprochen", "ich verspreche", "ich schicke", "ich rufe", "ich bringe", "ich zahle", "ich habe gebucht", "ich buche"],
+    it: ["farò", "faro", "posso", "prometto", "mando", "invio", "chiamo", "porto", "pago", "ho prenotato", "prenoto"],
+  }),
+  followThrough: Object.freeze({
+    en: ["done", "did it", "finished", "sent it", "booked", "ordered", "paid", "got it", "handled", "completed", "on my way", "i'm here", "i called"],
+    tr: ["bitti", "yaptım", "yaptim", "gönderdim", "gonderdim", "aldım", "aldim", "ödedim", "odedim", "hallettim", "geliyorum", "geldim", "aradım", "aradim"],
+    es: ["hecho", "lo hice", "terminé", "termine", "enviado", "reservé", "reserve", "pagado", "lo tengo", "ya voy", "llegué", "llegue", "llamé", "llame"],
+    pt: ["feito", "fiz", "terminei", "enviei", "reservei", "paguei", "consegui", "estou indo", "cheguei", "liguei"],
+    ar: ["خلص", "عملت", "سويت", "ارسلت", "أرسلت", "حجزت", "دفعت", "جبت", "وصلت", "اتصلت"],
+    fr: ["fait", "je l'ai fait", "termine", "terminé", "envoye", "envoyé", "reserve", "réservé", "paye", "payé", "j'arrive", "je suis la", "appelé"],
+    de: ["erledigt", "gemacht", "fertig", "geschickt", "gebucht", "bezahlt", "hab es", "bin unterwegs", "bin da", "angerufen"],
+    it: ["fatto", "l'ho fatto", "finito", "inviato", "prenotato", "pagato", "preso", "arrivo", "sono qui", "ho chiamato"],
+  }),
+  delayOrExcuse: Object.freeze({
+    en: ["sorry", "forgot", "late", "delayed", "can't", "cannot", "couldn't", "busy", "tomorrow", "later", "not yet", "i missed", "rain check", "reschedule", "postpone"],
+    tr: ["pardon", "özür", "ozur", "unuttum", "geç", "gec", "geciktim", "yapamam", "yoğunum", "yogunum", "yarın", "yarin", "sonra", "daha değil", "erteleyelim"],
+    es: ["perdón", "perdon", "olvidé", "olvide", "tarde", "no puedo", "ocupado", "ocupada", "mañana", "manana", "luego", "todavía no", "todavia no", "reprogramar"],
+    pt: ["desculpa", "esqueci", "atrasado", "atrasada", "não posso", "nao posso", "ocupado", "ocupada", "amanhã", "amanha", "depois", "ainda não", "remarcar"],
+    ar: ["اسف", "آسف", "نسيت", "متأخر", "اتأخرت", "مش قادر", "ما اقدر", "مشغول", "بكرة", "بعدين", "لسه", "نأجل"],
+    fr: ["desole", "désolé", "oublie", "oublié", "retard", "je peux pas", "occupe", "occupé", "demain", "plus tard", "pas encore", "reporter"],
+    de: ["sorry", "vergessen", "spät", "verspätet", "kann nicht", "beschäftigt", "morgen", "später", "noch nicht", "verschieben"],
+    it: ["scusa", "dimenticato", "tardi", "ritardo", "non posso", "occupato", "occupata", "domani", "dopo", "non ancora", "rimandare"],
+  }),
+  cancellation: Object.freeze({
+    en: ["cancel", "can't make it", "not coming", "skip", "forget it", "never mind", "called off"],
+    tr: ["iptal", "gelemem", "gelmiyorum", "boşver", "bosver", "vazgeç", "vazgec"],
+    es: ["cancelar", "cancelo", "no voy", "no puedo ir", "olvidalo", "déjalo", "dejalo"],
+    pt: ["cancelar", "cancelei", "não vou", "nao vou", "não consigo ir", "deixa", "esquece"],
+    ar: ["الغاء", "إلغاء", "مش جاي", "مش هاجي", "خلينا نلغي", "انسى"],
+    fr: ["annuler", "j'annule", "je viens pas", "je ne viens pas", "laisse tomber"],
+    de: ["absagen", "abgesagt", "komme nicht", "schaffe es nicht", "vergiss es"],
+    it: ["annullare", "annullo", "non vengo", "non riesco", "lascia stare"],
+  }),
+});
+
+const ACCOUNTABILITY_WEAK_COMMITMENT_TERMS = [
+  "sometime", "one day", "maybe", "should hang", "we should", "eventually",
+  "bir ara", "belki", "algún día", "algun dia", "talvez", "un jour", "irgendwann", "prima o poi",
+].map(normalizeEnergyText);
+
+function flattenAccountabilityTerms(group) {
+  return Object.values(group).flat().map(normalizeEnergyText).filter(Boolean);
+}
+
+const ACCOUNTABILITY_COMMITMENT_TERMS = flattenAccountabilityTerms(ACCOUNTABILITY_KEYWORDS.commitments);
+const ACCOUNTABILITY_FOLLOW_THROUGH_TERMS = flattenAccountabilityTerms(ACCOUNTABILITY_KEYWORDS.followThrough);
+const ACCOUNTABILITY_DELAY_TERMS = flattenAccountabilityTerms(ACCOUNTABILITY_KEYWORDS.delayOrExcuse);
+const ACCOUNTABILITY_CANCEL_TERMS = flattenAccountabilityTerms(ACCOUNTABILITY_KEYWORDS.cancellation);
+
+function scoreAccountabilityMessage(msg, index, messages) {
+  const body = /^<(Voice|Media) omitted>$/.test(msg?.body || "") ? "" : (msg?.body || "");
+  const text = normalizeEnergyText(body);
+  if (!text || text.length < 4) return null;
+
+  const commitmentMatches = countEnergyMatches(text, ACCOUNTABILITY_COMMITMENT_TERMS);
+  const followMatches = countEnergyMatches(text, ACCOUNTABILITY_FOLLOW_THROUGH_TERMS);
+  const delayMatches = countEnergyMatches(text, ACCOUNTABILITY_DELAY_TERMS);
+  const cancelMatches = countEnergyMatches(text, ACCOUNTABILITY_CANCEL_TERMS);
+  if (!commitmentMatches && !followMatches && !delayMatches && !cancelMatches) return null;
+
+  const hasSpecificity = (
+    /\b(today|tonight|tomorrow|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|at \d|by \d|\d{1,2}:\d{2})\b/i.test(body) ||
+    /\b(bugun|bugün|yarin|yarın|aksam|akşam|sabah|pazartesi|sali|salı|carsamba|çarşamba|persembe|perşembe|cuma|cumartesi|pazar)\b/i.test(body) ||
+    /\b(hoy|mañana|manana|noche|lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)\b/i.test(body) ||
+    /\b(hoje|amanhã|amanha|noite|segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo)\b/i.test(body) ||
+    /\b(aujourd'hui|demain|soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(body) ||
+    /\b(heute|morgen|abend|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)\b/i.test(body) ||
+    /\b(oggi|domani|sera|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\b/i.test(body)
+  );
+  const weakCommitment = ACCOUNTABILITY_WEAK_COMMITMENT_TERMS.some(term => text.includes(term));
+  const nearby = messages.slice(Math.max(0, index - 3), Math.min(messages.length, index + 5));
+  const nearbyFollow = nearby.some(item => item !== msg && countEnergyMatches(normalizeEnergyText(item?.body), ACCOUNTABILITY_FOLLOW_THROUGH_TERMS));
+  const nearbyDelay = nearby.some(item => item !== msg && (
+    countEnergyMatches(normalizeEnergyText(item?.body), ACCOUNTABILITY_DELAY_TERMS) ||
+    countEnergyMatches(normalizeEnergyText(item?.body), ACCOUNTABILITY_CANCEL_TERMS)
+  ));
+
+  const tags = [];
+  if (commitmentMatches) tags.push("accountability-promise");
+  if (followMatches || nearbyFollow) tags.push("accountability-kept");
+  if (delayMatches || cancelMatches || nearbyDelay) tags.push("accountability-broken");
+  const quoteShape = body.length >= 12 && body.length <= 240 ? 2 : 0;
+  const score =
+    commitmentMatches * 6 +
+    followMatches * 5 +
+    delayMatches * 4 +
+    cancelMatches * 6 +
+    (hasSpecificity ? 4 : 0) +
+    (nearbyFollow ? 2 : 0) +
+    (nearbyDelay ? 2 : 0) +
+    quoteShape -
+    (weakCommitment && !hasSpecificity ? 5 : 0);
+
+  if (score < 4) return null;
+  return { i: index, score, tags: [...new Set(tags)] };
+}
+
+function buildAccountabilityChunks(messages) {
+  if (!messages.length) return [];
+  const n = messages.length;
+  const MSG_LINE_LIMIT = 1400;
+  const candidates = messages
+    .map((msg, index) => scoreAccountabilityMessage(msg, index, messages))
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+
+  const windows = [];
+  const taken = new Set();
+  const addWindow = (candidate) => {
+    for (let k = Math.max(0, candidate.i - 5); k <= Math.min(n - 1, candidate.i + 5); k += 1) {
+      if (taken.has(k)) return false;
+    }
+    for (let k = Math.max(0, candidate.i - 5); k <= Math.min(n - 1, candidate.i + 5); k += 1) taken.add(k);
+    windows.push([
+      Math.max(0, candidate.i - 5),
+      Math.min(n - 1, candidate.i + 7),
+      candidate.tags,
+    ]);
+    return true;
+  };
+
+  let promiseCount = 0;
+  let keptCount = 0;
+  let brokenCount = 0;
+  for (const candidate of candidates) {
+    if (candidate.tags.includes("accountability-promise") && promiseCount < 12 && addWindow(candidate)) promiseCount += 1;
+  }
+  for (const candidate of candidates) {
+    if (candidate.tags.includes("accountability-kept") && keptCount < 10 && addWindow(candidate)) keptCount += 1;
+  }
+  for (const candidate of candidates) {
+    if (candidate.tags.includes("accountability-broken") && brokenCount < 10 && addWindow(candidate)) brokenCount += 1;
+  }
+  for (const candidate of candidates) {
+    if (windows.length >= 44) break;
+    addWindow(candidate);
+  }
+
+  const baseline = buildChunks(messages);
+  const focused = mergeIntervals(windows);
+  const covered = new Set();
+  focused.forEach(([start, end]) => {
+    for (let i = start; i <= end; i += 1) covered.add(i);
+  });
+
+  let lines = 0;
+  const selected = [];
+  for (const chunk of focused) {
+    const size = chunk[1] - chunk[0] + 1;
+    if (lines + size > MSG_LINE_LIMIT) continue;
+    selected.push(chunk);
+    lines += size;
+  }
+
+  for (const chunk of baseline) {
+    const overlapsFocused = (() => {
+      for (let i = chunk[0]; i <= chunk[1]; i += 1) {
+        if (covered.has(i)) return true;
+      }
+      return false;
+    })();
+    if (overlapsFocused) continue;
+    const size = chunk[1] - chunk[0] + 1;
+    if (lines + size > MSG_LINE_LIMIT) break;
+    selected.push(chunk);
+    lines += size;
+  }
+
+  return mergeIntervals(selected).sort((a, b) => a[0] - b[0]);
+}
+
+function buildAccountabilitySampleText(messages) {
+  if (!messages.length) return "";
+  if (messages.length <= 600) {
+    return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
+  }
+  return formatChunksForAI(messages, buildAccountabilityChunks(messages));
 }
 
 async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMode = "analysis") {
@@ -4750,6 +4940,9 @@ function normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext
       accountability: {
         notableBroken: normalizePromiseMoment(accountability.notableBroken),
         notableKept: normalizePromiseMoment(accountability.notableKept),
+        comparison: strOr(accountability.comparison),
+        followThroughPattern: strOr(accountability.followThroughPattern),
+        evidenceQuality: strOr(accountability.evidenceQuality),
         overallVerdict: strOr(accountability.overallVerdict),
       },
     },
@@ -4947,6 +5140,9 @@ function deriveAccountaReportFromCore(core, math, relationshipType) {
     },
     notableBroken: accountability.notableBroken,
     notableKept: accountability.notableKept,
+    comparison: accountability.comparison,
+    followThroughPattern: accountability.followThroughPattern,
+    evidenceQuality: accountability.evidenceQuality,
     overallVerdict: accountability.overallVerdict,
   }, relationshipType, core);
 }
@@ -5010,6 +5206,9 @@ function hasMeaningfulAnalysisResult(type, result) {
         result.personB?.detail,
         result.notableBroken?.promise,
         result.notableKept?.promise,
+        result.comparison,
+        result.followThroughPattern,
+        result.evidenceQuality,
         result.overallVerdict,
       ]) >= 2;
     case "energy":
@@ -5120,10 +5319,11 @@ async function generateCoreAnalysisB(messages, math, relationshipType, chatLang 
   return normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext);
 }
 
-async function generateRiskDigest(messages, math, relationshipType, chatLang = "en") {
+async function generateRiskDigest(messages, math, relationshipType, chatLang = "en", options = {}) {
   const names = math.names || [];
   const isGroup = !!math?.isGroup;
   const relationshipContext = !isGroup ? await resolveRelationshipContext(messages, names, relationshipType) : null;
+  const accountabilityFocus = options?.accountabilityFocus === true;
   const request = prepareRiskDigestRequest({
     messages,
     math,
@@ -5132,12 +5332,15 @@ async function generateRiskDigest(messages, math, relationshipType, chatLang = "
     relationshipContext,
     buildAnalystSystemPrompt,
     buildRelationshipLine,
-    buildSampleText,
+    buildSampleText: accountabilityFocus ? buildAccountabilitySampleText : buildSampleText,
+    extraRiskRules: accountabilityFocus
+      ? "ACCOUNTABILITY FOCUS: Prioritize concrete promise, follow-through, delay, cancellation, apology, excuse, and follow-up windows. For notableBroken and notableKept, pick only meaningful commitments with clear evidence. If no strong broken promise exists, set person to \"None clearly identified\", leave promise/date/outcome plain and non-dramatic, and explain that the chat does not show a clear broken commitment. Make comparison, followThroughPattern, evidenceQuality, and overallVerdict fair to both people and honest about weak evidence."
+      : "",
     coreAnalysisVersion: CORE_ANALYSIS_VERSION,
     maxTokens: CORE_B_MAX_TOKENS,
   });
 
-  if (import.meta.env.DEV) console.log("[RiskDigest] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
+  if (import.meta.env.DEV) console.log("[RiskDigest] chatLang:", chatLang, "| accountabilityFocus:", accountabilityFocus, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callClaude(request.systemPrompt, request.userContent, request.maxTokens, request.schemaMode);
   return normalizeRiskDigest(raw, math, relationshipType, relationshipContext);
 }
@@ -5282,6 +5485,9 @@ const REPORT_TRANSLATION_FIELDS = {
     "notableBroken.outcome",
     "notableKept.promise",
     "notableKept.outcome",
+    "comparison",
+    "followThroughPattern",
+    "evidenceQuality",
     "overallVerdict",
   ],
   energy: [
@@ -5789,6 +5995,12 @@ const REPORT_TYPES = [
   { id:"energy",       label:"Energy Report",          desc:"Who brings good energy vs drains it — net energy score per person.",                         palette:"energy"   },
   { id:"trial_report", label:"Chat Preview",           desc:"A quick AI snapshot — vibe, communication pattern, and one key insight. Uses 1 credit.",    palette:"trial"    },
 ];
+
+const CREDIT_PACKS = Object.freeze([
+  Object.freeze({ label: "Starter", credits: 10, price: "€2.99", desc: "Enough for a Full Suite, plus room to try extras." }),
+  Object.freeze({ label: "Standard", credits: 25, price: "€5.99", desc: "Run several deep dives without thinking about every tap." }),
+  Object.freeze({ label: "Deep Dive", credits: 60, price: "€11.99", desc: "Best value for comparing multiple chats or rerunning bundles." }),
+]);
 
 function normalizeSelectedReportTypes(types) {
   const selected = new Set(Array.isArray(types) ? types : []);
@@ -7273,32 +7485,87 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
   return screens[step] ?? null;
 }
 
-function TrialFinale({ s, restart, back, onUpgrade }) {
+function CreditPackGrid({ accent = DA.teal, disabled = true }) {
   const t = useT();
-  const p = PAL.trial;
-  const packs = [
-    { label: "Starter",   credits: 4,  desc: "1 Vibe Bundle",   price: "$4"  },
-    { label: "Standard",  credits: 8,  desc: "1 Full Suite",    price: "$8"  },
-    { label: "Deep Dive", credits: 15, desc: "2 Full Suites",   price: "$12" },
-  ];
   return (
-    <Shell sec="trial" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 1} shareType="summary">
-      <T s={22}>{t("Want the full picture?")}</T>
-      <Sub mt={4}>{s.names?.join(" & ") || ""} · {t("Your preview is done. Unlock deeper analysis with credits.")}</Sub>
+    <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+      {CREDIT_PACKS.map(pack => (
+        <button
+          key={pack.label}
+          type="button"
+          disabled={disabled}
+          className="wc-btn"
+          style={{
+            background:"rgba(255,255,255,0.07)",
+            border:"1px solid rgba(255,255,255,0.14)",
+            borderRadius:18,
+            padding:"14px 10px",
+            textAlign:"center",
+            cursor:disabled ? "not-allowed" : "pointer",
+            opacity:disabled ? 0.86 : 1,
+            color:"#fff",
+          }}
+          title={disabled ? "Payments coming soon" : pack.label}
+        >
+          <div style={{ fontSize:10, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:accent, marginBottom:4 }}>{pack.label}</div>
+          <div style={{ fontSize:22, fontWeight:900, color:"#fff" }}>{pack.credits}</div>
+          <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginBottom:4 }}>{t("credits")}</div>
+          <div style={{ fontSize:13, fontWeight:800, color:accent }}>{pack.price}</div>
+          <div style={{ fontSize:10, color:"rgba(255,255,255,0.36)", lineHeight:1.35, marginTop:6 }}>{t(pack.desc)}</div>
+        </button>
+      ))}
+    </div>
+  );
+}
 
-      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-        {packs.map(pack => (
-          <div key={pack.label} style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:18, padding:"14px 10px", textAlign:"center" }}>
-            <div style={{ fontSize:10, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:p.accent, marginBottom:4 }}>{pack.label}</div>
-            <div style={{ fontSize:22, fontWeight:900, color:"#fff" }}>{pack.credits}</div>
-            <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginBottom:4 }}>{t("credits")}</div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginBottom:6 }}>{pack.desc}</div>
-            <div style={{ fontSize:13, fontWeight:700, color:p.accent }}>{pack.price}</div>
-          </div>
-        ))}
+function PricingCostOverview({ accent = DA.teal, compact = false }) {
+  const t = useT();
+  const visibleReports = REPORT_TYPES.filter(report => report.id !== "trial_report");
+  return (
+    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 14px" }}>
+        <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:accent, marginBottom:8 }}>{t("Bundles")}</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:7 }}>
+          {Object.values(BUNDLES).map(bundle => (
+            <div key={bundle.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, padding:"8px 0", borderTop:"1px solid rgba(255,255,255,0.07)" }}>
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:800, color:"#fff" }}>{t(bundle.label)}</div>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.42)", lineHeight:1.4 }}>{bundle.reports.map(type => REPORT_TYPES.find(report => report.id === type)?.label || type).map(label => t(label)).join(" + ")}</div>
+              </div>
+              <div style={{ fontSize:12, fontWeight:900, color:accent, whiteSpace:"nowrap" }}>{bundle.cost} {t("cr")}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <PrimaryButton onClick={onUpgrade} color={p.accent} textColor={p.bg}>{t("Get credits")}</PrimaryButton>
+      {!compact && (
+        <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 14px" }}>
+          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:accent, marginBottom:8 }}>{t("Report costs")}</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px 12px" }}>
+            {visibleReports.map(report => (
+              <div key={report.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, minWidth:0 }}>
+                <span style={{ fontSize:12, color:"rgba(255,255,255,0.70)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t(report.label)}</span>
+                <span style={{ fontSize:11, fontWeight:800, color:"rgba(255,255,255,0.44)", whiteSpace:"nowrap" }}>{getReportCreditCost(report.id)} {t("cr")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrialFinale({ s, restart, back }) {
+  const t = useT();
+  const p = PAL.trial;
+  return (
+    <Shell sec="trial" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 1} shareType="summary" contentAlign="start">
+      <T s={22}>{t("Go deeper with this chat")}</T>
+      <Sub mt={4}>{s.names?.join(" & ") || ""} · {t("Your preview is done. Unlock the full report bundles with credits.")}</Sub>
+      <PricingCostOverview accent={p.accent} />
+      <CreditPackGrid accent={p.accent} />
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.38)", textAlign:"center", width:"100%" }}>{t("Payment integration coming soon.")}</div>
+      <PrimaryButton onClick={restart} color={p.accent} textColor={p.bg}>{t("Upload another chat")}</PrimaryButton>
       <GhostButton onClick={back}>← {t("Back")}</GhostButton>
     </Shell>
   );
@@ -7503,9 +7770,33 @@ function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACCOUNTABILITY REPORT SCREENS  (5 cards)
+// ACCOUNTABILITY REPORT SCREENS  (7 cards)
 // ─────────────────────────────────────────────────────────────────
-const ACCOUNTA_SCREENS = 5;
+const ACCOUNTA_SCREENS = 7;
+
+function hasPromiseMoment(moment) {
+  const person = String(moment?.person || "").toLowerCase();
+  return Boolean(moment?.promise || moment?.outcome) && person !== "none clearly identified";
+}
+
+function PromiseMomentCard({ moment, emptyText }) {
+  return (
+    <div style={{ width:"100%", marginTop:16 }}>
+      <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"16px 18px" }}>
+        {hasPromiseMoment(moment) ? (
+          <>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:6 }}>{moment?.date||""}{moment?.date&&moment?.person?" • ":""}{moment?.person||""}</div>
+            <div style={{ fontSize:15, fontWeight:800, color:"#fff", marginBottom:6 }}>"{moment?.promise||"—"}"</div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.6)", lineHeight:1.55 }}>{moment?.outcome||""}</div>
+          </>
+        ) : (
+          <div style={{ fontSize:14, color:"rgba(255,255,255,0.72)", lineHeight:1.6 }}>{moment?.outcome || emptyText}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
@@ -7568,32 +7859,33 @@ function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resultId }) 
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={4} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable broken promise", 4)}>
+    <Shell sec="accounta" prog={4} total={ACCOUNTA_SCREENS} feedback={feedback("Fair comparison", 4)}>
+      <T>{t("Fair comparison")}</T>
+      <AICard label={t("Both sides")} value={ai?.comparison} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    <Shell sec="accounta" prog={5} total={ACCOUNTA_SCREENS} feedback={feedback("Follow-through pattern", 5)}>
+      <T>{t("Follow-through pattern")}</T>
+      <AICard label={t("Pattern")} value={ai?.followThroughPattern} loading={loading} />
+      <AICard label={t("Evidence strength")} value={ai?.evidenceQuality} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    <Shell sec="accounta" prog={6} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable broken promise", 6)}>
       <T>{t("Most notable broken promise")}</T>
       {loading
         ? <div style={{ display:"flex", justifyContent:"center", padding:"20px 0" }}><Dots /></div>
-        : <div style={{ width:"100%", marginTop:16 }}>
-            <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"16px 18px" }}>
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:6 }}>{ai?.notableBroken?.date||""}{ai?.notableBroken?.date&&ai?.notableBroken?.person?" • ":""}{ai?.notableBroken?.person||""}</div>
-              <div style={{ fontSize:15, fontWeight:800, color:"#fff", marginBottom:6 }}>"{ai?.notableBroken?.promise||"—"}"</div>
-              <div style={{ fontSize:13, color:"rgba(255,255,255,0.6)", lineHeight:1.55 }}>{ai?.notableBroken?.outcome||""}</div>
-            </div>
-          </div>
+        : <PromiseMomentCard moment={ai?.notableBroken} emptyText={t("No clear meaningful broken promise showed up strongly enough in this chat.")} />
       }
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={5} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable kept promise", 5)}>
+    <Shell sec="accounta" prog={7} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable kept promise", 7)}>
       <T>{t("Most notable kept promise")}</T>
       {loading
         ? <div style={{ display:"flex", justifyContent:"center", padding:"20px 0" }}><Dots /></div>
-        : <div style={{ width:"100%", marginTop:16 }}>
-            <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"16px 18px" }}>
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:6 }}>{ai?.notableKept?.date||""}{ai?.notableKept?.date&&ai?.notableKept?.person?" • ":""}{ai?.notableKept?.person||""}</div>
-              <div style={{ fontSize:15, fontWeight:800, color:"#fff", marginBottom:6 }}>"{ai?.notableKept?.promise||"—"}"</div>
-              <div style={{ fontSize:13, color:"rgba(255,255,255,0.6)", lineHeight:1.55 }}>{ai?.notableKept?.outcome||""}</div>
-            </div>
-          </div>
+        : <PromiseMomentCard moment={ai?.notableKept} emptyText={t("No clear meaningful kept promise showed up strongly enough in this chat.")} />
       }
       <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
@@ -9056,18 +9348,12 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
   const mode      = info?.accessMode || accessMode;
   const p         = PAL.upload;
 
-  const CREDIT_PACKS = [
-    { label: "Starter",   credits: 4,  desc: "1 Vibe Bundle",  price: "$4"  },
-    { label: "Standard",  credits: 8,  desc: "1 Full Suite",   price: "$8"  },
-    { label: "Deep Dive", credits: 15, desc: "2 Full Suites",  price: "$12" },
-  ];
-
   const isPayments = mode === "payments";
   const isTester   = userRole === "tester";
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
-      <ScreenHeader back={onBack} backLabel="Back to reports" title="More credits needed" />
+      <ScreenHeader back={onBack} backLabel="Back to reports" title={isPayments ? "Go deeper" : "More credits needed"} />
 
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
         <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
@@ -9082,20 +9368,9 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
 
       {isPayments && !isTester ? (
         <>
-          <Sub mt={2}>{t("Pick a credit pack to continue.")}</Sub>
-          <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-            {CREDIT_PACKS.map(pack => (
-              <div key={pack.label}
-                style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:18, padding:"14px 10px", textAlign:"center", cursor:"not-allowed", opacity:0.82 }}
-                title="Payments coming soon">
-                <div style={{ fontSize:10, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:p.accent, marginBottom:4 }}>{pack.label}</div>
-                <div style={{ fontSize:22, fontWeight:900, color:"#fff" }}>{pack.credits}</div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,0.45)", marginBottom:4 }}>{t("credits")}</div>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginBottom:6 }}>{pack.desc}</div>
-                <div style={{ fontSize:13, fontWeight:700, color:p.accent }}>{pack.price}</div>
-              </div>
-            ))}
-          </div>
+          <Sub mt={2}>{t("Go deeper with the chat. Pick a credit pack to unlock full reports.")}</Sub>
+          <PricingCostOverview accent={p.accent} />
+          <CreditPackGrid accent={p.accent} />
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.38)", textAlign:"center" }}>{t("Payment integration coming soon.")}</div>
         </>
       ) : isTester ? (
@@ -9403,9 +9678,14 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
       pushSummaryRow(rows, "Score", ai.personB?.score != null ? `${ai.personB.score}/10` : "");
       pushSummaryRow(rows, "Pattern", ai.personB?.detail);
     } else if (card === 4) {
+      pushSummaryRow(rows, "Comparison", ai.comparison);
+    } else if (card === 5) {
+      pushSummaryRow(rows, "Pattern", ai.followThroughPattern);
+      pushSummaryRow(rows, "Evidence", ai.evidenceQuality);
+    } else if (card === 6) {
       pushSummaryRow(rows, "Broken promise", ai.notableBroken?.promise);
       pushSummaryRow(rows, "Outcome", ai.notableBroken?.outcome);
-    } else if (card === 5) {
+    } else if (card === 7) {
       pushSummaryRow(rows, "Kept promise", ai.notableKept?.promise);
       pushSummaryRow(rows, "Outcome", ai.notableKept?.outcome);
     }
@@ -10952,12 +11232,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCoreAnalysisB(null);
         setCoreAnalysisBKey("");
       } else if (canReuseCore && (data.result_data?.coreAnalysis?.part === "risk" || data.result_data?.coreAnalysis?.part === "b")) {
+        const cacheFamily = data.report_type === "accounta" ? "risk:accountability" : "risk";
         setConnectionDigest(null);
         setConnectionDigestKey("");
         setCoreAnalysisA(null);
         setCoreAnalysisAKey("");
         setCoreAnalysisB(data.result_data.coreAnalysis);
-        setCoreAnalysisBKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, "risk", sourceLang));
+        setCoreAnalysisBKey(getAnalysisFamilyCacheKey(data.math_data || null, data.result_data?.relationshipType ?? null, cacheFamily, sourceLang));
       } else {
         setConnectionDigest(null);
         setConnectionDigestKey("");
@@ -11279,7 +11560,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     if (pipeline?.strategy !== "family") return {};
 
     const family = pipeline.family || "connection";
-    const cacheFamily = type === "energy" && family === "connection" ? "connection:energy" : family;
+    const cacheFamily =
+      type === "energy" && family === "connection" ? "connection:energy" :
+      type === "accounta" && family === "risk" ? "risk:accountability" :
+      family;
     const cacheKey = getAnalysisFamilyCacheKey(math, relType, cacheFamily, lang);
     let core = null;
 
@@ -11300,7 +11584,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     } else if (family === "risk") {
       core = coreAnalysisBKey === cacheKey ? coreAnalysisB : null;
       if (!core) {
-        core = await generateRiskDigest(messages, math, relType, lang);
+        core = await generateRiskDigest(messages, math, relType, lang, { accountabilityFocus: type === "accounta" });
         setCoreAnalysisB(core);
         setCoreAnalysisBKey(cacheKey);
       }
@@ -11962,12 +12246,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setCoreAnalysisB(null);
       setCoreAnalysisBKey("");
     } else if (canReuseCore && (row.result_data?.coreAnalysis?.part === "risk" || row.result_data?.coreAnalysis?.part === "b")) {
+      const cacheFamily = row.report_type === "accounta" ? "risk:accountability" : "risk";
       setConnectionDigest(null);
       setConnectionDigestKey("");
       setCoreAnalysisA(null);
       setCoreAnalysisAKey("");
       setCoreAnalysisB(row.result_data.coreAnalysis);
-      setCoreAnalysisBKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, "risk", sourceLang));
+      setCoreAnalysisBKey(getAnalysisFamilyCacheKey(row.math_data || null, row.result_data?.relationshipType ?? null, cacheFamily, sourceLang));
     } else {
       setConnectionDigest(null);
       setConnectionDigestKey("");
@@ -12085,12 +12370,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         s={math}
         restart={restart}
         back={backFromReport}
-        onUpgrade={() => {
-          setUpgradeInfo({ message: "Get credits to unlock the full analysis.", accessMode, requiredCredits: 2 });
-          setDir("fwd");
-          setPhase("upgrade");
-          setSid(s => s + 1);
-        }}
       />
     );
   }

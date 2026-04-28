@@ -6,6 +6,20 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+## v2.2 — Post-trial pricing flow
+**Files:** `src/App.jsx`, `docs/update-notes.md`
+
+### Credit pack pricing updated
+The paid credit packs now show the intended Euro pricing: Starter (10 credits / €2.99), Standard (25 credits / €5.99), and Deep Dive (60 credits / €11.99). The same pack definitions are reused by the post-trial screen and the out-of-credits upgrade screen so pricing stays consistent.
+
+### Trial now leads into a fuller pricing page
+After the free preview, `TrialFinale` now becomes a compact pricing page headed "Go deeper with this chat". It shows bundle costs, individual report costs, the three credit pack options, and the payments-coming-soon note in one place instead of only showing placeholder packs.
+
+### Upgrade screen matches post-trial pricing
+Payments-mode upgrade now reuses the same bundle/report cost overview and credit pack grid, with copy focused on going deeper with the chat. Tester and manual-credit modes keep their existing messaging.
+
+---
+
 ## v2.1 — Admin feedback panel fix
 **Files:** `src/App.jsx`
 
