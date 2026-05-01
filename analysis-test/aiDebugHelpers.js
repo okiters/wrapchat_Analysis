@@ -324,9 +324,9 @@ export function prepareCoreAnalysisARequest({
       { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "dated example or short quote" }
     ],
     "evidenceTimeline": [
-      { "date": "exact or approximate date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
-      { "date": "exact or approximate date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
-      { "date": "exact or approximate date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" }
+      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently') — never a specific calendar date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
+      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently') — never a specific calendar date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
+      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently') — never a specific calendar date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" }
     ],
     "relationshipSummary": "1 sentence — what's actually going on between them, in plain human terms. Specific about the pattern, not a label or diagnosis.",
     "groupDynamic": "1 sentence - honest read of this group's energy. Specific about who does what and what the group runs on.",
@@ -354,14 +354,25 @@ export function prepareCoreAnalysisARequest({
       "trajectory": "closer / drifting / stable",
       "trajectoryDetail": "1 sentence - the overall arc based on evidence",
       "arcSummary": "1 punchy sentence capturing the full growth arc"
-    }
+    },
+    "memorableMoments": [
+      {
+        "type": "funny | sweet | awkward | chaotic | signature | tension | care | conflict",
+        "date": "approximate period only (e.g. 'early on', 'a few months in', 'recently') — never a specific calendar date",
+        "people": ["first name of person involved"],
+        "title": "2-5 word card title",
+        "quote": "short exact quote if directly present in the provided windows — empty string if not",
+        "setup": "1 short sentence: what was happening in this moment",
+        "read": "1 short sentence: WrapChat-style interpretation, warm and specific"
+      }
+    ]
   }
 }`;
 
   const systemPrompt = buildAnalystSystemPrompt(
     "a sharp, observant chat analyst building a canonical core-analysis object that later reports will reuse",
     relationshipType,
-    `CORE-A SCOPE: relationship dynamic, communication patterns, funny moments, kindness moments, energy, love language, and growth trajectory. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers - each window is a non-contiguous excerpt from the full history. Never connect or combine events from different windows unless the messages themselves explicitly link them. You will also receive EARLY and RECENT contiguous snapshots; use those specifically for growth/change fields, and use the event windows for specific moments and recurring patterns. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body - the name before the colon is always and only the sender. Assign every quote, action, and behaviour to the name shown on that exact line. Never swap or infer the sender. FUNNY ATTRIBUTION: Whenever you see a laugh reaction (😂, lol, lmao, 'im dead', 💀, 🤣, haha, or similar) from person B immediately following a line from person A, the funny person is person A - the one whose line caused the reaction. Never attribute humour to the person who is laughing. This rule applies everywhere in the chat, regardless of window label. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone - a warm message between cousins does not make them romantic partners, a casual message between partners does not make them friends. Always use the confirmed relationship label when describing who did something to whom. DIRECTION OF ACTIONS: For sweetMoment, kindestPerson, and energy/love-language reads, the actor is the sender of that exact line. For all "name" fields return ONLY the person's first name, with no explanation. Each timestamp already includes the day of week - read it directly and never calculate it yourself. Only report findings you can directly cite from the chat - if evidence is weak, use "None clearly identified". QUOTE RULE: For funniestReason, sweetMoment, dramaContext, tensionMoment, mostLovingMoment, mostEnergising, mostDraining, hypePersonReason, insideJoke, and ghostContext - find the actual line from the chat that best illustrates the finding and include it as supporting evidence. The format is: your sentence describing what happened or the pattern, then the supporting quote in parentheses at the end like this: ('exact quote here'). The sentence must be meaningful on its own - the quote supports it, not replaces it. Do not explain or translate the quote after the closing parenthesis. If no specific supporting line exists in the windows for a field, write the sentence without a quote rather than inventing one. Do not translate quotes - reproduce them exactly as written in their original language. SUMMARY FIELD RULES: vibeOneLiner must capture the dominant emotional tone of the entire chat - never base it on a single moment, window, or exchange. insideJoke must be a recurring reference that appears in multiple windows - if you only saw it once, use 'None clearly identified'. biggestTopic must be the most consistently recurring subject across the full history, not the most dramatic single event. For all three fields: if you cannot confirm recurrence across multiple windows, do not claim it. When quoting messages in any language, quote them as-is - do not translate them. ALL PARTICIPANTS IN THIS CHAT: ${names.slice(0, isGroup ? names.length : 2).join(", ")}. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"} only - one entry per slotted participant. Participants not in the people array may still appear as senders in the windows. Track their behaviour for shared fields (dramaStarter, toxicPerson, funniestPerson, kindestPerson, etc.) but do not create people entries for them. Never fold an unslotted participant's actions into a slotted participant's entry.`,
+    `CORE-A SCOPE: relationship dynamic, communication patterns, funny moments, kindness moments, energy, love language, growth trajectory, and memorable moments. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers - each window is a non-contiguous excerpt from the full history. Never connect or combine events from different windows unless the messages themselves explicitly link them. You will also receive EARLY and RECENT contiguous snapshots; use those specifically for growth/change fields, and use the event windows for specific moments and recurring patterns. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body - the name before the colon is always and only the sender. Assign every quote, action, and behaviour to the name shown on that exact line. Never swap or infer the sender. FUNNY ATTRIBUTION: Whenever you see a laugh reaction (😂, lol, lmao, 'im dead', 💀, 🤣, haha, or similar) from person B immediately following a line from person A, the funny person is person A - the one whose line caused the reaction. Never attribute humour to the person who is laughing. This rule applies everywhere in the chat, regardless of window label. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone - a warm message between cousins does not make them romantic partners, a casual message between partners does not make them friends. Always use the confirmed relationship label when describing who did something to whom. DIRECTION OF ACTIONS: For sweetMoment, kindestPerson, and energy/love-language reads, the actor is the sender of that exact line. For all "name" fields return ONLY the person's first name, with no explanation. Each timestamp already includes the day of week - read it directly and never calculate it yourself. Only report findings you can directly cite from the chat - if evidence is weak, use "None clearly identified". QUOTE RULE: For funniestReason, sweetMoment, dramaContext, tensionMoment, mostLovingMoment, mostEnergising, mostDraining, hypePersonReason, insideJoke, and ghostContext - find the actual line from the chat that best illustrates the finding and include it as supporting evidence. The format is: your sentence describing what happened or the pattern, then the supporting quote in parentheses at the end like this: ('exact quote here'). The sentence must be meaningful on its own - the quote supports it, not replaces it. Do not explain or translate the quote after the closing parenthesis. If no specific supporting line exists in the windows for a field, write the sentence without a quote rather than inventing one. Do not translate quotes - reproduce them exactly as written in their original language. SUMMARY FIELD RULES: vibeOneLiner must capture the dominant emotional tone of the entire chat - never base it on a single moment, window, or exchange. insideJoke must be a recurring reference that appears in multiple windows - if you only saw it once, use 'None clearly identified'. biggestTopic must be the most consistently recurring subject across the full history, not the most dramatic single event. For all three fields: if you cannot confirm recurrence across multiple windows, do not claim it. When quoting messages in any language, quote them as-is - do not translate them. ALL PARTICIPANTS IN THIS CHAT: ${names.slice(0, isGroup ? names.length : 2).join(", ")}. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"} only - one entry per slotted participant. Participants not in the people array may still appear as senders in the windows. Track their behaviour for shared fields (dramaStarter, toxicPerson, funniestPerson, kindestPerson, etc.) but do not create people entries for them. Never fold an unslotted participant's actions into a slotted participant's entry. MEMORABLE MOMENTS RULES: Select 3 to 6 moments from the provided event windows. Each moment must come from a different window and reference a different exchange - never repeat the same message across two entries. Prefer moments that are funny, warm, awkward, revealing, or signature over generic filler. The quote field must be a short exact string directly present in the provided windows, or an empty string - never invented. The date field must be an approximate period ('early on', 'a few months in', 'recently') - never a specific calendar date. Keep setup and read short: one sentence each. The read should feel like a card someone would screenshot, not a report note. ANTI-REPETITION (EXTENDED): sweetMoment and mostLovingMoment must describe different events - sweetMoment is a specific act of care or support, mostLovingMoment is a warm affectionate exchange; they must not reference the same message. tensionMoment and dramaContext must describe different events - tensionMoment is the sharpest single spike, dramaContext is the recurring pattern. vibeOneLiner and relationshipSummary must not be near-identical - vibeOneLiner captures the overall feel in one memorable line, relationshipSummary describes the ongoing dynamic in human terms. toxicityReport and groupDynamic must not paraphrase each other - groupDynamic is the social energy read, toxicityReport is the health verdict. relationshipSummary and relationshipStatusWhy must take different angles - relationshipStatusWhy explains the label choice, relationshipSummary describes the dynamic. Each evidenceTimeline entry must reference a distinct event - no repeating the same exchange across entries. Each memorableMoments entry must be a different moment from a different window. DATE RULE: For all date-bearing fields (evidenceTimeline entries, memorableMoments entries), use approximate period descriptions only - words like 'early on', 'a few months in', 'mid-chat', 'recently', 'toward the end'. Never write a specific calendar date, month name, day number, or year.`,
     chatLang,
     relationshipLine
   );
@@ -445,9 +456,9 @@ export function prepareCoreAnalysisBRequest({
       "apologiesLeader": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 sentence - context and pattern" },
       "apologiesOther": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 sentence - context and pattern" },
       "redFlagMoments": [
-        { "date": "approximate date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
-        { "date": "approximate date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
-        { "date": "approximate date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" }
+        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
+        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
+        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" }
       ],
       "conflictPattern": "1 sentence - how arguments usually start and resolve or fail to resolve",
       "powerBalance": "1 sentence - who holds more power in this dynamic and how it shows up",
@@ -458,13 +469,13 @@ export function prepareCoreAnalysisBRequest({
       "notableBroken": {
         "person": "first name or None clearly identified",
         "promise": "what they said they'd do - quote or close paraphrase",
-        "date": "approximate date",
+        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
         "outcome": "what actually happened, or didn't"
       },
       "notableKept": {
         "person": "first name or None clearly identified",
         "promise": "what they committed to - quote or close paraphrase",
-        "date": "approximate date",
+        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
         "outcome": "how they followed through"
       },
       "overallVerdict": "1 sentence verdict on accountability in this chat overall"
@@ -550,9 +561,9 @@ export function prepareRiskDigestRequest({
       "apologiesLeader": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 short sentence - context and pattern" },
       "apologiesOther": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 short sentence - context and pattern" },
       "redFlagMoments": [
-        { "date": "approximate date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
-        { "date": "approximate date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
-        { "date": "approximate date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" }
+        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
+        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
+        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" }
       ],
       "conflictPattern": "1 short sentence - how arguments usually start and resolve or fail to resolve",
       "powerBalance": "1 short sentence - who holds more power in this dynamic and how it shows up",
@@ -563,13 +574,13 @@ export function prepareRiskDigestRequest({
       "notableBroken": {
         "person": "first name or None clearly identified",
         "promise": "what they said they'd do - quote or close paraphrase",
-        "date": "approximate date",
+        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
         "outcome": "what actually happened, or didn't"
       },
       "notableKept": {
         "person": "first name or None clearly identified",
         "promise": "what they committed to - quote or close paraphrase",
-        "date": "approximate date",
+        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
         "outcome": "how they followed through"
       },
       "comparison": "1 short sentence comparing both people's follow-through fairly, only if supported",

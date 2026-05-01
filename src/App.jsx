@@ -3034,6 +3034,30 @@ function normalizeTimeline(items) {
   }).filter(Boolean).slice(0, 5);
 }
 
+const VALID_MOMENT_TYPES = new Set(["funny","sweet","awkward","chaotic","signature","tension","care","conflict"]);
+
+function normalizeMemorableMoments(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(item => {
+    if (!item || typeof item !== "object") return null;
+    const type = VALID_MOMENT_TYPES.has(item.type) ? item.type : "signature";
+    const title = String(item.title || "").trim();
+    const read  = String(item.read  || "").trim();
+    if (!title && !read) return null;
+    return {
+      type,
+      date:   String(item.date   || "").trim(),
+      people: Array.isArray(item.people)
+        ? item.people.filter(p => typeof p === "string" && p.trim()).map(p => p.trim())
+        : [],
+      title,
+      quote:  String(item.quote  || "").trim(),
+      setup:  String(item.setup  || "").trim(),
+      read,
+    };
+  }).filter(Boolean).slice(0, 6);
+}
+
 function formatEvidenceDate(date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -4493,7 +4517,7 @@ function extractClaudePayload(raw) {
 const CORE_ANALYSIS_VERSION = 2;
 const LOCAL_STATS_VERSION = 3;
 const CORE_ANALYSIS_CACHE_VERSION = 6;
-const CORE_A_MAX_TOKENS = 2600;
+const CORE_A_MAX_TOKENS = 3200;
 const CORE_B_MAX_TOKENS = 2600;
 const HOMEPAGE_VERSION = "67537";
 const HOMEPAGE_VERSION_LABEL = (_updateNotesRaw.match(/^## (v\d+\.\d+)/m) || [])[1] ?? "v?";
@@ -4612,7 +4636,16 @@ COMPRESSION:
 ANTI-GENERIC RULE:
 Before finalizing any free-text field, check whether it could fit another random chat. If yes, rewrite it with specific evidence, names, or a more precise dynamic.
 
-ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different moments, one focuses on a specific act of care or support, the other on a warm affectionate exchange; they must not reference the same event. No two fields across the full output should describe the same moment or quote. SIGNATURE PHRASES: Before assigning a phrase to a person, verify it by checking which sender's lines it appears on. signaturePhrases[0] must be a phrase only person 1 sends, signaturePhrases[1] must be a phrase only person 2 sends, never swap or guess attribution.`;
+ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different events — sweetMoment is a specific act of care or support, mostLovingMoment is a warm affectionate exchange or emotional closeness; they must not reference the same message. tensionMoment and dramaContext must describe different events — tensionMoment is the sharpest single spike, dramaContext is the recurring pattern. vibeOneLiner and relationshipSummary must not be near-identical — vibeOneLiner captures the overall feel in one memorable line, relationshipSummary describes the ongoing dynamic in human terms. toxicityReport and groupDynamic must not paraphrase each other — groupDynamic is the social energy read, toxicityReport is the final health verdict. relationshipSummary and relationshipStatusWhy must take different angles — relationshipStatusWhy explains the label choice, relationshipSummary describes the dynamic. Each evidenceTimeline entry must reference a distinct event. No two fields across the full output should describe the same moment or quote the same line. SIGNATURE PHRASES: Before assigning a phrase to a person, verify it by checking which sender's lines it appears on. signaturePhrases[0] must be a phrase only person 1 sends, signaturePhrases[1] must be a phrase only person 2 sends, never swap or guess attribution.
+
+MOMENT EXTRACTION:
+When a field asks for a funny moment, sweet moment, tension moment, signature phrase, vibe line, or memorable example — prefer one concrete scene from the provided evidence windows over a broad summary. The shape is: what happened + exact phrase or recurring detail + short interpretation. The result should feel like a card someone would screenshot, not a report note.
+
+QUOTE USE:
+Use short exact quotes only when they make the insight more recognizable, funny, affectionate, tense, or specific. Never invent quotes. Never translate quotes. One quote per field maximum. If no quote fits naturally, write the observation without one.
+
+DATE RULE:
+For all date-bearing fields (evidenceTimeline entries, memorableMoments entries, redFlagMoments entries, notableBroken, notableKept), use approximate period descriptions only — words like 'early on', 'a few months in', 'mid-chat', 'recently', 'toward the end'. Never write a specific calendar date, month name, day number, or year.`;
 
 function buildCoreASystemPrompt(role, relationshipType, extraRules = "", chatLang = "en", relationshipLine = "") {
   return buildAnalystSystemPrompt(role, relationshipType, `${CORE_A_WRITING_STYLE} ${extraRules}`, chatLang, relationshipLine);
@@ -4853,6 +4886,7 @@ function normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext
       mostEnergising: strOr(shared.mostEnergising),
       mostDraining: strOr(shared.mostDraining),
       energyCompatibility: strOr(shared.energyCompatibility),
+      memorableMoments: normalizeMemorableMoments(shared.memorableMoments),
       growth: {
         thenDepth: strOr(growth.thenDepth),
         nowDepth: strOr(growth.nowDepth),
@@ -5012,6 +5046,7 @@ function deriveGeneralReportFromCore(core, math, relationshipType) {
     mostMissed: shared.mostMissed,
     insideJoke: shared.insideJoke,
     hypePersonReason: shared.hypePersonReason,
+    memorableMoments: shared.memorableMoments,
   }, relationshipType, core);
 }
 
@@ -6798,6 +6833,33 @@ function TextList({ items }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// MEMORABLE MOMENTS ROW
+// ─────────────────────────────────────────────────────────────────
+const MOMENT_TYPE_EMOJI = { funny:"😂", sweet:"🫶", awkward:"😬", chaotic:"🌪️", signature:"✨", tension:"⚡", care:"💙", conflict:"🔥" };
+
+function MomentsRow({ moments, loading }) {
+  if (loading) return null;
+  if (!moments?.length) return null;
+  return (
+    <div style={{ width:"100%", marginTop:14 }}>
+      <div style={{ fontSize:11, color:"rgba(255,255,255,0.38)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Moments</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {moments.map((m, i) => (
+          <div key={i} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 14px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:m.setup || m.quote ? 5 : 0 }}>
+              <span style={{ fontSize:14, lineHeight:1 }}>{MOMENT_TYPE_EMOJI[m.type] || "✨"}</span>
+              <span style={{ fontSize:13, fontWeight:700, color:"#fff", lineHeight:1.3 }}>{m.title}</span>
+            </div>
+            {m.quote && <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", fontStyle:"italic", marginBottom:4, lineHeight:1.4 }}>"{m.quote}"</div>}
+            {m.read && <div style={{ fontSize:13, color:"rgba(255,255,255,0.78)", lineHeight:1.5 }}>{m.read}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // DUO SCREENS
 // ─────────────────────────────────────────────────────────────────
 function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationshipType, resultId }) {
@@ -7032,6 +7094,7 @@ function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationshipType,
       <div style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("A chaotic, wholesome connection."))}
       </div>
+      <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
       <Sub mt={14}>{t("Powered by AI — your messages never left your device.")}</Sub>
       <Nav back={back} next={next} nextLabel="See summary" />
     </Shell>,
@@ -7284,6 +7347,7 @@ function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId }) {
       <div style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("Chaotic. Wholesome. Somehow still going."))}
       </div>
+      <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
       <Sub mt={14}>{t("Powered by AI — your messages never left your device.")}</Sub>
       <Nav back={back} next={next} nextLabel="See summary" />
     </Shell>,

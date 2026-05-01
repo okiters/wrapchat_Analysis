@@ -6,6 +6,35 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+## v2.3 — AI prompt quality pass + memorable moments
+**Files:** `src/App.jsx`, `src/BrandLockup.jsx`, `analysis-test/aiDebugHelpers.js`
+
+### Logo accent color follows report type on loading screen
+`BrandLockup` now renders the logo as inline SVG when an `accentColor` is passed. The three accent-colored paths in the logo (previously hard-coded to `#6cb9e0`) swap to the active report's palette accent color. The `<img>` fallback is kept for all screens where no accent color is provided. The "WrapChat" title text already used `accentColor`; now the logo icon matches it too.
+
+### Memorable moments layer added to Core A
+`prepareCoreAnalysisARequest` schema extended with `memorableMoments` — an array of 3–6 structured moment objects, each with: `type` (funny / sweet / awkward / chaotic / signature / tension / care / conflict), `date` (approximate period only), `people`, `title` (2–5 word card title), `quote` (exact from windows or empty string), `setup`, and `read`. Rules embedded in the Core A system prompt: each entry must come from a different window, quotes are never invented, no calendar dates.
+
+### No exact dates in any AI date field
+All date-bearing schema fields across Core A (`evidenceTimeline`), Core B (`redFlagMoments`, `notableBroken`, `notableKept`), and Risk digest (same) now instruct the AI to use approximate period descriptions only — "early on", "mid-chat", "recently" — never specific calendar dates, month names, or day numbers. Same rule added to `CORE_A_WRITING_STYLE` as a `DATE RULE` block.
+
+### Anti-repetition rules extended and made field-specific
+Old single-line anti-repetition rule replaced with explicit per-pair rules: `sweetMoment ≠ mostLovingMoment` (act of care vs affectionate exchange), `tensionMoment ≠ dramaContext` (single spike vs recurring pattern), `vibeOneLiner ≠ relationshipSummary` (one-line feel vs ongoing dynamic), `toxicityReport ≠ groupDynamic` (health verdict vs energy read), `relationshipSummary ≠ relationshipStatusWhy` (dynamic description vs label justification). Each `evidenceTimeline` and `memorableMoments` entry must reference a distinct event.
+
+### Moment extraction and quote use instructions added
+`CORE_A_WRITING_STYLE` now includes a `MOMENT EXTRACTION` block (prefer concrete scene over broad summary; output shape: what happened + phrase + short interpretation — screenshot-worthy, not report-note) and a `QUOTE USE` block (exact quotes only when they add recognisability; never invent; one per field max). Both blocks also appear in the Core A system prompt's scope rules.
+
+### normalizeMemorableMoments validator
+New `normalizeMemorableMoments()` in App.jsx normalizes the AI response: validates `type` against the eight allowed values (maps unknown types to `"signature"`), filters entries missing both `title` and `read`, trims all string fields, clamps array to 6. Called from `normalizeCoreAnalysisA` and the result passed through `deriveGeneralReportFromCore`.
+
+### MomentsRow component + rendering in general report
+New `MomentsRow` component renders the `memorableMoments` array at the end of the "Chat vibe" screen (prog=17) for both DUO and GROUP casual reports. Shows only when moments exist and AI is not loading. Each card: emoji + bold title, optional italic quote, and the read line. Invisible when the field is empty — no layout shift.
+
+### CORE_A_MAX_TOKENS increased
+Raised from 2600 → 3200 to give the expanded schema (growth + memorableMoments + all shared fields) enough output headroom without truncation.
+
+---
+
 ## v2.2 — Post-trial pricing flow
 **Files:** `src/App.jsx`, `docs/update-notes.md`
 
