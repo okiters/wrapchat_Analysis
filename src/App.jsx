@@ -2348,41 +2348,65 @@ const STOP_WORDS = new Set([
   "için","ama","fakat","lakin","ya","veya","gibi","kadar","daha","en","çok",
   "az","ne","nasıl","neden","çünkü","eğer","ise","değil","var","yok","olan",
   "oldu","olacak","oluyor","olmuş","işte","şey","diye","bile","hem","hiç","sana","bana","artık",
+  "tam","şimdi","aslında","bence","galiba","olur","olmaz","misin","mısın","musun","müsün",
+  "benim","senin","bizim","şöyle","böyle","öyle","burada","orada","nerede","nereye",
+  "olsa","olsun","olabilir","oldum","oldun","olduk","olmuşum","miyim","mıyım","muyum","müyüm",
+  "miyiz","mıyız","muyuz","müyüz","benle","senle","bizle","bende","sende","bizde",
 
   // ── Spanish ──
   "yo","tú","él","ella","nosotros","ellos","ellas","me","te","se",
   "lo","la","los","las","le","les","un","una","el","y","o","pero",
   "que","si","en","de","a","con","por","para","sin","sobre","entre",
-  "como","muy","también","tampoco",
+  "como","muy","también","tampoco","ya","ahora","entonces","pues","porque",
+  "cuando","donde","estoy","estás","está","estamos","están","ser","estar","hay",
+  "eso","esa","ese","aquí","allí","desde","hasta","aún","todavía","nunca","siempre",
+  "algo","nada","soy","eres","es","somos","son","tengo","tienes","tiene","hacer","hecho",
 
   // ── Portuguese ──
   "eu","tu","ele","ela","nós","eles","elas","me","te","se","um","uma",
   "o","a","os","as","e","ou","mas","que","não","em","de","com","por",
-  "para","sem","sobre","entre","como","muito","também","já",
+  "para","sem","sobre","entre","como","muito","também","já","agora","então",
+  "porque","quando","onde","estou","está","estamos","estão","ser","estar",
+  "isso","essa","esse","aqui","ali","desde","até","ainda","nunca","sempre",
+  "algo","nada","sou","és","somos","são","tenho","tens","tem","fazer","feito",
 
   // ── French ──
   "je","tu","il","elle","nous","vous","ils","elles","me","te","se",
   "le","la","les","lui","leur","un","une","des","du","de","et","ou",
   "mais","que","qui","dont","si","ne","pas","plus","très","aussi",
-  "encore","toujours","jamais","comment","pourquoi","tout","rien",
+  "encore","toujours","jamais","comment","pourquoi","tout","rien","alors",
+  "maintenant","parce","quand","où","être","avoir","est","suis","sommes",
+  "sont","fait","ça","ceci","cela","ici","depuis","jusqu","déjà","quelque",
+  "chose","personne","fois","vais","vas","va","avons","avez","ont","faire",
 
   // ── German ──
   "ich","du","er","sie","es","wir","ihr","mich","dich","sich","uns",
   "euch","mir","dir","ihm","ihnen","ein","eine","einen","einem","einer",
   "eines","der","die","das","den","dem","des","und","oder","aber","weil",
   "dass","wenn","ob","nicht","kein","keine","auch","noch","schon","nur",
-  "so","sehr",
+  "so","sehr","jetzt","dann","also","halt","mal","warum","wie","was","ist",
+  "bin","bist","sind","hat","haben","werden","hier","dort","vielleicht",
+  "eigentlich","irgendwie","etwas","nichts","immer","nie","heute","morgen",
+  "gestern","werde","wirst","wird","mache","machen","gemacht","kannst","können",
 
   // ── Italian ──
   "io","tu","lui","lei","noi","voi","loro","mi","ti","si","ci","vi",
   "lo","la","li","le","gli","un","una","il","i","e","o","ma","perché",
   "che","se","non","in","di","a","con","per","su","tra","fra","come",
-  "più","molto","anche","ancora","sempre","mai","tutto","niente",
+  "più","molto","anche","ancora","sempre","mai","tutto","niente","ora","poi",
+  "allora","quando","dove","sono","sei","è","siamo","siete","fare","fatto",
+  "questo","questa","quello","qui","lì","certo","forse","comunque","già",
+  "qualcosa","nessuno","oggi","domani","ieri","sto","sta","stiamo","stanno",
+  "avere","ho","hai","ha","abbiamo","hanno",
 
   // ── Arabic ──
   "أنا","أنت","هو","هي","نحن","أنتم","هم","في","من","إلى","على","مع",
   "عن","هذا","هذه","ذلك","تلك","التي","الذي","و","أو","لكن","لأن","إذا",
   "لا","ما","كيف","لماذا","متى","أين","كل","بعض","هنا","هناك",
+  "اي","إيه","ليش","عشان","يعني","بس","طيب","كان","كنت","كانت","يكون",
+  "انا","انت","انتي","إنت","إنتي","احنا","هما","فيه","فيها","علي","عليه",
+  "عليها","منه","منها","لك","لكم","عندي","عندك","عادي","برضه","كمان",
+  "كذا","هكذا","وين","فين","ليه",
 
   // ── WhatsApp UI — English ──
   "image omitted","video omitted","audio omitted","voice omitted",
@@ -3480,14 +3504,33 @@ function localStats(messages) {
   const topWords = Object.entries(wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const topBigrams = Object.entries(bigramFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
-  const emojiRe = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu;
   const STICKER_RE = /sticker omitted/i;
-  // Exclude emoji with Private Use Area codepoints — these render as blank squares on most devices.
-  const isRenderableEmoji = (e) => [...e].every(cp => { const c = cp.codePointAt(0); return c !== undefined && !(c >= 0xE000 && c <= 0xF8FF); });
+  // Non-global version used for .test() inside extractEmoji.
+  const _emojiTestRe = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/u;
+  // Global version used as fallback when Intl.Segmenter is unavailable.
+  const _emojiMatchRe = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu;
+  // Lone modifier/component codepoints that have no visible glyph on their own:
+  // skin tone modifiers (U+1F3FB–U+1F3FF), variation selectors (U+FE0F/FE0E), ZWJ (U+200D).
+  const _componentOnlyRe = /^[\u{1F3FB}-\u{1F3FF}\u{FE0F}\u{FE0E}\u{200D}]$/u;
+  const isRenderableEmoji = (e) =>
+    !_componentOnlyRe.test(e) &&
+    [...e].every(cp => { const c = cp.codePointAt(0); return c !== undefined && !(c >= 0xE000 && c <= 0xF8FF); });
+  // Intl.Segmenter splits text into grapheme clusters so multi-codepoint emoji
+  // (e.g. 👋🏽 = hand + skin tone) are kept together as one unit.
+  const _seg = typeof Intl?.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
+  const extractEmoji = (text) => {
+    if (_seg) {
+      return [..._seg.segment(text)].map(s => s.segment).filter(s => _emojiTestRe.test(s) && isRenderableEmoji(s));
+    }
+    _emojiMatchRe.lastIndex = 0;
+    return (text.match(_emojiMatchRe) || []).filter(isRenderableEmoji);
+  };
   const emojiFreq = {};
   messages.forEach(({body}) => {
     if (STICKER_RE.test(body)) return;
-    (body.match(emojiRe)||[]).filter(isRenderableEmoji).forEach(e => (emojiFreq[e]=(emojiFreq[e]||0)+1));
+    extractEmoji(body).forEach(e => (emojiFreq[e] = (emojiFreq[e] || 0) + 1));
   });
   const spiritEmojiAll = Object.entries(emojiFreq).sort((a,b)=>b[1]-a[1])[0]?.[0]||"💬";
   const spiritByName = {};
@@ -3495,7 +3538,7 @@ function localStats(messages) {
     const ef = {};
     byName[n].forEach(({body}) => {
       if (STICKER_RE.test(body)) return;
-      (body.match(emojiRe)||[]).filter(isRenderableEmoji).forEach(e => (ef[e]=(ef[e]||0)+1));
+      extractEmoji(body).forEach(e => (ef[e] = (ef[e] || 0) + 1));
     });
     spiritByName[n] = Object.entries(ef).sort((a,b)=>b[1]-a[1])[0]?.[0]||"💬";
   });
@@ -6161,7 +6204,7 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center" }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false }) {
   const p = PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -6305,7 +6348,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           >✕</button>
         )}
         {/* Pill label */}
-        {PILL_LABEL[sec] && (
+        {!hidePill && PILL_LABEL[sec] && (
           <div style={{ paddingTop:14, display:"flex", justifyContent:"center", position:"relative", zIndex:4 }}>
             <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase", color:p.accent, background:`${p.accent}20`, border:`1px solid ${p.accent}50`, padding:"4px 12px", borderRadius:999 }}>
               {t(PILL_LABEL[sec])}
@@ -8426,7 +8469,7 @@ const EXPORT_STEPS = [
   "Save the .txt file to your device",
 ];
 
-function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
+function OnboardingFlow({ step, next, onOnboarded }) {
   const { uiLangPref } = useUILanguage();
   const t = useT();
   const [busy, setBusy] = useState(false);
@@ -8548,9 +8591,6 @@ function OnboardingFlow({ step, next, onOnboarded, onLogout }) {
         </PrimaryButton>
       </>)}
 
-      <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
-        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>{t("Log out")}</button>}
-      </div>
     </Shell>
   );
 }
@@ -8877,7 +8917,7 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   const queue = normalizeSelectedReportTypes(reportTypes);
   const queuePrefix = queue.length > 1 ? `${Math.min(loadingIndex + 1, queue.length)}/${queue.length} · ` : "";
   return (
-    <Shell sec={sec} prog={tick+1} total={LOADING_STEPS.length} scrollable={false}>
+    <Shell sec={sec} prog={tick+1} total={LOADING_STEPS.length} scrollable={false} hidePill>
       <BrandLockup accentColor={reportType ? pal.accent : null} />
       <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:500 }}>
         {queuePrefix}{t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
@@ -12345,7 +12385,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   if (phase === "auth")     return withUiLanguage(<Slide dir={dir} id={sid}><Auth /></Slide>);
   if (phase === "onboarding") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
-      <OnboardingFlow step={step} next={next} onOnboarded={onOnboarded} onLogout={logout} />
+      <OnboardingFlow step={step} next={next} onOnboarded={onOnboarded} />
     </Slide>)
   );
   if (phase === "terms") return (
