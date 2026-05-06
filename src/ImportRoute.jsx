@@ -36,7 +36,7 @@ function UploadFallback({ onFile, busy }) {
           {busy ? "Opening your chat..." : "Choose your chat export"}
         </div>
         <div style={{ marginTop: 10, fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.65 }}>
-          Share your WhatsApp export here, or drop the file on this card.
+          Share your chat export here, or drop the file on this card.
         </div>
       </label>
       <input

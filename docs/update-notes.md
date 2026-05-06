@@ -6,6 +6,33 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+### Report output language independent from UI language
+`chatLang` state renamed to `reportLang` — an explicit, independently controlled state for the AI output language. `resolveReportContentLanguage` removed; its third fallback (`return normalizeUiLangCode(uiLang)`) was the root cause: when chat language detection confidence was below threshold, reports were generated in the user's UI language instead of English. `reportContentLang` is now simply `reportLang` — no derivation from `resolvedUiLang`. Initial default after upload: `isReliableDetectedLanguage(detected) ? detected.code : "en"` — always falls back to English when detection is uncertain, never to UI language. `ReportSelect` prop renamed from `chatLang` to `reportLang`; `onLangChange` writes `setReportLang`. Restore and reset flows updated. Cache keys, stored `displayLanguage`/`sourceLanguage`, and AI prompt language instruction are all unchanged.
+
+### Back navigation simplified — single `navigateBack()` helper
+`goBackFromCurrent()` and `backFromReport()` replaced by a single `navigateBack()` covering all phases. Two bugs fixed in the consolidation: (1) `goBackFromCurrent` hardcoded upgrade→"select" ignoring `upgradeInfo.backPhase`; `navigateBack` respects it. (2) `goBackFromCurrent` did not reset `historyBundleView` on history→upload; `navigateBack` does. Swipe-back gesture, browser popstate, all `onBack=` inline arrows, and all report-screen `back=` props now point to the same function. Swipe dep array updated to include `upgradeInfo`.
+
+### Platform-agnostic UI copy — WhatsApp references removed
+All user-facing mentions of "WhatsApp" replaced across `src/App.jsx`, `src/import/fileProcessing.js`, and `src/ImportRoute.jsx`. Changes: onboarding step "Open WhatsApp" → "Open your messaging app"; onboarding hook copy "Reads your WhatsApp chat…" → "Reads your chat export…" (English source key + all 7 language translation values updated); error messages "Please share a WhatsApp export…" / "Choose a WhatsApp export…" → "chat export"; drop-zone copy in ImportRoute updated; Terms of Service and Privacy Policy in-app text updated. Internal parser module names, filename-detection heuristics, and AI system prompts left unchanged.
+
+### My Results top-left shortcut + Settings gear in My Results
+`My Results` button removed from the lower nav row of the Upload screen and repositioned as an absolutely placed pill at `top:16, left:20` — symmetric with the credit counter on the right. `MyResults` now accepts `onSettings` prop; when provided, a `GearIcon` button is rendered in the `ScreenHeader` action slot. App wires `onSettings` to navigate to the settings phase.
+
+### Credit counter moved to top-right of homepage + upgrade shortcut
+Below-logo credit pill replaced with an absolutely positioned pill at `top:16, right:20`. Shows credit count even at zero; includes a "+" button (separated by a subtle divider) that triggers the upgrade flow via a new `onUpgrade` prop. `showCreditPill` condition: `!hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits)` — hidden in open/test mode and for admins. `upgradeInfo` now carries `backPhase` so pressing Back from the upgrade screen returns to the correct phase (upload or select).
+
+### Open/test mode indicator on homepage
+When `isOpenMode(accessMode) && !hideCredits`, a green pill "Open testing · free reports" appears below the logo on the Upload screen, using the same palette as the ReportSelect open-mode banner (`rgba(176,244,200,0.9)` / `rgba(20,160,80,0.12)`). Hidden for admins. Mutually exclusive with the credit counter pill.
+
+### My Results bundle detail loading flash fixed
+When `bundleView` is set but `rows === null` (Supabase still loading), the bundle detail view previously showed fallback values "—" and "0 reports". Now returns a `<Shell>` with a centered `<Dots />` spinner — identical to the main list loading treatment — until rows arrive. Empty-state fallbacks remain intact for bundles that genuinely have no rows after load.
+
+### Premium report summary sharing shows correct content
+`getSummaryShareScreen` was passing `PremiumFinale` for all premium report types. `PremiumFinale` accepts no `ai` prop and rendered only the report label and names/message count — producing a nearly-blank share image. Replaced with the last step of each report type's existing `*ReportScreen` component, which is already designed as the natural "Done" summary card. Each report now shares its richest screen: toxicity → "The verdict" (health score ring + final read), lovelang → "Love language compatibility" (score ring + compatibility read), growth → "The arc" (arc summary), accounta → "Most notable kept promise", energy → "Energy compatibility" (score rings + overall read). Buttons are hidden at capture time via existing `data-share-hide`. `resultId={null}` prevents feedback icons rendering in the hidden capture node. General Finale path unchanged.
+
+### Auth error handling — registered email and duplicate account
+Raw Supabase error messages were being shown directly in the UI. New `normalizeAuthError(error, mode)` helper maps known error strings to user-friendly copy: wrong login credentials → "Email or password is incorrect."; email not yet confirmed → "Please confirm your email before logging in. Check your inbox."; signup with existing email (error path) → "This email is already registered. Log in instead.". Duplicate signup detection for the error-free path: when Supabase has email confirmation enabled it returns no error on duplicate signup (to prevent server-side enumeration), but does return `user.identities = []`. `signUp` now destructures `data` and checks `data?.user?.identities?.length === 0` to catch this case and show the registered-email error instead of a false "check your email" confirmation. A code comment documents the Supabase limitation. Genuine new account signup still shows "Check your email to confirm your account, then log in."
+
 ## v2.3 — AI prompt quality pass + memorable moments
 **Files:** `src/App.jsx`, `src/BrandLockup.jsx`, `analysis-test/aiDebugHelpers.js`
 

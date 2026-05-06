@@ -394,11 +394,11 @@ const UI_TRANSLATIONS = {
     "Voice memos": "Sesli notlar",
     "Links shared": "Paylaşılan linkler",
     "Your relationship, in data.": "İlişkin verilerle önünde.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "WhatsApp sohbetini okur ve aslında neler olduğunu gösterir. Kim varlık gösteriyor. Kim kayboluyor. Sohbeti kim taşıyor.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Sohbet dışa aktarımını okur ve aslında neler olduğunu gösterir. Kim varlık gösteriyor. Kim kayboluyor. Sohbeti kim taşıyor.",
     "Start with your chat.": "Sohbetinle başla.",
     "Upload. Analyse. See it clearly.": "Yükle. Analiz et. Net gör.",
     "Six reports. Toxicity, love languages, accountability, energy, growth, and your full chat wrapped. Results in under a minute.": "Altı rapor. Toksisite, sevgi dilleri, sorumluluk, enerji, gelişim ve tam sohbet özetin. Sonuçlar bir dakikadan kısa sürede.",
-    "Open WhatsApp": "WhatsApp'ı aç",
+    "Open your messaging app": "Mesajlaşma uygulamanı aç",
     "Tap the chat you want to analyse": "Analiz etmek istediğin sohbete dokun",
     "Tap ··· menu → More → Export Chat": "··· menüsüne dokun → Daha fazla → Sohbeti dışa aktar",
     "Choose Without Media": "Medya olmadan seç",
@@ -809,7 +809,7 @@ const UI_TRANSLATIONS = {
     "Most draining moment": "El momento más agotador",
     "messages": "mensajes",
     "Your relationship, in data.": "Tu relación, en datos.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Lee tu chat de WhatsApp y te muestra lo que realmente pasa. Quién aparece. Quién desaparece. Quién lleva la conversación.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Lee tu chat y te muestra lo que realmente pasa. Quién aparece. Quién desaparece. Quién lleva la conversación.",
     "Skip": "Omitir",
     "Start with your chat.": "Empieza con tu chat.",
     "Upload. Analyse. See it clearly.": "Sube. Analiza. Vélo claramente.",
@@ -1052,7 +1052,7 @@ const UI_TRANSLATIONS = {
     "Most draining moment": "O momento mais desgastante",
     "messages": "mensagens",
     "Your relationship, in data.": "Seu relacionamento, em dados.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Lê seu chat do WhatsApp e mostra o que está realmente acontecendo. Quem aparece. Quem some. Quem carrega a conversa.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Lê seu chat e mostra o que está realmente acontecendo. Quem aparece. Quem some. Quem carrega a conversa.",
     "Skip": "Pular",
     "Start with your chat.": "Comece com seu chat.",
     "Upload. Analyse. See it clearly.": "Envie. Analise. Veja com clareza.",
@@ -1295,7 +1295,7 @@ const UI_TRANSLATIONS = {
     "Most draining moment": "أكثر لحظة مُستنزِفة",
     "messages": "رسائل",
     "Your relationship, in data.": "علاقتك، في بيانات.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "يقرأ محادثتك على واتساب ويُريك ما يحدث فعلاً. من يظهر. من يختفي. من يحمل المحادثة.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "يقرأ محادثتك ويُريك ما يحدث فعلاً. من يظهر. من يختفي. من يحمل المحادثة.",
     "Skip": "تخطي",
     "Start with your chat.": "ابدأ بمحادثتك.",
     "Upload. Analyse. See it clearly.": "ارفع. حلّل. انظر بوضوح.",
@@ -1538,7 +1538,7 @@ const UI_TRANSLATIONS = {
     "Most draining moment": "Le moment le plus épuisant",
     "messages": "messages",
     "Your relationship, in data.": "Votre relation, en données.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Lit votre chat WhatsApp et vous montre ce qui se passe vraiment. Qui est présent. Qui disparaît. Qui porte la conversation.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Lit votre chat et vous montre ce qui se passe vraiment. Qui est présent. Qui disparaît. Qui porte la conversation.",
     "Skip": "Passer",
     "Start with your chat.": "Commencez par votre chat.",
     "Upload. Analyse. See it clearly.": "Importez. Analysez. Voyez clairement.",
@@ -1781,7 +1781,7 @@ const UI_TRANSLATIONS = {
     "Most draining moment": "Der erschöpfendste Moment",
     "messages": "Nachrichten",
     "Your relationship, in data.": "Deine Beziehung, in Daten.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Liest deinen WhatsApp-Chat und zeigt dir, was wirklich los ist. Wer da ist. Wer ghostet. Wer das Gespräch trägt.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Liest deinen Chat-Export und zeigt dir, was wirklich los ist. Wer da ist. Wer ghostet. Wer das Gespräch trägt.",
     "Skip": "Überspringen",
     "Start with your chat.": "Fang mit deinem Chat an.",
     "Upload. Analyse. See it clearly.": "Hochladen. Analysieren. Klar sehen.",
@@ -2024,7 +2024,7 @@ const UI_TRANSLATIONS = {
     "Most draining moment": "Il momento più logorante",
     "messages": "messaggi",
     "Your relationship, in data.": "La tua relazione, in dati.",
-    "Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Legge la tua chat WhatsApp e ti mostra cosa sta succedendo davvero. Chi è presente. Chi sparisce. Chi porta avanti la conversazione.",
+    "Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.": "Legge la tua chat e ti mostra cosa sta succedendo davvero. Chi è presente. Chi sparisce. Chi porta avanti la conversazione.",
     "Skip": "Salta",
     "Start with your chat.": "Inizia con la tua chat.",
     "Upload. Analyse. See it clearly.": "Carica. Analizza. Vedi chiaramente.",
@@ -2054,14 +2054,7 @@ function isReliableDetectedLanguage(detectedLang) {
   const code = normalizeUiLangCode(detectedLang?.code);
   return code !== "en" || Number(detectedLang?.confidence || 0) >= LANG_CONFIDENCE_MIN;
 }
-function resolveReportContentLanguage(chatLang, detectedLang, uiLang) {
-  const selectedCode = normalizeUiLangCode(chatLang);
-  const detectedCode = normalizeUiLangCode(detectedLang?.code);
-  const userSelectedDifferentLang = detectedLang && selectedCode !== detectedCode;
-  if (userSelectedDifferentLang) return selectedCode;
-  if (detectedLang && isReliableDetectedLanguage(detectedLang)) return detectedCode;
-  return normalizeUiLangCode(uiLang);
-}
+
 function formatUITranslation(value, vars = {}) {
   if (typeof value !== "string") return value;
   return value.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? "");
@@ -6098,7 +6091,7 @@ PLEASE READ THESE TERMS CAREFULLY BEFORE USING WRAPCHAT.
 By accessing or using WrapChat ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
 
 2. DESCRIPTION OF SERVICE
-WrapChat is a chat analysis tool that processes WhatsApp chat exports you provide. The Service uses AI to generate reports about communication patterns, relationship dynamics, and related insights from the text you upload.
+WrapChat is a chat analysis tool that processes chat exports you provide. The Service uses AI to generate reports about communication patterns, relationship dynamics, and related insights from the text you upload.
 
 3. ELIGIBILITY
 You must be at least 18 years old to use the Service. By using the Service, you represent that you are at least 18 years of age.
@@ -6148,7 +6141,7 @@ Account Information
 When you create an account, we collect your email address and a hashed version of your password. We do not collect your real name unless you voluntarily provide it.
 
 Chat Data
-You upload WhatsApp chat exports to generate reports. These chat exports contain messages written by you and other participants. Chat content is transmitted securely and processed solely to generate your requested analysis. Chat text is not stored on our servers after processing is complete.
+You upload chat exports to generate reports. These chat exports contain messages written by you and other participants. Chat content is transmitted securely and processed solely to generate your requested analysis. Chat text is not stored on our servers after processing is complete.
 
 Usage Data
 We may collect anonymised information about how you use the Service, including which report types you generate and general usage patterns. This data cannot be used to identify you and is used only to improve the Service.
@@ -8356,6 +8349,21 @@ function RelationshipSelect({
 // ─────────────────────────────────────────────────────────────────
 // AUTH
 // ─────────────────────────────────────────────────────────────────
+function normalizeAuthError(error, mode) {
+  const msg = (error?.message || "").toLowerCase();
+  if (mode === "login") {
+    if (msg.includes("email not confirmed"))
+      return "Please confirm your email before logging in. Check your inbox.";
+    if (msg.includes("invalid login") || msg.includes("invalid credentials") || msg.includes("user not found"))
+      return "Email or password is incorrect.";
+    return "Something went wrong. Please try again.";
+  }
+  // signup
+  if (msg.includes("already registered") || msg.includes("already exists"))
+    return "This email is already registered. Log in instead.";
+  return "Something went wrong. Please try again.";
+}
+
 function Auth() {
   const [tab,      setTab]      = useState("login");
   const [email,    setEmail]    = useState("");
@@ -8372,11 +8380,19 @@ function Auth() {
     try {
       if (tab === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) setErr(error.message);
+        if (error) setErr(normalizeAuthError(error, "login"));
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) setErr(error.message);
-        else setInfo("Check your email to confirm your account, then log in.");
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          setErr(normalizeAuthError(error, "signup"));
+        } else if (data?.user?.identities?.length === 0) {
+          // Supabase returns success with an empty identities array when the email
+          // already exists and email confirmation is enabled (avoids enumeration
+          // server-side). This is the only reliable client-side signal.
+          setErr("This email is already registered. Log in instead.");
+        } else {
+          setInfo("Check your email to confirm your account, then log in.");
+        }
       }
     } catch { setErr("Something went wrong. Please try again."); }
     setBusy(false);
@@ -8462,7 +8478,7 @@ const ONBOARD_PILLS = [
 ];
 
 const EXPORT_STEPS = [
-  "Open WhatsApp",
+  "Open your messaging app",
   "Tap the chat you want to analyse",
   "Tap ··· menu → More → Export Chat",
   "Choose Without Media",
@@ -8503,7 +8519,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
           {t("Your relationship, in data.")}
         </div>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", textAlign:"center", lineHeight:1.75, width:"100%" }}>
-          {t("Reads your WhatsApp chat and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.")}
+          {t("Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.")}
         </div>
         <PrimaryButton onClick={next} color={PAL.upload.accent} textColor={PAL.upload.bg}>{t("Next")} →</PrimaryButton>
         <button onClick={handleSkip} className="wc-btn" style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, padding:"4px 8px", fontWeight:600 }}>{t("Skip")}</button>
@@ -8768,6 +8784,7 @@ function Upload({
   hideCredits = false,
   accessMode = DEFAULT_ACCESS_MODE,
   onClearError,
+  onUpgrade,
 }) {
   const t = useT();
   const [err, setErr] = useState("");
@@ -8784,10 +8801,7 @@ function Upload({
     || (isTrialUsed ? t("Your free trial is used up. Upgrade to unlock full reports.") : "")
     || (!hideCredits && !isPaymentsMode && credits === 0 ? OUT_OF_CREDITS_MESSAGE : "");
 
-  // In payments trial mode show a bespoke banner; otherwise show credit pill as normal.
-  const creditLabel = !hideCredits && !isTrialPending && Number.isInteger(credits) && credits > 0
-    ? `${credits} credit${credits === 1 ? "" : "s"}`
-    : "";
+  const showCreditPill = !hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
 
   const handle = async file => {
     if (!file) return;
@@ -8805,25 +8819,58 @@ function Upload({
       setBusy(false);
     }
   };
+  const showOpenPill = isOpenMode(accessMode) && !hideCredits;
+
   return (
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
+      {onHistory && (
+        <div style={{ position:"absolute", top:16, left:20, zIndex:5 }}>
+          <button type="button" onClick={onHistory} className="wc-btn"
+            style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.75)", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, padding:"6px 12px", cursor:"pointer", letterSpacing:0.1 }}>
+            {t("My Results")}
+          </button>
+        </div>
+      )}
+      {showCreditPill && (
+        <div style={{ position:"absolute", top:16, right:20, zIndex:5, display:"flex", alignItems:"center" }}>
+          <div style={{
+            display:"flex", alignItems:"center",
+            background:"rgba(255,214,120,0.14)",
+            border:"1px solid rgba(255,214,120,0.22)",
+            borderRadius:999, overflow:"hidden",
+          }}>
+            <span style={{ fontSize:12, fontWeight:800, color:"rgba(255,244,214,0.88)", padding:"6px 10px 6px 12px", lineHeight:1 }}>
+              {credits} credit{credits !== 1 ? "s" : ""}
+            </span>
+            {onUpgrade && (
+              <>
+                <div style={{ width:1, alignSelf:"stretch", background:"rgba(255,214,120,0.22)" }} />
+                <button type="button" onClick={onUpgrade} className="wc-btn" aria-label="Add credits"
+                  style={{ fontSize:15, fontWeight:900, color:"rgba(255,244,214,0.9)", background:"transparent", border:"none", padding:"6px 10px", cursor:"pointer", lineHeight:1 }}>
+                  +
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <BrandLockup
         logoSrc={wrapchatLogoTransparent}
         logoSize={72}
         subtitle={t("Your chats, unwrapped.")}
-        subtitleMarginBottom={creditLabel ? 4 : 8}
+        subtitleMarginBottom={showOpenPill ? 4 : 8}
       />
-      {creditLabel && (
+      {showOpenPill && (
         <div style={{
-          fontSize:12, fontWeight:800,
-          color:"rgba(255,244,214,0.88)",
-          background:"rgba(255,214,120,0.14)",
-          border:"1px solid rgba(255,214,120,0.22)",
+          fontSize:12, fontWeight:700,
+          color:"rgba(176,244,200,0.9)",
+          background:"rgba(20,160,80,0.12)",
+          border:"1px solid rgba(20,160,80,0.28)",
           borderRadius:999,
           padding:"7px 18px",
           textAlign:"center",
         }}>
-          {creditLabel}
+          Open testing · free reports
         </div>
       )}
       <label
@@ -8869,11 +8916,6 @@ function Upload({
       )}
       <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", marginTop:8, textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
       <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
-        {onHistory && (
-          <button onClick={onHistory} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
-            {t("My Results")}
-          </button>
-        )}
         {showAdminEntry && (
           <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
             Admin
@@ -9182,7 +9224,7 @@ function ReportSelect({
   onRun,
   onBack,
   backLabel = "Upload different file",
-  chatLang,
+  reportLang,
   detectedLang,
   onLangChange,
   error = "",
@@ -9214,8 +9256,8 @@ function ReportSelect({
   const runLabel = selectedCount === 1 ? "Run 1 report" : `Run ${selectedCount} reports`;
   const showCredits = !hideCredits && !isOpenMode(accessMode);
 
-  const isOverridden = detectedLang && chatLang !== detectedLang.code;
-  const currentLabel = LANG_OPTIONS.find(l => l.code === chatLang)?.label ?? "English";
+  const isOverridden = detectedLang && reportLang !== detectedLang.code;
+  const currentLabel = LANG_OPTIONS.find(l => l.code === reportLang)?.label ?? "English";
 
   const stepLabel = math?.isGroup ? "STEP 2 OF 2" : "STEP 3 OF 3";
   const stepProg  = math?.isGroup ? 1 : 2;
@@ -9396,7 +9438,7 @@ function ReportSelect({
         {langOpen && (
           <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8, padding:"4px 0" }}>
             {LANG_OPTIONS.map(opt => {
-              const active = chatLang === opt.code;
+              const active = reportLang === opt.code;
               return (
                 <button
                   key={opt.code}
@@ -10627,7 +10669,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onRestoreResult, initialBundleId = null }) {
+function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null }) {
   const [rows,           setRows]           = useState(null);
   const [err,            setErr]            = useState("");
   const [editing,        setEditing]        = useState(false);
@@ -10811,7 +10853,14 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null }) {
 
   // ── Bundle detail view ──
   if (bundleView) {
-    const bRows = rows?.filter(r => r.math_data?.bundle_id === bundleView) || [];
+    if (rows === null) {
+      return (
+        <Shell sec="upload" prog={0} total={0} contentAlign="start">
+          <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
+        </Shell>
+      );
+    }
+    const bRows = rows.filter(r => r.math_data?.bundle_id === bundleView);
     const bNames = bRows.length ? rowNames(bRows[0]) : "—";
     const bDate  = bRows.length ? formatDate(bRows[0].created_at) : "";
     return (
@@ -10949,6 +10998,12 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null }) {
           <ScreenHeader
             back={() => { exitEditing(); onBack(); }}
             title="My Results"
+            action={onSettings ? (
+              <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
+                style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+                <GearIcon />
+              </button>
+            ) : null}
           />
         </div>
         {/* Floating edit FAB */}
@@ -11168,7 +11223,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [selectedReportTypes, setSelectedReportTypes] = useState([]);
   const [loadingReportIndex, setLoadingReportIndex] = useState(0);
   const [relationshipType, setRelationshipType] = useState(null);
-  const [chatLang,         setChatLang]         = useState("en");  // detected or user-selected
+  const [reportLang,       setReportLang]       = useState("en");  // explicit report/output language
   const [detectedLang,     setDetectedLang]     = useState(null);  // { code, label, confidence }
   const [uiLangPref,       setUiLangPref]       = useState("en");
   const [step,             setStep]             = useState(0);
@@ -11198,7 +11253,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const consumedImportRef   = useRef(null);
   const trialAutoRunDoneRef = useRef(false);
   const resolvedUiLang = resolveUiLang(uiLangPref, detectedLang?.code);
-  const reportContentLang = resolveReportContentLanguage(chatLang, detectedLang, resolvedUiLang);
+  const reportContentLang = reportLang;
   const authedIsAdmin = isAdminUser(authedUser);
 
   useEffect(() => {
@@ -11357,7 +11412,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setLoadingReportIndex(0);
       setCurrentResultId(data.id || null);
       setRelationshipType(displayResult?.relationshipType ?? null);
-      setChatLang(displayLang);
+      setReportLang(displayLang);
       setAiLoading(false);
       setStep(0);
       setDir("fwd");
@@ -11444,7 +11499,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSelectedReportTypes([]);
     setLoadingReportIndex(0);
     setRelationshipType(null);
-    setChatLang("en");
+    setReportLang("en");
     setDetectedLang(null);
     setStep(0);
     setDir("fade");
@@ -11526,7 +11581,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setReportRouteState(null);
     setHistoryBundleView(null);
     setFeedbackTarget(null); setFeedbackChoice(""); setFeedbackNote(""); setFeedbackBusy(false); setFeedbackThanks(false);
-    setChatLang("en"); setDetectedLang(null);
+    setReportLang("en"); setDetectedLang(null);
     setUploadError("");
     setUploadInfo("");
     setAnalysisError("");
@@ -11578,13 +11633,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           m.originalParticipantCount = originalParticipantCount;
         }
         const detected = detectLanguage(cappedMsgs);
-        const initialContentLang = resolveReportContentLanguage(
-          detected.code,
-          detected,
-          resolveUiLang(uiLangPref, detected.code)
-        );
+        const initialReportLang = isReliableDetectedLanguage(detected)
+          ? normalizeUiLangCode(detected.code)
+          : "en";
         setDetectedLang(detected);
-        setChatLang(initialContentLang);
+        setReportLang(initialReportLang);
         setMessages(cappedMsgs);
         setMath(m);
         setAi(null);
@@ -12096,12 +12149,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
-  const backFromReport = () => {
-    if (step > 0) back();
-    else closeResults();
-  };
-
-  const goBackFromCurrent = () => {
+  const navigateBack = () => {
     if (sharePicker || feedbackTarget || phase === "auth" || phase === "loading") return;
     if (phase === "results") {
       if (step > 0) back();
@@ -12125,12 +12173,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     if (phase === "upgrade") {
       setAnalysisError("");
       setDir("bk");
-      setPhase("select");
+      setPhase(upgradeInfo?.backPhase || "select");
       setSid(s => s + 1);
       return;
     }
     if (["history", "admin", "settings", "tooshort"].includes(phase)) {
       setDir("fade");
+      if (phase === "history") setHistoryBundleView(null);
       setPhase("upload");
       setSid(s => s + 1);
     }
@@ -12157,7 +12206,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       if (!touch) return;
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
-      if (dx > 72 && Math.abs(dx) > Math.abs(dy) * 1.6) goBackFromCurrent();
+      if (dx > 72 && Math.abs(dx) > Math.abs(dy) * 1.6) navigateBack();
     };
 
     window.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -12166,16 +12215,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [phase, step, math, sharePicker, feedbackTarget, resultsOrigin, reportRouteState]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, step, math, sharePicker, feedbackTarget, resultsOrigin, reportRouteState, upgradeInfo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (phase !== "results") return undefined;
-    const onPopState = () => {
-      if (step > 0) back();
-      else closeResults();
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    window.addEventListener("popstate", navigateBack);
+    return () => window.removeEventListener("popstate", navigateBack);
   }, [phase, step, resultsOrigin, reportRouteState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFeedback = (target) => {
@@ -12210,9 +12255,16 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const getSummaryShareScreen = () => {
     if (!math) return null;
     const noop = () => {};
-    if (["toxicity", "lovelang", "growth", "accounta", "energy"].includes(reportType)) {
-      return <PremiumFinale s={math} restart={noop} back={noop} reportType={reportType} resultId={currentResultId} />;
-    }
+    if (reportType === "toxicity")
+      return <ToxicityReportScreen s={math} ai={ai} aiLoading={aiLoading} step={TOXICITY_SCREENS - 1} back={noop} next={noop} resultId={null} />;
+    if (reportType === "lovelang")
+      return <LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={LOVELANG_SCREENS - 1} back={noop} next={noop} resultId={null} />;
+    if (reportType === "growth")
+      return <GrowthReportScreen s={math} ai={ai} aiLoading={aiLoading} step={GROWTH_SCREENS - 1} back={noop} next={noop} resultId={null} />;
+    if (reportType === "accounta")
+      return <AccountaReportScreen s={math} ai={ai} aiLoading={aiLoading} step={ACCOUNTA_SCREENS - 1} back={noop} next={noop} resultId={null} />;
+    if (reportType === "energy")
+      return <EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={ENERGY_SCREENS - 1} back={noop} next={noop} resultId={null} />;
     const contentCount = math.isGroup ? GROUP_CASUAL_SCREENS : DUO_CASUAL_SCREENS;
     const total = contentCount + 1;
     return (
@@ -12372,7 +12424,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setReportRouteState(nextRouteState);
     setHistoryBundleView(null);
     setRelationshipType(row.result_data?.relationshipType ?? null);
-    setChatLang(displayLang);
+    setReportLang(displayLang);
     setAiLoading(false);
     setStep(0);
     setDir("fwd");
@@ -12397,19 +12449,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     withUiLanguage(<Slide dir={dir} id={sid}>
       {isAdminUser(authedUser)
         ? <AdminPanel
-            onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }}
+            onBack={navigateBack}
             onLogout={logout}
             accessMode={accessMode}
             onAccessModeChange={setAccessModeState}
           />
-        : <AdminLocked onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} />}
+        : <AdminLocked onBack={navigateBack} />}
     </Slide>)
   );
-  if (phase === "settings") return withUiLanguage(<Slide dir={dir} id={sid}><SettingsScreen onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} onAccountDeleted={handleAccountDeleted} /></Slide>);
-  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults initialBundleId={historyBundleView} onBack={() => { setDir("fade"); setHistoryBundleView(null); setPhase("upload"); setSid(s => s+1); }} onRestoreResult={onRestoreResult} /></Slide>);
-  if (phase === "upload")   return withUiLanguage(<Slide dir={dir} id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setHistoryBundleView(null); setDir("fwd"); setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} /></Slide>);
-  if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={() => { setDir("fade"); setPhase("upload"); setSid(s => s+1); }} /></Slide>);
-  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={() => { setAnalysisError(""); setDir("bk"); setPhase("select"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "settings") return withUiLanguage(<Slide dir={dir} id={sid}><SettingsScreen onBack={navigateBack} onAccountDeleted={handleAccountDeleted} /></Slide>);
+  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults initialBundleId={historyBundleView} onBack={navigateBack} onRestoreResult={onRestoreResult} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "upload")   return withUiLanguage(<Slide dir={dir} id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setHistoryBundleView(null); setDir("fwd"); setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={navigateBack} /></Slide>);
+  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} /></Slide>);
   if (phase === "select") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
       <ReportSelect
@@ -12417,11 +12469,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         onToggle={onToggleReport}
         onBundle={onSelectBundle}
         onRun={onRunSelectedReports}
-        onBack={() => { setAnalysisError(""); setDir(math?.isGroup ? "fade" : "bk"); setPhase(math?.isGroup ? "upload" : "relationship"); setSid(s => s+1); }}
+        onBack={navigateBack}
         backLabel={math?.isGroup ? "Upload different file" : "Back"}
-        chatLang={chatLang}
+        reportLang={reportLang}
         detectedLang={detectedLang}
-        onLangChange={code => { setAnalysisError(""); setChatLang(code); setCoreAnalysisA(null); setCoreAnalysisAKey(""); setCoreAnalysisB(null); setCoreAnalysisBKey(""); }}
+        onLangChange={code => { setAnalysisError(""); setReportLang(code); setCoreAnalysisA(null); setCoreAnalysisAKey(""); setCoreAnalysisB(null); setCoreAnalysisBKey(""); }}
         error={analysisError}
         selectedTypes={selectedReportTypes}
         credits={credits}
@@ -12445,7 +12497,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     withUiLanguage(<Slide dir={dir} id={sid}>
       <RelationshipSelect
         onSelect={onSelectRelationship}
-        onBack={() => { setAnalysisError(""); setDir("fade"); setPhase("upload"); setSid(s => s+1); }}
+        onBack={navigateBack}
         error={analysisError}
         showDebugPanel={authedIsAdmin && !math?.isGroup}
         debugJson={debugExportJson}
@@ -12468,12 +12520,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // ── Trial report routing ──
   if (reportType === "trial_report") {
-    if (step < TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} />);
+    if (step < TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} />);
     return wrap(
       <TrialFinale
         s={math}
         restart={restart}
-        back={backFromReport}
+        back={navigateBack}
       />
     );
   }
@@ -12481,24 +12533,24 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   // ── Premium report routing ──
   const fromHistory = resultsOrigin === "history";
   if (reportType === "toxicity") {
-    if (step < TOXICITY_SCREENS) return wrap(<ToxicityReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < TOXICITY_SCREENS) return wrap(<ToxicityReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "lovelang") {
-    if (step < LOVELANG_SCREENS) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < LOVELANG_SCREENS) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "growth") {
-    if (step < GROWTH_SCREENS) return wrap(<GrowthReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < GROWTH_SCREENS) return wrap(<GrowthReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "accounta") {
-    if (step < ACCOUNTA_SCREENS) return wrap(<AccountaReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < ACCOUNTA_SCREENS) return wrap(<AccountaReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "energy") {
-    if (step < ENERGY_SCREENS) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} resultId={currentResultId} />);
-    return wrap(<PremiumFinale s={math} restart={restart} back={backFromReport} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
+    if (step < ENERGY_SCREENS) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
 
   // ── General Wrapped (existing casual analysis) ──
@@ -12507,10 +12559,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   let screen;
   if (step < contentCount) {
     screen = math.isGroup
-      ? <GroupScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} mode="casual" resultId={currentResultId} />
-      : <DuoScreen   s={math} ai={ai} aiLoading={aiLoading} step={step} back={backFromReport} next={next} mode="casual" relationshipType={relationshipType} resultId={currentResultId} />;
+      ? <GroupScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} mode="casual" resultId={currentResultId} />
+      : <DuoScreen   s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} mode="casual" relationshipType={relationshipType} resultId={currentResultId} />;
   } else {
-    screen = <Finale s={math} ai={ai} aiLoading={aiLoading} restart={restart} back={backFromReport} prog={total} total={total} mode="casual" resultId={currentResultId} fromHistory={fromHistory} />;
+    screen = <Finale s={math} ai={ai} aiLoading={aiLoading} restart={restart} back={navigateBack} prog={total} total={total} mode="casual" resultId={currentResultId} fromHistory={fromHistory} />;
   }
   return wrap(screen);
 }

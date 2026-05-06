@@ -63,11 +63,11 @@ async function extractChatText(file) {
     return textEntry.async("string");
   }
 
-  throw new Error("Please share a WhatsApp export as a .txt or .zip file.");
+  throw new Error("Please share a chat export as a .txt or .zip file.");
 }
 
 export async function processImportedChatFile(file, { onStatus } = {}) {
-  if (!file) throw new Error("Choose a WhatsApp export to continue.");
+  if (!file) throw new Error("Choose a chat export to continue.");
   if (file.size > MAX_IMPORT_BYTES) {
     throw new Error("This export is too large to open here. Try exporting a shorter date range.");
   }
