@@ -6,6 +6,28 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+---
+
+## v2.5 — My Results drawer + Names grouping + Upload page cleanup
+**Files:** `src/App.jsx`
+
+### My Results replaced with a slide-in drawer
+The "My Results" text pill on the Upload screen is replaced with a minimalist 36 × 36 circular icon button (three-line list SVG, `aria-label="My Results"`) positioned at `top:14, left:16`. Clicking it opens My Results as a left-side sliding panel that overlays the Upload screen rather than replacing it. The panel is `min(390px, 96vw)` wide, animated with `transform: translateX(-100%) → 0` at `0.32s cubic-bezier(0.4, 0, 0.2, 1)`. A blurred backdrop (`backdrop-filter: blur(3px)`, `rgba(0,0,0,0.52)`) covers the rest of the screen and dismisses the drawer on tap. When a result is opened from the drawer the drawer closes first, then the results phase starts. When results are closed and they were opened from history, the Upload screen reappears with the drawer already open (restoring context). The existing `phase === "history"` path is kept as a fallback for direct navigation.
+
+### MyResults drawerMode prop
+`MyResults` accepts a new `drawerMode` boolean. When true: the `Shell` wrapper is replaced with a bare flex container that fills the panel height, and the negative margins that existed to cancel Shell's padding are suppressed. The bundle detail view and loading state also respect `drawerMode`.
+
+### Reports / Names sorting modes
+A segmented control (two pills: "Reports" / "Names") is rendered in the My Results header whenever there are saved results. Selection is persisted via `localStorage` key `"wrapchat_results_view"` and restored on open. **Reports mode** is the existing view — items sorted by date, bundled reports grouped under a bundle card. **Names mode** groups all analyses by participant name; each name becomes a section header (uppercase, muted) with its associated single-report and bundle cards nested underneath. Names are ordered by most-recent analysis date. Bundle cards in Names mode are read-only (no edit/delete); use Reports mode to manage results. Switching mode exits edit state.
+
+### Settings and Log out removed from Upload page
+The gear icon (Settings) and Log out button removed from the bottom button row of the Upload screen. The row now only shows the Admin button for admin accounts. Settings remains accessible from the My Results drawer header (existing `onSettings` prop). Log out moved to the Settings page — a new full-width row button ("Log out ›") appears above "Delete my account", rendered only when `onLogout` is provided. `SettingsScreen` signature extended with `onLogout` prop; the phase-level render passes `logout`.
+
+---
+
+## v2.4 — Homepage UX polish + platform-agnostic copy + language & navigation fixes
+**Files:** `src/App.jsx`, `src/import/fileProcessing.js`, `src/ImportRoute.jsx`
+
 ### Report output language independent from UI language
 `chatLang` state renamed to `reportLang` — an explicit, independently controlled state for the AI output language. `resolveReportContentLanguage` removed; its third fallback (`return normalizeUiLangCode(uiLang)`) was the root cause: when chat language detection confidence was below threshold, reports were generated in the user's UI language instead of English. `reportContentLang` is now simply `reportLang` — no derivation from `resolvedUiLang`. Initial default after upload: `isReliableDetectedLanguage(detected) ? detected.code : "en"` — always falls back to English when detection is uncertain, never to UI language. `ReportSelect` prop renamed from `chatLang` to `reportLang`; `onLangChange` writes `setReportLang`. Restore and reset flows updated. Cache keys, stored `displayLanguage`/`sourceLanguage`, and AI prompt language instruction are all unchanged.
 

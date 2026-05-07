@@ -2334,6 +2334,17 @@ const STOP_WORDS = new Set([
   "not","nor","as","at","by","for","in","of","on","to","up","with","from",
   "into","through","during","such","than","too","very","just","because",
   "if","while","although","though","since","about","get","got","im",
+  // Missing short prepositions / particles
+  "off","out","per","via","upon","onto","else","amid","plus",
+  // Contractions (apostrophes stripped during normalisation)
+  "youre","theyre","ive","ill","hes","shes","weve","youve","lets",
+  "doesnt","didnt","wouldnt","shouldnt","couldnt","cant","wont",
+  "isnt","arent","wasnt","werent","hasnt","havent","hadnt",
+  "thats","theres","whats","whos","theyve",
+  // Informal / chat-speak contractions
+  "gonna","gotta","wanna",
+  // Common affirmation / negation fillers
+  "yeah","yep","yup","nope",
 
   // ── Turkish ──
   "bir","bu","şu","o","ve","ile","de","da","ki","mi","mı","mu","mü",
@@ -2345,6 +2356,12 @@ const STOP_WORDS = new Set([
   "benim","senin","bizim","şöyle","böyle","öyle","burada","orada","nerede","nereye",
   "olsa","olsun","olabilir","oldum","oldun","olduk","olmuşum","miyim","mıyım","muyum","müyüm",
   "miyiz","mıyız","muyuz","müyüz","benle","senle","bizle","bende","sende","bizde",
+  // Missing postpositional connectors
+  "sonra","önce","beri","karşı","göre","rağmen","doğru","boyunca",
+  // Informal location contractions (short forms of burada / şurada)
+  "burda","şurda",
+  // Connector adverbs (parallel to English: even, only, however)
+  "hatta","sadece","ancak",
 
   // ── Spanish ──
   "yo","tú","él","ella","nosotros","ellos","ellas","me","te","se",
@@ -2354,6 +2371,9 @@ const STOP_WORDS = new Set([
   "cuando","donde","estoy","estás","está","estamos","están","ser","estar","hay",
   "eso","esa","ese","aquí","allí","desde","hasta","aún","todavía","nunca","siempre",
   "algo","nada","soy","eres","es","somos","son","tengo","tienes","tiene","hacer","hecho",
+  // Missing prepositions / connectors
+  "esto","ante","contra","hacia","según","durante","tras","mediante",
+  "además","aunque","mientras","sino","excepto","salvo","inclusive","después",
 
   // ── Portuguese ──
   "eu","tu","ele","ela","nós","eles","elas","me","te","se","um","uma",
@@ -2362,6 +2382,11 @@ const STOP_WORDS = new Set([
   "porque","quando","onde","estou","está","estamos","estão","ser","estar",
   "isso","essa","esse","aqui","ali","desde","até","ainda","nunca","sempre",
   "algo","nada","sou","és","somos","são","tenho","tens","tem","fazer","feito",
+  // Missing prepositions / contracted article forms
+  "das","dos","nos","nas","pelo","pela","pelos","pelas","num","numa",
+  "antes","depois","durante","contra","segundo","mediante","exceto",
+  // Laugh tokens (no semantic content)
+  "kkk","kkkk","kkkkk",
 
   // ── French ──
   "je","tu","il","elle","nous","vous","ils","elles","me","te","se",
@@ -2371,6 +2396,11 @@ const STOP_WORDS = new Set([
   "maintenant","parce","quand","où","être","avoir","est","suis","sommes",
   "sont","fait","ça","ceci","cela","ici","depuis","jusqu","déjà","quelque",
   "chose","personne","fois","vais","vas","va","avons","avez","ont","faire",
+  // Missing prepositions / connectors
+  "sur","sous","vers","entre","avant","après","pendant","contre",
+  "selon","sans","avec","car","lors","dès","afin","malgré","parmi",
+  // Discourse fillers (zero semantic content in chat context)
+  "quoi","donc","bref","enfin","ben","ouais","nan","genre",
 
   // ── German ──
   "ich","du","er","sie","es","wir","ihr","mich","dich","sich","uns",
@@ -2381,6 +2411,11 @@ const STOP_WORDS = new Set([
   "bin","bist","sind","hat","haben","werden","hier","dort","vielleicht",
   "eigentlich","irgendwie","etwas","nichts","immer","nie","heute","morgen",
   "gestern","werde","wirst","wird","mache","machen","gemacht","kannst","können",
+  // Missing prepositions / connectors (the "auf/mit/an" class)
+  "auf","bei","von","aus","nach","vor","über","unter","ohne","durch",
+  "seit","bis","ins","ans","zum","zur","vom","beim","denn","wann",
+  "zwar","damit","dafür","dabei","danach","darum","dazu","daher","davon",
+  "gegen","statt","trotz","während","außer","gegenüber","entlang",
 
   // ── Italian ──
   "io","tu","lui","lei","noi","voi","loro","mi","ti","si","ci","vi",
@@ -2391,6 +2426,14 @@ const STOP_WORDS = new Set([
   "questo","questa","quello","qui","lì","certo","forse","comunque","già",
   "qualcosa","nessuno","oggi","domani","ieri","sto","sta","stiamo","stanno",
   "avere","ho","hai","ha","abbiamo","hanno",
+  // Missing prepositions / contracted article forms (del/della/nel/sul class)
+  "del","dei","delle","degli","della","dello",
+  "nel","nei","nella","nelle","negli","nello",
+  "sul","sulla","sulle","sugli",
+  "dal","dalla","dalle","dagli","dallo",
+  "alla","alle","agli","allo",
+  "senza","dopo","prima","contro","durante","invece","tranne",
+  "oppure","eppure","tuttavia","però","verso","circa","presso",
 
   // ── Arabic ──
   "أنا","أنت","هو","هي","نحن","أنتم","هم","في","من","إلى","على","مع",
@@ -2400,6 +2443,8 @@ const STOP_WORDS = new Set([
   "انا","انت","انتي","إنت","إنتي","احنا","هما","فيه","فيها","علي","عليه",
   "عليها","منه","منها","لك","لكم","عندي","عندك","عادي","برضه","كمان",
   "كذا","هكذا","وين","فين","ليه",
+  // Relative pronoun + missing prepositions / connectors
+  "اللي","بعد","قبل","خلال","حول","ضد","رغم","حتى","بدون","فوق","تحت","بين","أمام","خلف","بجانب",
 
   // ── WhatsApp UI — English ──
   "image omitted","video omitted","audio omitted","voice omitted",
@@ -2487,6 +2532,12 @@ const WA_NOISE_WORDS = new Set([
   "image","images","video","videos","audio","voice","sticker","gif","document","documents",
   "contact","contacts","media","photo","photos","file","files","location","poll","call","calls",
   "missed","omitted","deleted","message","messages","edited","forwarded","attached",
+  // Additional call/system artifacts
+  "ringing","waiting","connecting","incoming","outgoing","answered","declined","cancelled",
+  // Malformed export artifacts
+  "null","undefined","nan",
+  // Common URL fragment that survives normalisation
+  "www","http","https","com","org","net",
 ]);
 
 const TOKEN_WA_NOISE_WORDS = new Set(
@@ -3485,10 +3536,10 @@ function localStats(messages) {
 
   const wordFreq = {};
   const bigramFreq = {};
-  const NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached/i;
+  const NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached|end-to-end encrypted|messages and calls are end-to-end|security code (has )?changed/i;
   messages.forEach(({body}) => {
     if (NOISE_RE.test(body) || body.startsWith("http")) return;
-    const words = body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).filter(w => w.length>2 && !TOKEN_STOP_WORDS.has(w) && !TOKEN_WA_NOISE_WORDS.has(w) && !/^\d+$/.test(w));
+    const words = body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).filter(w => w.length>2 && !TOKEN_STOP_WORDS.has(w) && !TOKEN_WA_NOISE_WORDS.has(w) && !/^\d+$/.test(w) && !w.startsWith("http") && w !== "www");
     for (let i=0;i<words.length;i++){
       wordFreq[words[i]]=(wordFreq[words[i]]||0)+1;
       if (i<words.length-1){const bg=`${words[i]} ${words[i+1]}`;bigramFreq[bg]=(bigramFreq[bg]||0)+1;}
@@ -3628,8 +3679,8 @@ function localStats(messages) {
   namesAll.forEach(n=>{
     const wf={};
     byName[n].forEach(({body})=>{
-      if(/media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached/i.test(body)||body.startsWith("http"))return;
-      body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).forEach(w=>{if(w.length>2&&!TOKEN_STOP_WORDS.has(w)&&!TOKEN_WA_NOISE_WORDS.has(w)&&!/^\d+$/.test(w))wf[w]=(wf[w]||0)+1;});
+      if(NOISE_RE.test(body)||body.startsWith("http"))return;
+      body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).forEach(w=>{if(w.length>2&&!TOKEN_STOP_WORDS.has(w)&&!TOKEN_WA_NOISE_WORDS.has(w)&&!/^\d+$/.test(w)&&!w.startsWith("http")&&w!=="www")wf[w]=(wf[w]||0)+1;});
     });
     sigWordByName[n]=Object.entries(wf).sort((a,b)=>b[1]-a[1])[0]?.[0]||"...";
   });
@@ -8382,7 +8433,10 @@ function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) setErr(normalizeAuthError(error, "login"));
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email, password,
+          options: { emailRedirectTo: `${window.location.origin}/auth/confirmed` },
+        });
         if (error) {
           setErr(normalizeAuthError(error, "signup"));
         } else if (data?.user?.identities?.length === 0) {
@@ -8824,10 +8878,14 @@ function Upload({
   return (
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
       {onHistory && (
-        <div style={{ position:"absolute", top:16, left:20, zIndex:5 }}>
-          <button type="button" onClick={onHistory} className="wc-btn"
-            style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.75)", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, padding:"6px 12px", cursor:"pointer", letterSpacing:0.1 }}>
-            {t("My Results")}
+        <div style={{ position:"absolute", top:14, left:16, zIndex:5 }}>
+          <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
+            style={{ width:36, height:36, borderRadius:"50%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+            <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="1" y1="1.5" x2="15" y2="1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              <line x1="1" y1="12.5" x2="15" y2="12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
       )}
@@ -8921,22 +8979,6 @@ function Upload({
             Admin
           </button>
         )}
-        {onLogout && (
-          <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
-            {t("Log out")}
-          </button>
-        )}
-        {onSettings && (
-          <button
-            onClick={onSettings}
-            className="wc-btn"
-            aria-label={t("Settings")}
-            title={t("Settings")}
-            style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", width:34, height:34, padding:0, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}
-          >
-            <GearIcon />
-          </button>
-        )}
       </div>
       <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
         {HOMEPAGE_VERSION_LABEL}
@@ -8977,7 +9019,7 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   );
 }
 
-function SettingsScreen({ onBack, onAccountDeleted }) {
+function SettingsScreen({ onBack, onAccountDeleted, onLogout }) {
   const t = useT();
   const { uiLangPref, updateUiLangPref } = useUILanguage();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -9079,6 +9121,29 @@ function SettingsScreen({ onBack, onAccountDeleted }) {
                 </button>
               </div>
             </div>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="wc-btn"
+                style={{
+                  width:"100%",
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"space-between",
+                  gap:14,
+                  textAlign:"left",
+                  background:"rgba(255,255,255,0.05)",
+                  border:"1px solid rgba(255,255,255,0.10)",
+                  borderRadius:18,
+                  padding:"15px 16px",
+                  color:"#fff",
+                }}
+              >
+                <span style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"rgba(255,255,255,0.75)" }}>{t("Log out")}</span>
+                <span style={{ fontSize:18, lineHeight:1, color:"rgba(255,255,255,0.28)" }}>›</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
@@ -10669,7 +10734,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null }) {
+function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false }) {
   const [rows,           setRows]           = useState(null);
   const [err,            setErr]            = useState("");
   const [editing,        setEditing]        = useState(false);
@@ -10678,6 +10743,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   const [bundleView,     setBundleView]     = useState(initialBundleId); // null | string (bundle_id)
   const [confirmBundle,  setConfirmBundle]  = useState(null);
   const [deletingBundle, setDeletingBundle] = useState(null);
+  const [viewMode,       setViewMode]       = useState(() => {
+    try { return localStorage.getItem("wrapchat_results_view") || "reports"; } catch { return "reports"; }
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -10851,10 +10919,38 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     return items;
   })();
 
+  const changeViewMode = (mode) => {
+    setViewMode(mode);
+    try { localStorage.setItem("wrapchat_results_view", mode); } catch {}
+  };
+
+  // ── Compute names-grouped items (for Names mode) ──
+  const nameItems = (() => {
+    if (!rows) return [];
+    const nameMap = new Map();
+    displayItems.forEach(item => {
+      const itemNames = item.type === "single"
+        ? (Array.isArray(item.row.names) ? item.row.names : [])
+        : (Array.isArray(item.rows[0]?.names) ? item.rows[0].names : []);
+      itemNames.forEach(rawName => {
+        const name = String(rawName || "").trim();
+        if (!name) return;
+        if (!nameMap.has(name)) nameMap.set(name, { name, items: [], latestDate: new Date(0) });
+        const entry = nameMap.get(name);
+        entry.items.push(item);
+        const d = new Date(item.created_at);
+        if (d > entry.latestDate) entry.latestDate = d;
+      });
+    });
+    return Array.from(nameMap.values()).sort((a, b) => b.latestDate - a.latestDate);
+  })();
+
   // ── Bundle detail view ──
   if (bundleView) {
     if (rows === null) {
-      return (
+      return drawerMode ? (
+        <div style={{ flex:1, display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
+      ) : (
         <Shell sec="upload" prog={0} total={0} contentAlign="start">
           <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
         </Shell>
@@ -10863,13 +10959,12 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const bRows = rows.filter(r => r.math_data?.bundle_id === bundleView);
     const bNames = bRows.length ? rowNames(bRows[0]) : "—";
     const bDate  = bRows.length ? formatDate(bRows[0].created_at) : "";
-    return (
-      <Shell sec="upload" prog={0} total={0} contentAlign="start">
-        <div style={{
-          alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-          margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-          position:"relative",
-        }}>
+    const bundleDetailContent = (
+      <div style={{
+        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+        ...(drawerMode ? {} : { margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))" }),
+        position:"relative",
+      }}>
           {/* Fixed header */}
           <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
             <ScreenHeader
@@ -10982,30 +11077,50 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             </button>
           )}
         </div>
+    );
+    return drawerMode ? (
+      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative" }}>
+        {bundleDetailContent}
+      </div>
+    ) : (
+      <Shell sec="upload" prog={0} total={0} contentAlign="start">
+        {bundleDetailContent}
       </Shell>
     );
   }
 
-  return (
-    <Shell sec="upload" prog={0} total={0} contentAlign="start">
-      <div style={{
-        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        position:"relative",
-      }}>
-        {/* Fixed header */}
-        <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-          <ScreenHeader
-            back={() => { exitEditing(); onBack(); }}
-            title="My Results"
-            action={onSettings ? (
-              <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
-                style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
-                <GearIcon />
+  const mainInnerContent = (
+    <div style={{
+      alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+      ...(drawerMode ? {} : { margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))" }),
+      position:"relative",
+    }}>
+      {/* Fixed header */}
+      <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+        <ScreenHeader
+          back={() => { exitEditing(); onBack(); }}
+          title="My Results"
+          action={onSettings ? (
+            <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
+              style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+              <GearIcon />
+            </button>
+          ) : null}
+        />
+        {rows?.length > 0 && (
+          <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, marginTop:12 }}>
+            {[["reports", "Reports"], ["names", "Names"]].map(([mode, label]) => (
+              <button key={mode} type="button" onClick={() => { exitEditing(); changeViewMode(mode); }} className="wc-btn"
+                style={{ flex:1, borderRadius:999, padding:"6px 0", fontSize:12, fontWeight:700, border:"none",
+                  background: viewMode === mode ? "rgba(255,255,255,0.18)" : "transparent",
+                  color: viewMode === mode ? "#fff" : "rgba(255,255,255,0.45)",
+                  cursor:"pointer", transition:"all 0.18s" }}>
+                {label}
               </button>
-            ) : null}
-          />
-        </div>
+            ))}
+          </div>
+        )}
+      </div>
         {/* Floating edit FAB */}
         {rows?.length > 0 && (
           <button
@@ -11035,7 +11150,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           </button>
         )}
 
-        {/* Scrollable list */}
+        {viewMode === "reports" && (
         <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
           padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
           display:"flex", flexDirection:"column", gap:10 }}>
@@ -11195,7 +11310,91 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           );
           })}
         </div>
+        )}
+        {viewMode === "names" && (
+          <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
+            padding:"0 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+            display:"flex", flexDirection:"column" }}>
+            {rows === null && !err && (
+              <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
+            )}
+            {err && (
+              <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
+            )}
+            {rows?.length === 0 && (
+              <div style={{ fontSize:14, color:"rgba(255,255,255,0.35)", textAlign:"center", padding:"32px 0", lineHeight:1.7 }}>
+                No saved results yet.<br/>Run an analysis to see it here.
+              </div>
+            )}
+            {nameItems.map(group => (
+              <div key={group.name}>
+                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.3)", padding:"20px 0 8px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  {group.name}
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8, paddingBottom:4 }}>
+                  {group.items.map(item => {
+                    if (item.type === "single") {
+                      const row      = item.row;
+                      const rt       = REPORT_TYPES.find(r => r.id === row.report_type);
+                      const pal      = PAL[rt?.palette] || PAL.upload;
+                      const dateLabel = formatDate(row.created_at);
+                      const stat     = headline(row);
+                      return (
+                        <button key={`${group.name}-${row.id}`} onClick={() => onRestoreResult(row)} className="wc-btn"
+                          style={{ display:"flex", alignItems:"center", gap:16,
+                            background:pal.bg, border:`1px solid ${pal.accent}28`,
+                            borderRadius:20, padding:"16px 18px",
+                            textAlign:"left", color:"#fff", cursor:"pointer",
+                            width:"100%", transition:"all 0.18s" }}>
+                          {makeSwatchEl(pal)}{makeTextEl(pal, rt, row, dateLabel, stat)}
+                          <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
+                        </button>
+                      );
+                    }
+                    const { bundleId, rows: bundleRows } = item;
+                    const bDate = formatDate(item.created_at);
+                    const bundleSwatchEl = (
+                      <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box" }}>
+                        {bundleRows.slice(0, 4).map((r, i) => {
+                          const rpal = PAL[REPORT_TYPES.find(rt => rt.id === r.report_type)?.palette] || PAL.upload;
+                          return <div key={i} style={{ borderRadius:4, background:rpal.inner, border:`1px solid ${rpal.accent}60` }} />;
+                        })}
+                      </div>
+                    );
+                    return (
+                      <button key={`${group.name}-${bundleId}`} onClick={() => setBundleView(bundleId)} className="wc-btn"
+                        style={{ display:"flex", alignItems:"center", gap:16,
+                          background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
+                          borderRadius:20, padding:"16px 18px",
+                          textAlign:"left", color:"#fff", cursor:"pointer",
+                          width:"100%", transition:"all 0.18s" }}>
+                        {bundleSwatchEl}
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5 }}>
+                            Bundle · {bDate}
+                          </div>
+                          <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
+                          </div>
+                        </div>
+                        <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+  );
+  return drawerMode ? (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative" }}>
+      {mainInnerContent}
+    </div>
+  ) : (
+    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+      {mainInnerContent}
     </Shell>
   );
 }
@@ -11232,6 +11431,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [resultsOrigin,    setResultsOrigin]    = useState("upload"); // "upload" | "history"
   const [reportRouteState, setReportRouteState] = useState(null);
   const [historyBundleView, setHistoryBundleView] = useState(null);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [shareBusy,        setShareBusy]        = useState(false);
   const [sharePicker,      setSharePicker]      = useState(false);
   const [currentResultId,  setCurrentResultId]  = useState(null);
@@ -12137,16 +12337,17 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   };
 
   const closeResults = () => {
-    const dest = resultsOrigin === "history" ? "history" : "upload";
-    if (dest === "history") {
+    const fromHist = resultsOrigin === "history";
+    setReportRouteState(null);
+    setDir("fade");
+    setPhase("upload");
+    setSid(s => s + 1);
+    if (fromHist) {
       setHistoryBundleView(reportRouteState?.origin === "bundle" ? reportRouteState.bundleId : null);
+      setHistoryDrawerOpen(true);
     } else {
-      setDir("fade");
       setHistoryBundleView(null);
     }
-    setReportRouteState(null);
-    setPhase(dest);
-    setSid(s => s + 1);
   };
 
   const navigateBack = () => {
@@ -12423,6 +12624,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setCurrentResultId(row.id || null);
     setReportRouteState(nextRouteState);
     setHistoryBundleView(null);
+    setHistoryDrawerOpen(false);
     setRelationshipType(row.result_data?.relationshipType ?? null);
     setReportLang(displayLang);
     setAiLoading(false);
@@ -12457,9 +12659,63 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         : <AdminLocked onBack={navigateBack} />}
     </Slide>)
   );
-  if (phase === "settings") return withUiLanguage(<Slide dir={dir} id={sid}><SettingsScreen onBack={navigateBack} onAccountDeleted={handleAccountDeleted} /></Slide>);
+  if (phase === "settings") return withUiLanguage(<Slide dir={dir} id={sid}><SettingsScreen onBack={navigateBack} onAccountDeleted={handleAccountDeleted} onLogout={logout} /></Slide>);
   if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults initialBundleId={historyBundleView} onBack={navigateBack} onRestoreResult={onRestoreResult} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} /></Slide>);
-  if (phase === "upload")   return withUiLanguage(<Slide dir={dir} id={sid}><Upload onParsed={onParsed} onLogout={logout} onHistory={() => { setHistoryBundleView(null); setDir("fwd"); setPhase("history"); setSid(s => s+1); }} onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }} onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} canAdmin={authedIsAdmin} uploadError={uploadError} uploadInfo={uploadInfo} credits={credits} hideCredits={authedIsAdmin} accessMode={accessMode} onClearError={() => setUploadError("")} onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "upload") return withUiLanguage(
+    <>
+      <Slide dir={dir} id={sid}>
+        <Upload
+          onParsed={onParsed}
+          onLogout={logout}
+          onHistory={() => { setHistoryBundleView(null); setHistoryDrawerOpen(true); }}
+          onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }}
+          onSettings={() => { setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
+          canAdmin={authedIsAdmin}
+          uploadError={uploadError}
+          uploadInfo={uploadInfo}
+          credits={credits}
+          hideCredits={authedIsAdmin}
+          accessMode={accessMode}
+          onClearError={() => setUploadError("")}
+          onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }}
+        />
+      </Slide>
+      {/* My Results slide-in drawer */}
+      <div style={{ position:"fixed", inset:0, zIndex:120, pointerEvents: historyDrawerOpen ? "all" : "none" }}>
+        {/* Backdrop */}
+        <div
+          onClick={() => { setHistoryBundleView(null); setHistoryDrawerOpen(false); }}
+          style={{
+            position:"absolute", inset:0,
+            background:"rgba(0,0,0,0.52)",
+            backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)",
+            opacity: historyDrawerOpen ? 1 : 0,
+            transition:"opacity 0.28s ease",
+            pointerEvents: historyDrawerOpen ? "all" : "none",
+          }}
+        />
+        {/* Drawer panel */}
+        <div style={{
+          position:"absolute", top:0, left:0, bottom:0,
+          width:"min(390px, 96vw)",
+          transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
+          transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
+          background:DA.bg,
+          display:"flex", flexDirection:"column",
+          overflow:"hidden",
+          boxShadow:"4px 0 32px rgba(0,0,0,0.45)",
+        }}>
+          <MyResults
+            drawerMode={true}
+            initialBundleId={historyBundleView}
+            onBack={() => { setHistoryBundleView(null); setHistoryDrawerOpen(false); }}
+            onRestoreResult={(row, routeState) => { setHistoryDrawerOpen(false); onRestoreResult(row, routeState); }}
+            onSettings={() => { setHistoryDrawerOpen(false); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
+          />
+        </div>
+      </div>
+    </>
+  );
   if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={navigateBack} /></Slide>);
   if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} /></Slide>);
   if (phase === "select") return (

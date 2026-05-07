@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import App from "./App";
 import ImportRoute from "./ImportRoute";
+import AuthConfirmedPage from "./AuthConfirmedPage";
 
 function createImportToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -20,6 +21,10 @@ export default function Root() {
     window.history.replaceState({}, "", "/");
     setPath("/");
   };
+
+  if (path === "/auth/confirmed") {
+    return <AuthConfirmedPage />;
+  }
 
   if (path === "/import") {
     return (
