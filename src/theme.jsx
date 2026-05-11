@@ -87,8 +87,17 @@ export function BackIcon({ size = 11 }) {
   return (
     <svg width={w} height={size} viewBox="0 0 9 12"
          fill="currentColor" style={{ display:'block', flexShrink:0 }}>
-      <polygon points="7.5,1.5 7.5,10.5 1.5,6"
-        fill="currentColor" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M7.8 1.1v9.8c0 .68-.77 1.07-1.31.66L.86 7.04a1.3 1.3 0 0 1 0-2.08L6.49.44c.54-.41 1.31-.02 1.31.66Z" />
+    </svg>
+  );
+}
+
+export function ForwardIcon({ size = 11 }) {
+  const w = Math.round(size * 0.75);
+  return (
+    <svg width={w} height={size} viewBox="0 0 9 12"
+         fill="currentColor" style={{ display:'block', flexShrink:0 }}>
+      <path d="M1.2 1.1v9.8c0 .68.77 1.07 1.31.66l5.63-4.52a1.3 1.3 0 0 0 0-2.08L2.51.44C1.97.03 1.2.42 1.2 1.1Z" />
     </svg>
   );
 }
@@ -432,7 +441,7 @@ export function ScoreRing({ score, max=10, color }) {
 // ── Nav — Back / Next button row ──────────────────────────────────────────
 // accent   → primary button background (use PAL[sec].accent)
 // textColor → primary button text (use PAL[sec].bg to avoid purple clash)
-export function Nav({ onBack, onNext, showBack=true, nextLabel='Next →', accent, textColor }) {
+export function Nav({ onBack, onNext, showBack=true, nextLabel='Next', accent, textColor }) {
   const ac = accent   || DA.teal;
   const tc = textColor || '#fff';
   return (
@@ -448,7 +457,10 @@ export function Nav({ onBack, onNext, showBack=true, nextLabel='Next →', accen
       <button onClick={onNext} style={{ flex:1, padding:'14px', borderRadius:999,
         background: ac, border:'none',
         fontFamily:DA.bp, color:tc, fontSize:15, fontWeight:800 }}>
-        {nextLabel}
+        <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
+          {nextLabel}
+          <ForwardIcon size={13} />
+        </span>
       </button>
     </div>
   );
