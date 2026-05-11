@@ -6,7 +6,7 @@ import {
   requestSharedFileFromServiceWorker,
   subscribeToShareTargetEvents,
 } from "./import/shareTargetClient";
-import { Shell, LoadingMosaic, PrimaryButton, GhostButton, DA, PAL } from "./theme.jsx";
+import { Shell, LoadingMosaic, PrimaryButton, GhostButton, BackIcon, DA, PAL } from "./theme.jsx";
 
 const pal = PAL.upload;
 
@@ -185,7 +185,7 @@ export default function ImportRoute({ onComplete, onCancel }) {
           </div>
         )}
 
-        <GhostButton onClick={onCancel}>← Back to WrapChat</GhostButton>
+        <GhostButton onClick={onCancel}><BackIcon size={11} /> Back to WrapChat</GhostButton>
       </Shell>
     </div>
   );

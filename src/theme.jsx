@@ -81,6 +81,18 @@ export const PILL_COLOR = Object.fromEntries(
   Object.entries(PAL).map(([k, v]) => [k, v.accent])
 );
 
+// ── BackIcon — left-pointing triangle with rounded corners ─────────────────
+export function BackIcon({ size = 11 }) {
+  const w = Math.round(size * 0.75);
+  return (
+    <svg width={w} height={size} viewBox="0 0 9 12"
+         fill="currentColor" style={{ display:'block', flexShrink:0 }}>
+      <polygon points="7.5,1.5 7.5,10.5 1.5,6"
+        fill="currentColor" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ── Google Fonts ───────────────────────────────────────────────────────────
 // Call once at app root (e.g. in index.js or App.jsx top-level).
 export function injectFonts() {
@@ -177,8 +189,9 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
         <button onClick={onBack} style={{ position:'absolute', top:10, left:14, zIndex:10,
           background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.14)',
           borderRadius:999, padding:'7px 14px',
-          fontFamily: DA.bp, color:'rgba(255,255,255,0.7)', fontSize:13, fontWeight:700 }}>
-          ← Back
+          fontFamily: DA.bp, color:'rgba(255,255,255,0.7)', fontSize:13, fontWeight:700,
+          display:'flex', alignItems:'center', gap:6 }}>
+          <BackIcon size={11} /> Back
         </button>
       )}
 
@@ -361,8 +374,9 @@ export function Nav({ onBack, onNext, showBack=true, nextLabel='Next →', accen
       {showBack && (
         <button onClick={onBack} style={{ flex:1, padding:'14px', borderRadius:999,
           background:'rgba(255,255,255,0.10)', border:'1.5px solid rgba(255,255,255,0.18)',
-          fontFamily:DA.bp, color:'rgba(255,255,255,0.75)', fontSize:15, fontWeight:700 }}>
-          ← Back
+          fontFamily:DA.bp, color:'rgba(255,255,255,0.75)', fontSize:15, fontWeight:700,
+          display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
+          <BackIcon size={13} /> Back
         </button>
       )}
       <button onClick={onNext} style={{ flex:1, padding:'14px', borderRadius:999,
@@ -398,6 +412,7 @@ export function GhostButton({ children, onClick, style={} }) {
       width: '100%', padding: '13px', borderRadius: 999,
       background: 'transparent', border: '1.5px solid rgba(255,255,255,0.16)',
       fontFamily: DA.bp, fontWeight: 600, fontSize: 14, color: DA.muted,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
       ...style,
     }}>
       {children}
