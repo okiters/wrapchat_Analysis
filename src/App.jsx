@@ -13520,7 +13520,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         {/* Drawer panel */}
         <div style={{
           position:"absolute", top:0, left:0, bottom:0,
-          width:"min(390px, 96vw)",
+          width:"100%",
           transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
           transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
           background:DA.bg,
