@@ -11309,41 +11309,24 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
   // Shared text block for a single report card
   const makeTextEl = (pal, rt, row, dateLabel, stat) => (
-    <div style={{ flex:1, minWidth:0, overflow:"hidden" }}>
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+    <div style={{ flex:1, minWidth:0 }}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
         {rt?.label || row.report_type} · {dateLabel}
       </div>
-      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2 }}>
         {rowNames(row)}
       </div>
       {datasetBadge(row) && (
-        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{datasetBadge(row)}</div>
+        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4 }}>{datasetBadge(row)}</div>
       )}
       {stat !== "—" && (
-        <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{stat}</div>
+        <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4 }}>{stat}</div>
       )}
     </div>
   );
 
   // Bundle palette — visually distinct from per-report-type colors
   const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
-  const resultCardStyle = (pal, border = `${pal.accent}28`) => ({
-    display:"flex",
-    alignItems:"center",
-    gap:14,
-    background:pal.bg,
-    border:`1px solid ${border}`,
-    borderRadius:20,
-    padding:"15px 16px",
-    textAlign:"left",
-    color:"#fff",
-    width:"100%",
-    maxWidth:"100%",
-    minWidth:0,
-    boxSizing:"border-box",
-    overflow:"hidden",
-    transition:"all 0.18s",
-  });
 
   // ── Compute display items (singles + bundles) ──
   const displayItems = (() => {
@@ -11457,7 +11440,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               if (!editing) {
                 return (
                   <button key={row.id} onClick={() => onRestoreResult(row, { origin: "bundle", bundleId: bundleView })} className="wc-btn"
-                    style={{ ...resultCardStyle(pal), cursor:"pointer" }}>
+                    style={{ display:"flex", alignItems:"center", gap:16,
+                      background:pal.bg, border:`1px solid ${pal.accent}28`,
+                      borderRadius:20, padding:"16px 18px",
+                      textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.18s" }}>
                     {swatchEl}{textEl}
                     <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
                   </button>
@@ -11465,9 +11451,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               }
               return (
                 <div key={row.id} style={{
-                  ...resultCardStyle(pal, isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`),
-                  position:"relative",
-                  transition:"border-color 0.15s",
+                  display:"flex", alignItems:"center", gap:16,
+                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                  borderRadius:20, padding:"16px 18px",
+                  color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
                 }}>
                   <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
                     {swatchEl}{textEl}
@@ -11632,7 +11619,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             if (!editing) {
               return (
                 <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
-                  style={{ ...resultCardStyle(pal), cursor:"pointer" }}>
+                  style={{ display:"flex", alignItems:"center", gap:16,
+                    background:pal.bg, border:`1px solid ${pal.accent}28`,
+                    borderRadius:20, padding:"16px 18px",
+                    textAlign:"left", color:"#fff", cursor:"pointer",
+                    width:"100%", transition:"all 0.18s" }}>
                   {swatchEl}{textEl}
                   <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
                 </button>
@@ -11640,9 +11631,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             }
             return (
               <div key={row.id} style={{
-                ...resultCardStyle(pal, isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`),
-                position:"relative",
-                transition:"border-color 0.15s",
+                display:"flex", alignItems:"center", gap:16,
+                background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                borderRadius:20, padding:"16px 18px",
+                color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
               }}>
                 <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
                   {swatchEl}{textEl}
@@ -11708,7 +11700,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           if (!editing) {
             return (
               <button key={bundleId} onClick={() => setBundleView(bundleId)} className="wc-btn"
-                style={{ ...resultCardStyle(BUNDLE_PAL, `${BUNDLE_PAL.accent}35`), borderWidth:1.5, cursor:"pointer" }}>
+                style={{ display:"flex", alignItems:"center", gap:16,
+                  background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
+                  borderRadius:20, padding:"16px 18px",
+                  textAlign:"left", color:"#fff", cursor:"pointer",
+                  width:"100%", transition:"all 0.18s" }}>
                 {bundleSwatchEl}{bundleTextEl}
                 <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
               </button>
@@ -11716,10 +11712,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           }
           return (
             <div key={bundleId} style={{
-              ...resultCardStyle(BUNDLE_PAL, isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`),
-              borderWidth:1.5,
-              position:"relative",
-              transition:"border-color 0.15s",
+              display:"flex", alignItems:"center", gap:16,
+              background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
+              borderRadius:20, padding:"16px 18px",
+              color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
             }}>
               <div style={{ display:"contents", opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
                 {bundleSwatchEl}{bundleTextEl}
@@ -11769,39 +11765,25 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               </div>
             )}
             {nameItems.map(group => (
-              <div key={group.name} style={{
-                background:BUNDLE_PAL.bg,
-                border:`1.5px solid ${BUNDLE_PAL.accent}35`,
-                borderRadius:22,
-                padding:14,
-                width:"100%",
-                maxWidth:"100%",
-                minWidth:0,
-                boxSizing:"border-box",
-                overflow:"hidden",
-                marginTop:10,
-              }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, padding:"2px 2px 12px" }}>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:17, fontWeight:850, letterSpacing:-0.25, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {group.name}
-                    </div>
-                    <div style={{ fontSize:11, fontWeight:750, letterSpacing:"0.08em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginTop:5 }}>
-                      {group.items.length} item{group.items.length !== 1 ? "s" : ""}
-                    </div>
-                  </div>
+              <div key={group.name}>
+                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.3)", padding:"20px 0 8px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  {group.name}
                 </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:8, paddingBottom:4 }}>
                   {group.items.map(item => {
                     if (item.type === "single") {
-                      const row       = item.row;
-                      const rt        = REPORT_TYPES.find(r => r.id === row.report_type);
-                      const pal       = PAL[rt?.palette] || PAL.upload;
+                      const row      = item.row;
+                      const rt       = REPORT_TYPES.find(r => r.id === row.report_type);
+                      const pal      = PAL[rt?.palette] || PAL.upload;
                       const dateLabel = formatDate(row.created_at);
-                      const stat      = headline(row);
+                      const stat     = headline(row);
                       return (
                         <button key={`${group.name}-${row.id}`} onClick={() => onRestoreResult(row)} className="wc-btn"
-                          style={{ ...resultCardStyle(pal), borderColor:`${pal.accent}34`, background:`${pal.bg}CC`, cursor:"pointer" }}>
+                          style={{ display:"flex", alignItems:"center", gap:16,
+                            background:pal.bg, border:`1px solid ${pal.accent}28`,
+                            borderRadius:20, padding:"16px 18px",
+                            textAlign:"left", color:"#fff", cursor:"pointer",
+                            width:"100%", transition:"all 0.18s" }}>
                           {makeSwatchEl(pal)}{makeTextEl(pal, rt, row, dateLabel, stat)}
                           <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
                         </button>
@@ -11819,13 +11801,17 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                     );
                     return (
                       <button key={`${group.name}-${bundleId}`} onClick={() => setBundleView(bundleId)} className="wc-btn"
-                        style={{ ...resultCardStyle(BUNDLE_PAL, `${BUNDLE_PAL.accent}45`), background:"rgba(255,255,255,0.06)", cursor:"pointer" }}>
+                        style={{ display:"flex", alignItems:"center", gap:16,
+                          background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
+                          borderRadius:20, padding:"16px 18px",
+                          textAlign:"left", color:"#fff", cursor:"pointer",
+                          width:"100%", transition:"all 0.18s" }}>
                         {bundleSwatchEl}
-                        <div style={{ flex:1, minWidth:0, overflow:"hidden" }}>
-                          <div style={{ fontSize:11, fontWeight:750, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5 }}>
                             Bundle · {bDate}
                           </div>
-                          <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.46)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                             {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
                           </div>
                         </div>
