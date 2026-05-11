@@ -8,6 +8,30 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v2.6 — My Results UI polish + edit mode animations
+**Files:** `src/App.jsx`
+
+### Back button — bare icon, no circular background
+`ScreenHeader` back button style simplified: removed `width:34`, `height:34`, `borderRadius:999`, and `background:"rgba(255,255,255,0.08)"`. The triangular `BackIcon` now renders as a standalone icon with `background:"none"` and minimal padding — no surrounding circle.
+
+### Edit mode text alignment
+All edit-state card containers (single reports, bundles, and name groups — across the main list, bundle detail, and name detail views) now include `textAlign:"left"` so text doesn't centre when the card switches to non-interactive mode.
+
+### Names tab swatch — uniform purple squares
+The 4-square grid icon on name-group cards in the Names view now renders 4 identical purple squares (`background:"#2E1A70"`, `border:"1px solid rgba(160,138,240,0.6)"`) instead of varying colors sampled from each report type's palette.
+
+### Sort control — inline "Sort as" label + "Results" rename
+The Results / Names segmented control is now a single flex row: a compact "SORT AS" uppercase label sits inline to the left, followed by the pill tabs. The "Reports" tab label renamed to "Results". Layout uses `gap:10` and `alignItems:"center"` — no extra vertical space consumed.
+
+### Edit mode animations — content slide + × fade
+All 6 card types (main view: single, bundle; names view: name group; bundle detail: single; name detail: single, bundle) are rewritten as a single unified `<div>` element for both edit and non-edit states. Because the element type and React key stay constant, CSS transitions fire across state changes:
+- **Content wrapper** slides 6 px left (`translateX(-6px)`) and dims to 70 % opacity when editing, reverses on exit. Easing: `cubic-bezier(.2,0,.1,1)` over 240 ms.
+- **`›` chevron** fades out and its `max-width` collapses from 24 px → 0 with `overflow:hidden`, freeing space on the right. Reverse on exit.
+- **`×` delete button** is always in the DOM at `opacity:0, pointerEvents:none`; fades to `opacity:1` when editing. All three transitions start simultaneously.
+- Card `onClick` handler conditionally fires the navigate/open action only when `!editing && !isDeleting && !isConfirming`, and confirm-overlay buttons use `e.stopPropagation()` to prevent bubbling to the card.
+
+---
+
 ## v2.5 — My Results drawer + Names grouping + Upload page cleanup
 **Files:** `src/App.jsx`
 

@@ -6815,13 +6815,10 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
           className="wc-btn"
           aria-label={t(backLabel)}
           style={{
-            width:34,
-            height:34,
             flexShrink:0,
             border:"none",
-            borderRadius:999,
-            padding:0,
-            background:"rgba(255,255,255,0.08)",
+            padding:"4px",
+            background:"none",
             color:"rgba(255,255,255,0.74)",
             display:"flex",
             alignItems:"center",
@@ -11464,48 +11461,54 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   )}
                 </div>
               );
-              if (!editing) {
-                return (
-                  <button key={row.id} onClick={() => onRestoreResult(row, { origin: "bundle", bundleId: bundleView })} className="wc-btn"
-                    style={{ display:"flex", alignItems:"center", gap:16,
-                      background:pal.bg, border:`1px solid ${pal.accent}28`,
-                      borderRadius:20, padding:"16px 18px",
-                      textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.18s" }}>
-                    {swatchEl}{textEl}
-                    <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                  </button>
-                );
-              }
               return (
-                <div key={row.id} style={{
-                  display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                  borderRadius:20, padding:"16px 18px",
-                  color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-                }}>
-                  <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+                <div key={row.id}
+                  onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row, { origin: "bundle", bundleId: bundleView }); }}
+                  style={{
+                    display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+                    background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                    borderRadius:20, padding:"16px 18px",
+                    color:"#fff", width:"100%", position:"relative",
+                    textAlign:"left", transition:"border-color 0.18s",
+                    cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
+                  }}
+                >
+                  <div style={{
+                    display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                    opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
+                    transform: editing ? "translateX(-6px)" : "translateX(0)",
+                    transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                    pointerEvents:"none",
+                  }}>
                     {swatchEl}{textEl}
                   </div>
-                  {!isConfirming && !isDeleting && (
-                    <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
-                      style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                        background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                        color:"#fff", fontSize:14, fontWeight:800,
-                        display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                      aria-label="Delete result">×</button>
-                  )}
-                  {isDeleting && (
-                    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
-                  )}
+                  <div style={{
+                    fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                    overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
+                    opacity: editing || isDeleting || isConfirming ? 0 : 1,
+                    transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                    pointerEvents:"none",
+                  }}>›</div>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(row.id); }} className="wc-btn"
+                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                      color:"#fff", fontSize:14, fontWeight:800,
+                      display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+                      opacity: editing && !isDeleting && !isConfirming ? 1 : 0,
+                      transition:"opacity 0.2s",
+                      pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
+                      cursor:"pointer" }}
+                    aria-label="Delete result">×</button>
+                  {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                   {isConfirming && !isDeleting && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
                       background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                       <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this report?</div>
                       <div style={{ display:"flex", gap:8 }}>
-                        <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="wc-btn"
                           style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                        <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(null); }} className="wc-btn"
                           style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                       </div>
                     </div>
@@ -11600,36 +11603,44 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   {stat !== "—" && <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:2 }}>{stat}</div>}
                 </div>
               );
-              if (!editing) {
-                return (
-                  <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
-                    style={{ display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                      background:pal.bg, border:`1px solid ${pal.accent}28`,
-                      borderRadius:20, padding:"16px 18px",
-                      textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.18s" }}>
-                    {swatchEl}{textEl}
-                    <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                  </button>
-                );
-              }
               return (
-                <div key={row.id} style={{
-                  display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                  borderRadius:20, padding:"16px 18px",
-                  color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-                }}>
-                  <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none" }}>
+                <div key={row.id}
+                  onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row); }}
+                  style={{
+                    display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+                    background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                    borderRadius:20, padding:"16px 18px",
+                    color:"#fff", width:"100%", position:"relative",
+                    textAlign:"left", transition:"border-color 0.18s",
+                    cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
+                  }}
+                >
+                  <div style={{
+                    display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                    opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
+                    transform: editing ? "translateX(-6px)" : "translateX(0)",
+                    transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                    pointerEvents:"none",
+                  }}>
                     {swatchEl}{textEl}
                   </div>
-                  {!isConfirming && !isDeleting && (
-                    <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
-                      style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                        background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                        color:"#fff", fontSize:14, fontWeight:800,
-                        display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                      aria-label="Delete result">×</button>
-                  )}
+                  <div style={{
+                    fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                    overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
+                    opacity: editing || isDeleting || isConfirming ? 0 : 1,
+                    transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                    pointerEvents:"none",
+                  }}>›</div>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(row.id); }} className="wc-btn"
+                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                      color:"#fff", fontSize:14, fontWeight:800,
+                      display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+                      opacity: editing && !isDeleting && !isConfirming ? 1 : 0,
+                      transition:"opacity 0.2s",
+                      pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
+                      cursor:"pointer" }}
+                    aria-label="Delete result">×</button>
                   {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                   {isConfirming && !isDeleting && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
@@ -11637,9 +11648,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                       background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                       <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this result?</div>
                       <div style={{ display:"flex", gap:8 }}>
-                        <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="wc-btn"
                           style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                        <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(null); }} className="wc-btn"
                           style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                       </div>
                     </div>
@@ -11670,36 +11681,44 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 </div>
               </div>
             );
-            if (!editing) {
-              return (
-                <button key={bundleId} onClick={() => setBundleView(bundleId)} className="wc-btn"
-                  style={{ display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                    background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
-                    borderRadius:20, padding:"16px 18px",
-                    textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.18s" }}>
-                  {ndSwatchEl}{ndTextEl}
-                  <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                </button>
-              );
-            }
             return (
-              <div key={bundleId} style={{
-                display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
-                borderRadius:20, padding:"16px 18px",
-                color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-              }}>
-                <div style={{ display:"contents", opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : 0.7, pointerEvents:"none" }}>
+              <div key={bundleId}
+                onClick={() => { if (!editing && !isDeletingBundle && !isConfirmingBundle) setBundleView(bundleId); }}
+                style={{
+                  display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+                  background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
+                  borderRadius:20, padding:"16px 18px",
+                  color:"#fff", width:"100%", position:"relative",
+                  textAlign:"left", transition:"border-color 0.18s",
+                  cursor: editing || isDeletingBundle || isConfirmingBundle ? "default" : "pointer",
+                }}
+              >
+                <div style={{
+                  display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                  opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : editing ? 0.7 : 1,
+                  transform: editing ? "translateX(-6px)" : "translateX(0)",
+                  transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                  pointerEvents:"none",
+                }}>
                   {ndSwatchEl}{ndTextEl}
                 </div>
-                {!isConfirmingBundle && !isDeletingBundle && (
-                  <button type="button" onClick={() => setConfirmBundle(bundleId)} className="wc-btn"
-                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                      color:"#fff", fontSize:14, fontWeight:800,
-                      display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                    aria-label="Delete bundle">×</button>
-                )}
+                <div style={{
+                  fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                  overflow:"hidden", maxWidth: editing || isDeletingBundle || isConfirmingBundle ? "0px" : "24px",
+                  opacity: editing || isDeletingBundle || isConfirmingBundle ? 0 : 1,
+                  transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                  pointerEvents:"none",
+                }}>›</div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmBundle(bundleId); }} className="wc-btn"
+                  style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                    background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                    color:"#fff", fontSize:14, fontWeight:800,
+                    display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+                    opacity: editing && !isDeletingBundle && !isConfirmingBundle ? 1 : 0,
+                    transition:"opacity 0.2s",
+                    pointerEvents: editing && !isDeletingBundle && !isConfirmingBundle ? "auto" : "none",
+                    cursor:"pointer" }}
+                  aria-label="Delete bundle">×</button>
                 {isDeletingBundle && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                 {isConfirmingBundle && !isDeletingBundle && (
                   <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
@@ -11707,9 +11726,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                     background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                     <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {bundleRows.length} reports?</div>
                     <div style={{ display:"flex", gap:8 }}>
-                      <button type="button" onClick={() => handleDeleteBundle(bundleId, bundleRows)} className="wc-btn"
+                      <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteBundle(bundleId, bundleRows); }} className="wc-btn"
                         style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
-                      <button type="button" onClick={() => setConfirmBundle(null)} className="wc-btn"
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmBundle(null); }} className="wc-btn"
                         style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                     </div>
                   </div>
@@ -11766,16 +11785,19 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           ) : null}
         />
         {rows?.length > 0 && (
-          <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, marginTop:12 }}>
-            {[["reports", "Reports"], ["names", "Names"]].map(([mode, label]) => (
-              <button key={mode} type="button" onClick={() => { exitEditing(); changeViewMode(mode); }} className="wc-btn"
-                style={{ flex:1, borderRadius:999, padding:"6px 0", fontSize:12, fontWeight:700, border:"none",
-                  background: viewMode === mode ? "rgba(255,255,255,0.18)" : "transparent",
-                  color: viewMode === mode ? "#fff" : "rgba(255,255,255,0.45)",
-                  cursor:"pointer", transition:"all 0.18s" }}>
-                {label}
-              </button>
-            ))}
+          <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", flexShrink:0 }}>Sort as</div>
+            <div style={{ flex:1, display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2 }}>
+              {[["reports", "Results"], ["names", "Names"]].map(([mode, label]) => (
+                <button key={mode} type="button" onClick={() => { exitEditing(); changeViewMode(mode); }} className="wc-btn"
+                  style={{ flex:1, borderRadius:999, padding:"6px 0", fontSize:12, fontWeight:700, border:"none",
+                    background: viewMode === mode ? "rgba(255,255,255,0.18)" : "transparent",
+                    color: viewMode === mode ? "#fff" : "rgba(255,255,255,0.45)",
+                    cursor:"pointer", transition:"all 0.18s" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -11836,49 +11858,54 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             const swatchEl     = makeSwatchEl(pal);
             const textEl       = makeTextEl(pal, rt, row, dateLabel, stat);
 
-            if (!editing) {
-              return (
-                <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
-                  style={{ display:"flex", alignItems:"center", gap:16,
-                    background:pal.bg, border:`1px solid ${pal.accent}28`,
-                    borderRadius:20, padding:"16px 18px",
-                    textAlign:"left", color:"#fff", cursor:"pointer",
-                    width:"100%", transition:"all 0.18s" }}>
-                  {swatchEl}{textEl}
-                  <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                </button>
-              );
-            }
             return (
-              <div key={row.id} style={{
-                display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                borderRadius:20, padding:"16px 18px",
-                color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-              }}>
-                <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+              <div key={row.id}
+                onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row); }}
+                style={{
+                  display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                  borderRadius:20, padding:"16px 18px",
+                  color:"#fff", width:"100%", position:"relative",
+                  textAlign:"left", transition:"border-color 0.18s",
+                  cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
+                }}
+              >
+                <div style={{
+                  display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                  opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
+                  transform: editing ? "translateX(-6px)" : "translateX(0)",
+                  transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                  pointerEvents:"none",
+                }}>
                   {swatchEl}{textEl}
                 </div>
-                {!isConfirming && !isDeleting && (
-                  <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
-                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                      color:"#fff", fontSize:14, fontWeight:800,
-                      display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                    aria-label="Delete result">×</button>
-                )}
-                {isDeleting && (
-                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
-                )}
+                <div style={{
+                  fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                  overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
+                  opacity: editing || isDeleting || isConfirming ? 0 : 1,
+                  transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                  pointerEvents:"none",
+                }}>›</div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(row.id); }} className="wc-btn"
+                  style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                    background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                    color:"#fff", fontSize:14, fontWeight:800,
+                    display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+                    opacity: editing && !isDeleting && !isConfirming ? 1 : 0,
+                    transition:"opacity 0.2s",
+                    pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
+                    cursor:"pointer" }}
+                  aria-label="Delete result">×</button>
+                {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                 {isConfirming && !isDeleting && (
                   <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                     alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
                     background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                     <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this result?</div>
                     <div style={{ display:"flex", gap:8 }}>
-                      <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
+                      <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="wc-btn"
                         style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                      <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(null); }} className="wc-btn"
                         style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                     </div>
                   </div>
@@ -11917,49 +11944,54 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             </div>
           );
 
-          if (!editing) {
-            return (
-              <button key={bundleId} onClick={() => setBundleView(bundleId)} className="wc-btn"
-                style={{ display:"flex", alignItems:"center", gap:16,
-                  background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
-                  borderRadius:20, padding:"16px 18px",
-                  textAlign:"left", color:"#fff", cursor:"pointer",
-                  width:"100%", transition:"all 0.18s" }}>
-                {bundleSwatchEl}{bundleTextEl}
-                <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-              </button>
-            );
-          }
           return (
-            <div key={bundleId} style={{
-              display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-              background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
-              borderRadius:20, padding:"16px 18px",
-              color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-            }}>
-              <div style={{ display:"contents", opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+            <div key={bundleId}
+              onClick={() => { if (!editing && !isDeletingBundle && !isConfirmingBundle) setBundleView(bundleId); }}
+              style={{
+                display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+                background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
+                borderRadius:20, padding:"16px 18px",
+                color:"#fff", width:"100%", position:"relative",
+                textAlign:"left", transition:"border-color 0.18s",
+                cursor: editing || isDeletingBundle || isConfirmingBundle ? "default" : "pointer",
+              }}
+            >
+              <div style={{
+                display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : editing ? 0.7 : 1,
+                transform: editing ? "translateX(-6px)" : "translateX(0)",
+                transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                pointerEvents:"none",
+              }}>
                 {bundleSwatchEl}{bundleTextEl}
               </div>
-              {!isConfirmingBundle && !isDeletingBundle && (
-                <button type="button" onClick={() => setConfirmBundle(bundleId)} className="wc-btn"
-                  style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                    background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                    color:"#fff", fontSize:14, fontWeight:800,
-                    display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                  aria-label="Delete bundle">×</button>
-              )}
-              {isDeletingBundle && (
-                <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
-              )}
+              <div style={{
+                fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                overflow:"hidden", maxWidth: editing || isDeletingBundle || isConfirmingBundle ? "0px" : "24px",
+                opacity: editing || isDeletingBundle || isConfirmingBundle ? 0 : 1,
+                transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                pointerEvents:"none",
+              }}>›</div>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmBundle(bundleId); }} className="wc-btn"
+                style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                  background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                  color:"#fff", fontSize:14, fontWeight:800,
+                  display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+                  opacity: editing && !isDeletingBundle && !isConfirmingBundle ? 1 : 0,
+                  transition:"opacity 0.2s",
+                  pointerEvents: editing && !isDeletingBundle && !isConfirmingBundle ? "auto" : "none",
+                  cursor:"pointer" }}
+                aria-label="Delete bundle">×</button>
+              {isDeletingBundle && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
               {isConfirmingBundle && !isDeletingBundle && (
                 <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                   alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
                   background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                   <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {bundleRows.length} reports?</div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <button type="button" onClick={() => handleDeleteBundle(bundleId, bundleRows)} className="wc-btn"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteBundle(bundleId, bundleRows); }} className="wc-btn"
                       style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
-                    <button type="button" onClick={() => setConfirmBundle(null)} className="wc-btn"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmBundle(null); }} className="wc-btn"
                       style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                   </div>
                 </div>
@@ -11999,8 +12031,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               const isDeletingName   = deletingName   === group.name;
               const nameSwatchEl = (
                 <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box" }}>
-                  {swatchPals.map((pal, i) => (
-                    <div key={i} style={{ borderRadius:4, background:pal.inner, border:`1px solid ${pal.accent}60` }} />
+                  {[0,1,2,3].map(i => (
+                    <div key={i} style={{ borderRadius:4, background:"#2E1A70", border:"1px solid rgba(160,138,240,0.6)" }} />
                   ))}
                 </div>
               );
@@ -12014,49 +12046,54 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   </div>
                 </div>
               );
-              if (!editing) {
-                return (
-                  <button key={group.name} onClick={() => setNameView(group.name)} className="wc-btn"
-                    style={{ display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                      background:NAME_PAL.bg, border:`1.5px solid ${NAME_PAL.accent}35`,
-                      borderRadius:20, padding:"16px 18px",
-                      textAlign:"left", color:"#fff", cursor:"pointer",
-                      width:"100%", transition:"all 0.18s" }}>
-                    {nameSwatchEl}{nameTextEl}
-                    <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                  </button>
-                );
-              }
               return (
-                <div key={group.name} style={{
-                  display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                  background:NAME_PAL.bg, border:`1.5px solid ${isConfirmingName ? "rgba(220,50,50,0.55)" : `${NAME_PAL.accent}35`}`,
-                  borderRadius:20, padding:"16px 18px",
-                  color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-                }}>
-                  <div style={{ display:"contents", opacity: isDeletingName || isConfirmingName ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
+                <div key={group.name}
+                  onClick={() => { if (!editing && !isDeletingName && !isConfirmingName) setNameView(group.name); }}
+                  style={{
+                    display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+                    background:NAME_PAL.bg, border:`1.5px solid ${isConfirmingName ? "rgba(220,50,50,0.55)" : `${NAME_PAL.accent}35`}`,
+                    borderRadius:20, padding:"16px 18px",
+                    color:"#fff", width:"100%", position:"relative",
+                    textAlign:"left", transition:"border-color 0.18s",
+                    cursor: editing || isDeletingName || isConfirmingName ? "default" : "pointer",
+                  }}
+                >
+                  <div style={{
+                    display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                    opacity: isDeletingName || isConfirmingName ? 0.3 : editing ? 0.7 : 1,
+                    transform: editing ? "translateX(-6px)" : "translateX(0)",
+                    transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                    pointerEvents:"none",
+                  }}>
                     {nameSwatchEl}{nameTextEl}
                   </div>
-                  {!isConfirmingName && !isDeletingName && (
-                    <button type="button" onClick={() => setConfirmNameId(group.name)} className="wc-btn"
-                      style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                        background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                        color:"#fff", fontSize:14, fontWeight:800,
-                        display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                      aria-label="Delete all for name">×</button>
-                  )}
-                  {isDeletingName && (
-                    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
-                  )}
+                  <div style={{
+                    fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                    overflow:"hidden", maxWidth: editing || isDeletingName || isConfirmingName ? "0px" : "24px",
+                    opacity: editing || isDeletingName || isConfirmingName ? 0 : 1,
+                    transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                    pointerEvents:"none",
+                  }}>›</div>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmNameId(group.name); }} className="wc-btn"
+                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+                      color:"#fff", fontSize:14, fontWeight:800,
+                      display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+                      opacity: editing && !isDeletingName && !isConfirmingName ? 1 : 0,
+                      transition:"opacity 0.2s",
+                      pointerEvents: editing && !isDeletingName && !isConfirmingName ? "auto" : "none",
+                      cursor:"pointer" }}
+                    aria-label="Delete all for name">×</button>
+                  {isDeletingName && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                   {isConfirmingName && !isDeletingName && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
                       background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
                       <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {totalReports} reports for {group.name}?</div>
                       <div style={{ display:"flex", gap:8 }}>
-                        <button type="button" onClick={() => handleDeleteName(group.name, group)} className="wc-btn"
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteName(group.name, group); }} className="wc-btn"
                           style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
-                        <button type="button" onClick={() => setConfirmNameId(null)} className="wc-btn"
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmNameId(null); }} className="wc-btn"
                           style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                       </div>
                     </div>
