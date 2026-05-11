@@ -6809,9 +6809,28 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
   return (
     <div data-share-hide style={{ width:"100%", display:"flex", alignItems:"center", gap:10, flexShrink:0, paddingTop:8 }}>
       {back && (
-        <GhostButton onClick={back} style={{ width:"auto", flexShrink:0, padding:"7px 14px", fontSize:13 }}>
-          <BackIcon size={11} /> {t(backLabel)}
-        </GhostButton>
+        <button
+          type="button"
+          onClick={back}
+          className="wc-btn"
+          aria-label={t(backLabel)}
+          style={{
+            width:34,
+            height:34,
+            flexShrink:0,
+            border:"none",
+            borderRadius:999,
+            padding:0,
+            background:"rgba(255,255,255,0.08)",
+            color:"rgba(255,255,255,0.74)",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"center",
+            cursor:"pointer",
+          }}
+        >
+          <BackIcon size={14} />
+        </button>
       )}
       <div style={{
         minWidth:0, flex:1,
@@ -11120,9 +11139,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   const [err,            setErr]            = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
   const [editing,        setEditing]        = useState(false);
-  const [confirmTarget,  setConfirmTarget]  = useState(null); // { kind:'single'|'bundle', id } | null
+  const [confirmId,      setConfirmId]      = useState(null);
   const [deletingId,     setDeletingId]     = useState(null);
   const [bundleView,     setBundleView]     = useState(initialBundleId); // null | string (bundle_id)
+  const [confirmBundle,  setConfirmBundle]  = useState(null);
   const [deletingBundle, setDeletingBundle] = useState(null);
   const [viewMode,       setViewMode]       = useState(() => {
     try { return localStorage.getItem("wrapchat_results_view") || "reports"; } catch { return "reports"; }
@@ -11148,11 +11168,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     }
   }, [rows, bundleView]);
 
-  const exitEditing = () => { setEditing(false); setConfirmTarget(null); };
+  const exitEditing = () => { setEditing(false); setConfirmId(null); setConfirmBundle(null); };
 
   const handleDelete = async (id) => {
     setDeletingId(id);
-    setConfirmTarget(null);
+    setConfirmId(null);
     try {
       const { error } = await supabase.from("results").delete().eq("id", id);
       if (!error) {
@@ -11168,7 +11188,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
   const handleDeleteBundle = async (bid, bundleRows) => {
     setDeletingBundle(bid);
-    setConfirmTarget(null);
+    setConfirmBundle(null);
     const ids = bundleRows.map(r => r.id);
     try {
       const { error } = await supabase.from("results").delete().in("id", ids);
@@ -11288,25 +11308,42 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   );
 
   // Shared text block for a single report card
-  const makeTextEl = (pal, rt, row, dateLabel, stat, editing = false) => (
-    <div style={{ flex:1, minWidth:0 }}>
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
+  const makeTextEl = (pal, rt, row, dateLabel, stat) => (
+    <div style={{ flex:1, minWidth:0, overflow:"hidden" }}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
         {rt?.label || row.report_type} · {dateLabel}
       </div>
-      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2 }}>
+      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
         {rowNames(row)}
       </div>
-      {!editing && datasetBadge(row) && (
-        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4 }}>{datasetBadge(row)}</div>
+      {datasetBadge(row) && (
+        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{datasetBadge(row)}</div>
       )}
-      {!editing && stat !== "—" && (
-        <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4 }}>{stat}</div>
+      {stat !== "—" && (
+        <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{stat}</div>
       )}
     </div>
   );
 
   // Bundle palette — visually distinct from per-report-type colors
   const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
+  const resultCardStyle = (pal, border = `${pal.accent}28`) => ({
+    display:"flex",
+    alignItems:"center",
+    gap:14,
+    background:pal.bg,
+    border:`1px solid ${border}`,
+    borderRadius:20,
+    padding:"15px 16px",
+    textAlign:"left",
+    color:"#fff",
+    width:"100%",
+    maxWidth:"100%",
+    minWidth:0,
+    boxSizing:"border-box",
+    overflow:"hidden",
+    transition:"all 0.18s",
+  });
 
   // ── Compute display items (singles + bundles) ──
   const displayItems = (() => {
@@ -11405,14 +11442,14 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               const pal = PAL[rt?.palette] || PAL.upload;
               const stat = headline(row);
               const isDeleting   = deletingId === row.id;
-              const isConfirming = confirmTarget?.kind === 'single' && confirmTarget.id === row.id;
+              const isConfirming = confirmId  === row.id;
               const swatchEl = makeSwatchEl(pal);
               const textEl   = (
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
                     {rt?.label || row.report_type}
                   </div>
-                  {!editing && stat !== "—" && (
+                  {stat !== "—" && (
                     <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:2 }}>{stat}</div>
                   )}
                 </div>
@@ -11420,10 +11457,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               if (!editing) {
                 return (
                   <button key={row.id} onClick={() => onRestoreResult(row, { origin: "bundle", bundleId: bundleView })} className="wc-btn"
-                    style={{ display:"flex", alignItems:"center", gap:16,
-                      background:pal.bg, border:`1px solid ${pal.accent}28`,
-                      borderRadius:20, padding:"16px 18px",
-                      textAlign:"left", color:"#fff", cursor:"pointer", width:"100%", transition:"all 0.18s" }}>
+                    style={{ ...resultCardStyle(pal), cursor:"pointer" }}>
                     {swatchEl}{textEl}
                     <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
                   </button>
@@ -11431,16 +11465,15 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               }
               return (
                 <div key={row.id} style={{
-                  display:"flex", alignItems:"center", gap:16,
-                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                  borderRadius:20, padding:"16px 52px 16px 18px",
-                  color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
+                  ...resultCardStyle(pal, isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`),
+                  position:"relative",
+                  transition:"border-color 0.15s",
                 }}>
                   <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
                     {swatchEl}{textEl}
                   </div>
                   {!isConfirming && !isDeleting && (
-                    <button type="button" onClick={() => setConfirmTarget({ kind:'single', id: row.id })} className="wc-btn"
+                    <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
                       style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
                         background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
                         color:"#fff", fontSize:14, fontWeight:800,
@@ -11458,7 +11491,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                       <div style={{ display:"flex", gap:8 }}>
                         <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
                           style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                        <button type="button" onClick={() => setConfirmTarget(null)} className="wc-btn"
+                        <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
                           style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                       </div>
                     </div>
@@ -11592,18 +11625,14 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             const dateLabel    = formatDate(row.created_at);
             const stat         = headline(row);
             const isDeleting   = deletingId === row.id;
-            const isConfirming = confirmTarget?.kind === 'single' && confirmTarget.id === row.id;
+            const isConfirming = confirmId  === row.id;
             const swatchEl     = makeSwatchEl(pal);
             const textEl       = makeTextEl(pal, rt, row, dateLabel, stat);
 
             if (!editing) {
               return (
                 <button key={row.id} onClick={() => onRestoreResult(row)} className="wc-btn"
-                  style={{ display:"flex", alignItems:"center", gap:16,
-                    background:pal.bg, border:`1px solid ${pal.accent}28`,
-                    borderRadius:20, padding:"16px 18px",
-                    textAlign:"left", color:"#fff", cursor:"pointer",
-                    width:"100%", transition:"all 0.18s" }}>
+                  style={{ ...resultCardStyle(pal), cursor:"pointer" }}>
                   {swatchEl}{textEl}
                   <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
                 </button>
@@ -11611,16 +11640,15 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             }
             return (
               <div key={row.id} style={{
-                display:"flex", alignItems:"center", gap:16,
-                background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                borderRadius:20, padding:"16px 52px 16px 18px",
-                color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
+                ...resultCardStyle(pal, isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`),
+                position:"relative",
+                transition:"border-color 0.15s",
               }}>
                 <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
-                  {swatchEl}{makeTextEl(pal, rt, row, dateLabel, stat, true)}
+                  {swatchEl}{textEl}
                 </div>
                 {!isConfirming && !isDeleting && (
-                  <button type="button" onClick={() => setConfirmTarget({ kind:'single', id: row.id })} className="wc-btn"
+                  <button type="button" onClick={() => setConfirmId(row.id)} className="wc-btn"
                     style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
                       background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
                       color:"#fff", fontSize:14, fontWeight:800,
@@ -11638,7 +11666,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                     <div style={{ display:"flex", gap:8 }}>
                       <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
                         style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                      <button type="button" onClick={() => setConfirmTarget(null)} className="wc-btn"
+                      <button type="button" onClick={() => setConfirmId(null)} className="wc-btn"
                         style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                     </div>
                   </div>
@@ -11651,7 +11679,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           const { bundleId, rows: bundleRows } = item;
           const bNames   = rowNames(bundleRows[0]);
           const bDate    = formatDate(item.created_at);
-          const isConfirmingBundle = confirmTarget?.kind === 'bundle' && confirmTarget.id === bundleId;
+          const isConfirmingBundle = confirmBundle  === bundleId;
           const isDeletingBundle   = deletingBundle === bundleId;
 
           const bundleSwatchEl = (
@@ -11671,22 +11699,16 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                 {bNames}
               </div>
-              {!editing && (
-                <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
-                </div>
-              )}
+              <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
+              </div>
             </div>
           );
 
           if (!editing) {
             return (
               <button key={bundleId} onClick={() => setBundleView(bundleId)} className="wc-btn"
-                style={{ display:"flex", alignItems:"center", gap:16,
-                  background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
-                  borderRadius:20, padding:"16px 18px",
-                  textAlign:"left", color:"#fff", cursor:"pointer",
-                  width:"100%", transition:"all 0.18s" }}>
+                style={{ ...resultCardStyle(BUNDLE_PAL, `${BUNDLE_PAL.accent}35`), borderWidth:1.5, cursor:"pointer" }}>
                 {bundleSwatchEl}{bundleTextEl}
                 <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
               </button>
@@ -11694,16 +11716,16 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           }
           return (
             <div key={bundleId} style={{
-              display:"flex", alignItems:"center", gap:16,
-              background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
-              borderRadius:20, padding:"16px 52px 16px 18px",
-              color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
+              ...resultCardStyle(BUNDLE_PAL, isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`),
+              borderWidth:1.5,
+              position:"relative",
+              transition:"border-color 0.15s",
             }}>
               <div style={{ display:"contents", opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
                 {bundleSwatchEl}{bundleTextEl}
               </div>
               {!isConfirmingBundle && !isDeletingBundle && (
-                <button type="button" onClick={() => setConfirmTarget({ kind:'bundle', id: bundleId })} className="wc-btn"
+                <button type="button" onClick={() => setConfirmBundle(bundleId)} className="wc-btn"
                   style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
                     background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
                     color:"#fff", fontSize:14, fontWeight:800,
@@ -11721,7 +11743,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   <div style={{ display:"flex", gap:8 }}>
                     <button type="button" onClick={() => handleDeleteBundle(bundleId, bundleRows)} className="wc-btn"
                       style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
-                    <button type="button" onClick={() => setConfirmTarget(null)} className="wc-btn"
+                    <button type="button" onClick={() => setConfirmBundle(null)} className="wc-btn"
                       style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                   </div>
                 </div>
@@ -11747,11 +11769,29 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               </div>
             )}
             {nameItems.map(group => (
-              <div key={group.name}>
-                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.3)", padding:"20px 0 8px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  {group.name}
+              <div key={group.name} style={{
+                background:BUNDLE_PAL.bg,
+                border:`1.5px solid ${BUNDLE_PAL.accent}35`,
+                borderRadius:22,
+                padding:14,
+                width:"100%",
+                maxWidth:"100%",
+                minWidth:0,
+                boxSizing:"border-box",
+                overflow:"hidden",
+                marginTop:10,
+              }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, padding:"2px 2px 12px" }}>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:17, fontWeight:850, letterSpacing:-0.25, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {group.name}
+                    </div>
+                    <div style={{ fontSize:11, fontWeight:750, letterSpacing:"0.08em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginTop:5 }}>
+                      {group.items.length} item{group.items.length !== 1 ? "s" : ""}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:8, paddingBottom:4 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                   {group.items.map(item => {
                     if (item.type === "single") {
                       const row       = item.row;
@@ -11759,64 +11799,17 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                       const pal       = PAL[rt?.palette] || PAL.upload;
                       const dateLabel = formatDate(row.created_at);
                       const stat      = headline(row);
-                      const isDeleting   = deletingId === row.id;
-                      const isConfirming = confirmTarget?.kind === 'single' && confirmTarget.id === row.id;
-                      if (!editing) {
-                        return (
-                          <button key={`${group.name}-${row.id}`} onClick={() => onRestoreResult(row)} className="wc-btn"
-                            style={{ display:"flex", alignItems:"center", gap:16,
-                              background:pal.bg, border:`1px solid ${pal.accent}28`,
-                              borderRadius:20, padding:"16px 18px",
-                              textAlign:"left", color:"#fff", cursor:"pointer",
-                              width:"100%", transition:"all 0.18s" }}>
-                            {makeSwatchEl(pal)}{makeTextEl(pal, rt, row, dateLabel, stat)}
-                            <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                          </button>
-                        );
-                      }
                       return (
-                        <div key={`${group.name}-${row.id}`} style={{
-                          display:"flex", alignItems:"center", gap:16,
-                          background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                          borderRadius:20, padding:"16px 52px 16px 18px",
-                          color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-                        }}>
-                          <div style={{ display:"contents", opacity: isDeleting || isConfirming ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
-                            {makeSwatchEl(pal)}{makeTextEl(pal, rt, row, dateLabel, stat, true)}
-                          </div>
-                          {!isConfirming && !isDeleting && (
-                            <button type="button" onClick={() => setConfirmTarget({ kind:'single', id: row.id })} className="wc-btn"
-                              style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                                background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                                color:"#fff", fontSize:14, fontWeight:800,
-                                display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                              aria-label="Delete result">×</button>
-                          )}
-                          {isDeleting && (
-                            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
-                          )}
-                          {isConfirming && !isDeleting && (
-                            <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                              alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
-                              background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
-                              <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this result?</div>
-                              <div style={{ display:"flex", gap:8 }}>
-                                <button type="button" onClick={() => handleDelete(row.id)} className="wc-btn"
-                                  style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                                <button type="button" onClick={() => setConfirmTarget(null)} className="wc-btn"
-                                  style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <button key={`${group.name}-${row.id}`} onClick={() => onRestoreResult(row)} className="wc-btn"
+                          style={{ ...resultCardStyle(pal), borderColor:`${pal.accent}34`, background:`${pal.bg}CC`, cursor:"pointer" }}>
+                          {makeSwatchEl(pal)}{makeTextEl(pal, rt, row, dateLabel, stat)}
+                          <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
+                        </button>
                       );
                     }
                     const { bundleId, rows: bundleRows } = item;
-                    const bDate  = formatDate(item.created_at);
-                    const bNames = rowNames(bundleRows[0]);
-                    const isConfirmingBundle = confirmTarget?.kind === 'bundle' && confirmTarget.id === bundleId;
-                    const isDeletingBundle   = deletingBundle === bundleId;
-                    const nSwatchEl = (
+                    const bDate = formatDate(item.created_at);
+                    const bundleSwatchEl = (
                       <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box" }}>
                         {bundleRows.slice(0, 4).map((r, i) => {
                           const rpal = PAL[REPORT_TYPES.find(rt => rt.id === r.report_type)?.palette] || PAL.upload;
@@ -11824,69 +11817,20 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                         })}
                       </div>
                     );
-                    const nTextEl = (
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5 }}>
-                          Bundle · {bDate}
-                        </div>
-                        <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                          {bNames}
-                        </div>
-                        {!editing && (
-                          <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    return (
+                      <button key={`${group.name}-${bundleId}`} onClick={() => setBundleView(bundleId)} className="wc-btn"
+                        style={{ ...resultCardStyle(BUNDLE_PAL, `${BUNDLE_PAL.accent}45`), background:"rgba(255,255,255,0.06)", cursor:"pointer" }}>
+                        {bundleSwatchEl}
+                        <div style={{ flex:1, minWidth:0, overflow:"hidden" }}>
+                          <div style={{ fontSize:11, fontWeight:750, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            Bundle · {bDate}
+                          </div>
+                          <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.46)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                             {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
                           </div>
-                        )}
-                      </div>
-                    );
-                    if (!editing) {
-                      return (
-                        <button key={`${group.name}-${bundleId}`} onClick={() => setBundleView(bundleId)} className="wc-btn"
-                          style={{ display:"flex", alignItems:"center", gap:16,
-                            background:BUNDLE_PAL.bg, border:`1.5px solid ${BUNDLE_PAL.accent}35`,
-                            borderRadius:20, padding:"16px 18px",
-                            textAlign:"left", color:"#fff", cursor:"pointer",
-                            width:"100%", transition:"all 0.18s" }}>
-                          {nSwatchEl}{nTextEl}
-                          <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
-                        </button>
-                      );
-                    }
-                    return (
-                      <div key={`${group.name}-${bundleId}`} style={{
-                        display:"flex", alignItems:"center", gap:16,
-                        background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
-                        borderRadius:20, padding:"16px 52px 16px 18px",
-                        color:"#fff", width:"100%", position:"relative", transition:"border-color 0.15s",
-                      }}>
-                        <div style={{ display:"contents", opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : 0.7, pointerEvents:"none", transition:"opacity 0.15s" }}>
-                          {nSwatchEl}{nTextEl}
                         </div>
-                        {!isConfirmingBundle && !isDeletingBundle && (
-                          <button type="button" onClick={() => setConfirmTarget({ kind:'bundle', id: bundleId })} className="wc-btn"
-                            style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                              background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                              color:"#fff", fontSize:14, fontWeight:800,
-                              display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}
-                            aria-label="Delete bundle">×</button>
-                        )}
-                        {isDeletingBundle && (
-                          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>
-                        )}
-                        {isConfirmingBundle && !isDeletingBundle && (
-                          <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                            alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
-                            background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
-                            <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {bundleRows.length} reports?</div>
-                            <div style={{ display:"flex", gap:8 }}>
-                              <button type="button" onClick={() => handleDeleteBundle(bundleId, bundleRows)} className="wc-btn"
-                                style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
-                              <button type="button" onClick={() => setConfirmTarget(null)} className="wc-btn"
-                                style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        <div style={{ fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1 }}>›</div>
+                      </button>
                     );
                   })}
                 </div>
