@@ -4,6 +4,14 @@ import { DA, Geo, PrimaryButton, GhostButton } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
+import {
+  buildCombinedDataset,
+  buildDatasetFromParsedChat,
+  detectOtherParticipantMismatches,
+  getDatasetDisplayTitle,
+  toAnalysisMessagesFromDataset,
+} from "./import/datasetBuilder";
+import { applyApprovedMerges, normalizeDisplayName } from "./utils/identityMerge";
 import { MIN_MESSAGES } from "./import/whatsappParser";
 import BrandLockup, { wrapchatLogoTransparent } from "./BrandLockup";
 import AiDebugPanel from "../analysis-test/AiDebugPanel.jsx";
@@ -2318,6 +2326,29 @@ function capLargeGroup(messages) {
     cappedGroup: true,
     originalParticipantCount: allNames.length,
   };
+}
+
+function userProvidedDisplayName(user) {
+  const meta = user?.user_metadata || {};
+  return (
+    meta.full_name ||
+    meta.name ||
+    meta.user_name ||
+    meta.display_name ||
+    ""
+  ).trim();
+}
+
+function hasUserProvidedDisplayName(user) {
+  return Boolean(userProvidedDisplayName(user));
+}
+
+function getParticipantDisplayTitle(dataset, mathData = null) {
+  return dataset?.combinedMeta?.displayTitle || (mathData?.names || []).join(", ") || "WrapChat result";
+}
+
+function detectParticipantConsistencyMismatch(dataset, user) {
+  return detectOtherParticipantMismatches(dataset, userProvidedDisplayName(user));
 }
 // ─────────────────────────────────────────────────────────────────
 // LOCAL MATH
@@ -6189,7 +6220,7 @@ This Privacy Policy explains how WrapChat ("we", "us", "our") collects, uses, an
 1. INFORMATION WE COLLECT
 
 Account Information
-When you create an account, we collect your email address and a hashed version of your password. We do not collect your real name unless you voluntarily provide it.
+When you create an account, we collect your email address, a hashed version of your password, and the display name you provide so we can identify you correctly in uploaded chat exports.
 
 Chat Data
 You upload chat exports to generate reports. These chat exports contain messages written by you and other participants. Chat content is transmitted securely and processed solely to generate your requested analysis. Chat text is not stored on our servers after processing is complete.
@@ -8258,7 +8289,7 @@ function hasAcceptedCurrentTerms(user) {
 
 function postAuthPhaseForUser(user) {
   const meta = user?.user_metadata || {};
-  if (hasAcceptedCurrentTerms(user)) return "upload";
+  if (hasAcceptedCurrentTerms(user)) return hasUserProvidedDisplayName(user) ? "upload" : "profileName";
   if (meta.has_onboarded === true) return "terms";
   return "onboarding";
 }
@@ -8792,6 +8823,96 @@ function TermsFlow({ onAccepted, onLogout }) {
   );
 }
 
+function ProfileNameSetup({ user, onSaved, onLogout }) {
+  const initialName = userProvidedDisplayName(user);
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const cleanName = String(name || "").replace(/\s+/g, " ").trim();
+  const canSave = cleanName.length >= 2 && !busy;
+
+  const save = async () => {
+    if (!canSave) {
+      setErr("Enter the name that appears as you in your chats.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: {
+          full_name: cleanName,
+          display_name: cleanName,
+          profile_name_completed: true,
+          profile_name_completed_at: new Date().toISOString(),
+        },
+      });
+      if (error) {
+        setErr(error.message || "Could not save your name. Please try again.");
+        setBusy(false);
+        return;
+      }
+      onSaved?.(data?.user || null);
+    } catch {
+      setErr("Could not save your name. Please try again.");
+      setBusy(false);
+    }
+  };
+
+  const inputStyle = {
+    width: "100%",
+    background: "rgba(0,0,0,0.25)",
+    border: "1.5px solid rgba(255,255,255,0.12)",
+    borderRadius: 16,
+    padding: "14px 16px",
+    fontSize: 16,
+    color: "#fff",
+    outline: "none",
+    fontFamily: "inherit",
+  };
+
+  return (
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
+      <BrandLockup
+        logoSrc={wrapchatLogoTransparent}
+        logoSize={62}
+        subtitle="Your chats, unwrapped."
+        subtitleMarginBottom={8}
+      />
+      <div style={{ fontSize:27, fontWeight:850, color:"#fff", letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
+        What name should we look for?
+      </div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", textAlign:"center", lineHeight:1.7, width:"100%" }}>
+        Use the name that appears for you inside your exported chats. This helps WrapChat tell you apart from the other person and keeps My Results cleaner.
+      </div>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
+        <input
+          type="text"
+          placeholder="Your name in chats"
+          value={name}
+          autoFocus
+          autoComplete="name"
+          onChange={event => { setName(event.target.value); setErr(""); }}
+          onKeyDown={event => event.key === "Enter" && save()}
+          style={inputStyle}
+        />
+        <div style={{ fontSize:11.5, color:"rgba(255,255,255,0.35)", lineHeight:1.5, padding:"0 2px" }}>
+          Example: if the chat is between Özge and Aslı, enter Özge so saved duo cards show Aslı.
+        </div>
+      </div>
+      {err && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{err}</div>}
+      <PrimaryButton onClick={save} disabled={!canSave} color={PAL.upload.accent} textColor={PAL.upload.bg}>
+        {busy ? "Saving…" : "Continue"}
+      </PrimaryButton>
+      {onLogout && (
+        <button onClick={onLogout} className="wc-btn" style={{ background:"none", border:"none", color:"rgba(255,255,255,0.32)", fontSize:12, padding:"4px 8px", fontWeight:700 }}>
+          Log out
+        </button>
+      )}
+    </Shell>
+  );
+}
+
 function TooShort({ onBack }) {
   return (
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
@@ -8808,6 +8929,101 @@ function TooShort({ onBack }) {
         Try exporting a longer chat history.
       </div>
       <GhostButton onClick={onBack}>← Upload a different file</GhostButton>
+    </Shell>
+  );
+}
+
+function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
+  const suggestions = dataset?.mergeState?.suggestions || [];
+  const [approvedIds, setApprovedIds] = useState([]);
+  const markApproved = (id) => setApprovedIds(prev => prev.includes(id) ? prev : [...prev, id]);
+  const markSeparate = (id) => setApprovedIds(prev => prev.filter(item => item !== id));
+
+  return (
+    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+      <ScreenHeader back={onBack} title="Review contacts" />
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+          <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+            We found possible duplicate contacts.
+          </div>
+          <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", marginTop:10, lineHeight:1.65 }}>
+            Choose which pairs should be treated as the same person before analysis.
+          </div>
+        </div>
+        {suggestions.map(suggestion => {
+          const active = approvedIds.includes(suggestion.id);
+          return (
+            <div key={suggestion.id} style={{
+              background:"rgba(255,255,255,0.06)",
+              border:`1px solid ${active ? PAL.upload.accent : "rgba(255,255,255,0.10)"}`,
+              borderRadius:20,
+              padding:16,
+              display:"flex",
+              flexDirection:"column",
+              gap:12,
+            }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                {[suggestion.participantA, suggestion.participantB].map((participant, index) => (
+                  <div key={`${suggestion.id}-${index}`} style={{ minWidth:0 }}>
+                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                      Participant {index === 0 ? "A" : "B"}
+                    </div>
+                    <div style={{ marginTop:5, fontSize:15, color:"#fff", fontWeight:800, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {participant.displayName || "Unknown"}
+                    </div>
+                    {participant.phone && (
+                      <div style={{ marginTop:3, fontSize:12, color:"rgba(255,255,255,0.45)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {participant.phone}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button type="button" onClick={() => markApproved(suggestion.id)} className="wc-btn"
+                  style={{ flex:1, borderRadius:999, padding:"10px 12px", border:`1px solid ${active ? PAL.upload.accent : "rgba(255,255,255,0.16)"}`, background:active ? PAL.upload.accent : "rgba(255,255,255,0.08)", color:active ? PAL.upload.bg : "#fff", fontSize:13, fontWeight:800 }}>
+                  Approve
+                </button>
+                <button type="button" onClick={() => markSeparate(suggestion.id)} className="wc-btn"
+                  style={{ flex:1, borderRadius:999, padding:"10px 12px", border:"1px solid rgba(255,255,255,0.16)", background:!active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)", color:"#fff", fontSize:13, fontWeight:700 }}>
+                  Keep separate
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <PrimaryButton onClick={() => onContinue(approvedIds)}>Continue</PrimaryButton>
+    </Shell>
+  );
+}
+
+function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
+  return (
+    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+      <ScreenHeader back={onBack} title="Review chats" />
+      <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+          These chats may be from different people.
+        </div>
+        <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", marginTop:10, lineHeight:1.65 }}>
+          Confirm before combining them into one analysis.
+        </div>
+      </div>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+        {(mismatch?.rows || []).map(row => (
+          <div key={row.chatId} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px 16px" }}>
+            <div style={{ fontSize:11, color:PAL.upload.accent, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+              {row.label}
+            </div>
+            <div style={{ marginTop:5, fontSize:16, color:"#fff", fontWeight:800 }}>{row.otherName}</div>
+            {row.fileName && <div style={{ marginTop:4, fontSize:12, color:"rgba(255,255,255,0.42)" }}>{row.fileName}</div>}
+          </div>
+        ))}
+      </div>
+      <PrimaryButton onClick={onContinue}>Continue combined analysis</PrimaryButton>
+      <GhostButton onClick={onBack}>Go back and review files</GhostButton>
     </Shell>
   );
 }
@@ -8843,6 +9059,7 @@ function Upload({
   const t = useT();
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [multiMode, setMultiMode] = useState(false);
   const showAdminEntry = Boolean(onAdmin) && canAdmin;
   const uploadInputId = "wrapchat-upload-input";
   const displayErr = err || uploadError;
@@ -8857,17 +9074,33 @@ function Upload({
 
   const showCreditPill = !hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
 
-  const handle = async file => {
-    if (!file) return;
+  const handle = async fileList => {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
     onClearError?.();
     setBusy(true); setErr("");
     try {
-      const result = await processImportedChatFile(file);
-      onParsed({
-        payload: result.payload,
-        summary: result.summary,
-        fileName: file.name || null,
-      });
+      if (multiMode || files.length > 1) {
+        const parsedChats = [];
+        for (const file of files) {
+          // eslint-disable-next-line no-await-in-loop
+          const result = await processImportedChatFile(file);
+          parsedChats.push({
+            payload: result.payload,
+            summary: result.summary,
+            fileName: file.name || null,
+          });
+        }
+        onParsed({ parsedChats, multiChat: true });
+      } else {
+        const file = files[0];
+        const result = await processImportedChatFile(file);
+        onParsed({
+          payload: result.payload,
+          summary: result.summary,
+          fileName: file.name || null,
+        });
+      }
     } catch (error) {
       setErr(String(error?.message || "Couldn't open this file. Please export the chat again and retry."));
       setBusy(false);
@@ -8931,17 +9164,33 @@ function Upload({
           Open testing · free reports
         </div>
       )}
+      <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, width:"100%" }}>
+        {[["single", "Single chat"], ["multi", "Multi-chat analysis"]].map(([mode, label]) => {
+          const active = (mode === "multi") === multiMode;
+          return (
+            <button key={mode} type="button" onClick={() => setMultiMode(mode === "multi")} className="wc-btn"
+              style={{ flex:1, borderRadius:999, padding:"8px 0", fontSize:12, fontWeight:800, border:"none", background:active ? "rgba(255,255,255,0.18)" : "transparent", color:active ? "#fff" : "rgba(255,255,255,0.45)", cursor:"pointer" }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
       <label
         htmlFor={uploadInputId}
-        onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files[0]); }}
+        onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files); }}
         onDragOver={e => e.preventDefault()}
         style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
         onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.35)"}
         onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
       >
-        <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : t("Upload your chat")}</div>
+        <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : (multiMode ? "Upload chats" : t("Upload your chat"))}</div>
+        {multiMode && (
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:8, lineHeight:1.5 }}>
+            Select multiple exports to combine them into one analysis.
+          </div>
+        )}
       </label>
-      <input id={uploadInputId} type="file" accept=".txt,.zip,text/plain,application/zip" style={{ display:"none" }} onChange={e => handle(e.target.files[0])} />
+      <input id={uploadInputId} type="file" multiple={multiMode} accept=".txt,.zip,text/plain,application/zip" style={{ display:"none" }} onChange={e => handle(e.target.files)} />
 
       {isTrialPending && (
         <div style={{
@@ -9689,9 +9938,21 @@ async function saveResult(type, result, mathData, bundleId = null, creditMeta = 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const generatedAt = new Date().toISOString();
+    const displayTitle = mathData.displayTitle || (mathData.names || []).join(", ") || "WrapChat result";
+    const datasetKind = mathData.datasetKind || "single";
+    const sourceChatCount = mathData.sourceChatCount || 1;
+    const registeredName = normalizeDisplayName(userProvidedDisplayName(user));
+    const savedNames = !mathData.isGroup && Array.isArray(mathData.names) && mathData.names.length === 2 && registeredName
+      ? (mathData.names.filter(name => normalizeDisplayName(name) !== registeredName).length
+          ? mathData.names.filter(name => normalizeDisplayName(name) !== registeredName)
+          : mathData.names)
+      : mathData.names;
     const safeMathData = {
       ...mathData,
       ...(bundleId ? { bundle_id: bundleId } : {}),
+      display_title: displayTitle,
+      dataset_kind: datasetKind,
+      source_chat_count: sourceChatCount,
       ...(creditMeta ? {
         credit_cost: creditMeta.creditCost,
         report_types: creditMeta.reportTypes,
@@ -9705,7 +9966,7 @@ async function saveResult(type, result, mathData, bundleId = null, creditMeta = 
       user_id:     user.id,
       report_type: type,
       chat_type:   mathData.isGroup ? "group" : "duo",
-      names:       mathData.names,
+      names:       savedNames,
       result_data: {
         ...result,
         runMetadata: {
@@ -9714,6 +9975,11 @@ async function saveResult(type, result, mathData, bundleId = null, creditMeta = 
           creditCost: creditMeta?.creditCost ?? getReportCreditCost(type),
           totalRunCreditCost: creditMeta?.totalRunCreditCost ?? (creditMeta?.creditCost ?? getReportCreditCost(type)),
           generatedAt,
+          displayTitle,
+          datasetKind,
+          sourceChatCount,
+          approvedMerges: mathData.combinedMeta?.approvedMerges || 0,
+          participantAliases: mathData.participantAliases || {},
           ...(creditMeta?.bundleName ? { bundleName: creditMeta.bundleName } : {}),
         },
       },
@@ -10737,6 +11003,7 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false }) {
   const [rows,           setRows]           = useState(null);
   const [err,            setErr]            = useState("");
+  const [currentUserName, setCurrentUserName] = useState("");
   const [editing,        setEditing]        = useState(false);
   const [confirmId,      setConfirmId]      = useState(null);
   const [deletingId,     setDeletingId]     = useState(null);
@@ -10750,6 +11017,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setRows([]); return; }
+      setCurrentUserName(userProvidedDisplayName(user));
       const { data, error } = await supabase
         .from("results")
         .select("*")
@@ -10864,9 +11132,38 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     return d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
   };
 
-  const rowNames = (row) => Array.isArray(row.names)
-    ? row.names.slice(0, 3).join(", ") + (row.names.length > 3 ? ` +${row.names.length - 3}` : "")
-    : "—";
+  const resultDisplayTitle = (row) =>
+    row?.result_data?.runMetadata?.displayTitle ||
+    row?.math_data?.display_title ||
+    row?.math_data?.displayTitle ||
+    "";
+
+  const duoNamesForCurrentUser = (row) => {
+    if (row?.chat_type !== "duo" || !Array.isArray(row.names)) return null;
+    const normalizedUser = normalizeDisplayName(currentUserName);
+    const names = row.names.map(name => String(name || "").trim()).filter(Boolean);
+    if (!names.length) return [];
+    if (!normalizedUser) return names;
+    const otherNames = names.filter(name => normalizeDisplayName(name) !== normalizedUser);
+    return otherNames.length ? otherNames : names;
+  };
+
+  const namesLabel = (names) => {
+    if (!Array.isArray(names) || !names.length) return "—";
+    return names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+  };
+
+  const rowNames = (row) => {
+    const duoNames = duoNamesForCurrentUser(row);
+    if (duoNames) return namesLabel(duoNames);
+    return resultDisplayTitle(row) || namesLabel(row.names);
+  };
+
+  const datasetBadge = (row) => {
+    const count = row?.result_data?.runMetadata?.sourceChatCount || row?.math_data?.source_chat_count || row?.math_data?.sourceChatCount || 1;
+    const kind = row?.result_data?.runMetadata?.datasetKind || row?.math_data?.dataset_kind || row?.math_data?.datasetKind || "single";
+    return kind === "combined" && count > 1 ? `Combined · ${count} chats` : "";
+  };
 
   // Shared swatch for a single report card
   const makeSwatchEl = (pal) => (
@@ -10885,6 +11182,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2 }}>
         {rowNames(row)}
       </div>
+      {datasetBadge(row) && (
+        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4 }}>{datasetBadge(row)}</div>
+      )}
       {stat !== "—" && (
         <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4 }}>{stat}</div>
       )}
@@ -10921,7 +11221,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
   const changeViewMode = (mode) => {
     setViewMode(mode);
-    try { localStorage.setItem("wrapchat_results_view", mode); } catch {}
+    try {
+      localStorage.setItem("wrapchat_results_view", mode);
+    } catch {
+      // Ignore storage failures; the in-memory view switch still works.
+    }
   };
 
   // ── Compute names-grouped items (for Names mode) ──
@@ -10930,8 +11234,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const nameMap = new Map();
     displayItems.forEach(item => {
       const itemNames = item.type === "single"
-        ? (Array.isArray(item.row.names) ? item.row.names : [])
-        : (Array.isArray(item.rows[0]?.names) ? item.rows[0].names : []);
+        ? (duoNamesForCurrentUser(item.row) || (Array.isArray(item.row.names) ? item.row.names : []))
+        : (duoNamesForCurrentUser(item.rows[0]) || (Array.isArray(item.rows[0]?.names) ? item.rows[0].names : []));
       itemNames.forEach(rawName => {
         const name = String(rawName || "").trim();
         if (!name) return;
@@ -11445,6 +11749,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [upgradeInfo,      setUpgradeInfo]      = useState(null);
   const [analysisError,    setAnalysisError]    = useState("");
   const [importMeta,       setImportMeta]       = useState({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
+  const [,                 setActiveDataset]    = useState(null);
+  const [pendingDataset,   setPendingDataset]   = useState(null);
+  const [participantMismatch, setParticipantMismatch] = useState(null);
   const [debugExportJson,  setDebugExportJson]  = useState("");
   const [debugRelType,     setDebugRelType]     = useState(null);
   const [debugRawText,     setDebugRawText]     = useState("");
@@ -11719,6 +12026,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUpgradeInfo(null);
     setAnalysisError("");
     setImportMeta({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
+    setActiveDataset(null);
+    setPendingDataset(null);
+    setParticipantMismatch(null);
     setDebugExportJson("");
     setDebugRelType(null);
     setDebugRawText("");
@@ -11762,6 +12072,17 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setHistoryBundleView(null);
     setStep(0);
     setDir("fade");
+    setPhase(hasUserProvidedDisplayName(authedUser) ? "upload" : "profileName");
+    setSid(s => s + 1);
+  };
+
+  const onProfileNameSaved = (updatedUser) => {
+    if (updatedUser) setAuthedUser(updatedUser);
+    setUploadError("");
+    setUploadInfo("");
+    setAnalysisError("");
+    setStep(0);
+    setDir("fade");
     setPhase("upload");
     setSid(s => s + 1);
   };
@@ -11786,6 +12107,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUploadInfo("");
     setAnalysisError("");
     setImportMeta({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
+    setActiveDataset(null);
+    setPendingDataset(null);
+    setParticipantMismatch(null);
     setDebugExportJson("");
     setDebugRawText("");
     setDebugRawLabel("");
@@ -11793,14 +12117,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setStep(0); setDir("fade"); setSid(s => s+1);
   };
 
-  // Step 1: file parsed → check thresholds, cap large groups, compute local stats, detect language
-  const onParsed = (parsedInput) => {
-    trialAutoRunDoneRef.current = false;
-    const payload = parsedInput?.payload || parsedInput || {};
-    const msgs = Array.isArray(payload.messages) ? payload.messages : [];
-    const tooShort = Boolean(payload.tooShort);
-    const summary = parsedInput?.summary || parsedInput?.importSummary || null;
-    const fileName = parsedInput?.fileName || parsedInput?.importFileName || null;
+  const resetImportDerivedState = () => {
     setUploadError("");
     setUploadInfo("");
     setAnalysisError("");
@@ -11810,11 +12127,41 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDebugRelType(null);
     setSelectedReportTypes([]);
     setLoadingReportIndex(0);
+  };
+
+  const continueWithDataset = (dataset, { skipMismatch = false } = {}) => {
+    const mismatch = skipMismatch ? null : detectParticipantConsistencyMismatch(dataset, authedUser);
+    if (mismatch) {
+      setPendingDataset(dataset);
+      setParticipantMismatch(mismatch);
+      setDir("fwd");
+      setPhase("participantMismatch");
+      setSid(s => s + 1);
+      return;
+    }
+
+    const msgs = toAnalysisMessagesFromDataset(dataset);
+    const tooShort = msgs.length < MIN_MESSAGES;
+    const summary = {
+      participants: dataset.participants.map(participant => participant.displayName),
+      participantLabel: getDatasetDisplayTitle(dataset),
+      messageCount: msgs.length,
+      dateRange: dataset.sourceChats?.[0]?.dateRange || [msgs[0]?.date || null, msgs.at(-1)?.date || null],
+      dateRangeLabel: dataset.sourceChats?.length > 1 ? `${dataset.sourceChats.length} chats combined` : undefined,
+    };
+    const fileName = dataset.sourceChats?.[0]?.fileName || null;
+
     setImportMeta({
       fileName,
       summary,
-      rawProcessedPayload: { messages: payload.messages || [], tooShort },
+      rawProcessedPayload: { messages: msgs, tooShort },
       tooShort,
+      dataset: {
+        datasetId: dataset.datasetId,
+        datasetKind: dataset.datasetKind,
+        sourceChatCount: dataset.combinedMeta?.sourceChatCount || 1,
+        displayTitle: getDatasetDisplayTitle(dataset),
+      },
     });
     if (tooShort) {
       setDir("fwd");
@@ -11831,6 +12178,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         if (m) {
           m.cappedGroup = cappedGroup;
           m.originalParticipantCount = originalParticipantCount;
+          m.datasetId = dataset.datasetId;
+          m.datasetKind = dataset.datasetKind;
+          m.sourceChatCount = dataset.combinedMeta?.sourceChatCount || 1;
+          m.displayTitle = getParticipantDisplayTitle(dataset, m);
+          m.participantAliases = dataset.participantAliases;
+          m.mergeState = dataset.mergeState;
+          m.sourceChats = dataset.sourceChats;
+          m.combinedMeta = dataset.combinedMeta;
         }
         const detected = detectLanguage(cappedMsgs);
         const initialReportLang = isReliableDetectedLanguage(detected)
@@ -11840,6 +12195,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setReportLang(initialReportLang);
         setMessages(cappedMsgs);
         setMath(m);
+        setActiveDataset(dataset);
+        setPendingDataset(null);
+        setParticipantMismatch(null);
         setAi(null);
         setConnectionDigest(null);
         setConnectionDigestKey("");
@@ -11863,12 +12221,59 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setMath(null);
         setDetectedLang(null);
         setImportMeta({ fileName: null, summary: null, rawProcessedPayload: null, tooShort: false });
+        setActiveDataset(null);
+        setPendingDataset(null);
+        setParticipantMismatch(null);
         setUploadError("Couldn't finish reading this chat. Try exporting again or using a shorter date range.");
         setDir("fade");
         setPhase("upload");
         setSid(s => s + 1);
       }
     }, 0);
+  };
+
+  // Step 1: file parsed → normalize identity, review merges, then compute stats
+  const onParsed = (parsedInput) => {
+    trialAutoRunDoneRef.current = false;
+    resetImportDerivedState();
+    try {
+      const dataset = Array.isArray(parsedInput?.parsedChats)
+        ? buildCombinedDataset(parsedInput.parsedChats)
+        : buildDatasetFromParsedChat(parsedInput);
+      if (dataset.mergeState?.suggestions?.length) {
+        setPendingDataset(dataset);
+        setParticipantMismatch(null);
+        setDir("fwd");
+        setPhase("mergeReview");
+        setSid(s => s + 1);
+        return;
+      }
+      continueWithDataset(dataset);
+    } catch (error) {
+      console.error("Dataset preparation failed", error);
+      setUploadError(String(error?.message || "Couldn't finish reading this chat. Try exporting again or using a shorter date range."));
+      setDir("fade");
+      setPhase("upload");
+      setSid(s => s + 1);
+    }
+  };
+
+  const onMergeReviewContinue = (approvedIds) => {
+    const dataset = pendingDataset;
+    if (!dataset) {
+      setPhase("upload");
+      return;
+    }
+    const mergedDataset = applyApprovedMerges(dataset, approvedIds, dataset.mergeState?.suggestions || []);
+    continueWithDataset(mergedDataset);
+  };
+
+  const onParticipantMismatchContinue = () => {
+    if (!pendingDataset) {
+      setPhase("upload");
+      return;
+    }
+    continueWithDataset(pendingDataset, { skipMismatch: true });
   };
 
   useEffect(() => {
@@ -12647,6 +13052,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       <TermsFlow onAccepted={onAcceptedTerms} onLogout={logout} />
     </Slide>)
   );
+  if (phase === "profileName") return (
+    withUiLanguage(<Slide dir={dir} id={sid}>
+      <ProfileNameSetup user={authedUser} onSaved={onProfileNameSaved} onLogout={logout} />
+    </Slide>)
+  );
   if (phase === "admin") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
       {isAdminUser(authedUser)
@@ -12717,6 +13127,24 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </>
   );
   if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={navigateBack} /></Slide>);
+  if (phase === "mergeReview") return withUiLanguage(
+    <Slide dir={dir} id={sid}>
+      <DuplicateParticipantReview
+        dataset={pendingDataset}
+        onContinue={onMergeReviewContinue}
+        onBack={() => { setPendingDataset(null); setDir("bk"); setPhase("upload"); setSid(s => s + 1); }}
+      />
+    </Slide>
+  );
+  if (phase === "participantMismatch") return withUiLanguage(
+    <Slide dir={dir} id={sid}>
+      <ParticipantMismatchReview
+        mismatch={participantMismatch}
+        onContinue={onParticipantMismatchContinue}
+        onBack={() => { setParticipantMismatch(null); setPendingDataset(null); setDir("bk"); setPhase("upload"); setSid(s => s + 1); }}
+      />
+    </Slide>
+  );
   if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} /></Slide>);
   if (phase === "select") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
