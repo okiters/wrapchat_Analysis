@@ -155,19 +155,21 @@ const _VW = 430, _VH = 900; // viewBox proportions
 
 const _WAVES = [
   // back → front: deeper waves are fainter and slower
-  { frac:0.60, amp:10, period:220, sOp:0.12, fOp:0.04, sw:0.8, speed:0.50 },
-  { frac:0.67, amp:14, period:260, sOp:0.20, fOp:0.07, sw:1.0, speed:0.35 },
-  { frac:0.75, amp:20, period:300, sOp:0.30, fOp:0.10, sw:1.2, speed:0.25 },
-  { frac:0.82, amp:26, period:240, sOp:0.45, fOp:0.14, sw:1.5, speed:0.40 },
-  { frac:0.89, amp:32, period:320, sOp:0.62, fOp:0.20, sw:2.0, speed:0.60 },
+  { frac:0.60, amp:10, period:220, sOp:0.06, fOp:0.02, sw:0.8, speed:0.50 },
+  { frac:0.67, amp:14, period:260, sOp:0.10, fOp:0.04, sw:1.0, speed:0.35 },
+  { frac:0.75, amp:20, period:300, sOp:0.15, fOp:0.05, sw:1.2, speed:0.25 },
+  { frac:0.82, amp:26, period:240, sOp:0.23, fOp:0.07, sw:1.5, speed:0.40 },
+  { frac:0.89, amp:32, period:320, sOp:0.31, fOp:0.10, sw:2.0, speed:0.60 },
 ];
 
 function _buildWavePath(amp, period, cy, phase) {
   const STEPS = 80;
   let d = '';
   for (let i = 0; i <= STEPS; i++) {
-    const x = (_VW * i) / STEPS;
-    const y = cy + amp * Math.sin((2 * Math.PI * x / period) + phase);
+    const x        = (_VW * i) / STEPS;
+    const progress = x / _VW;
+    const ease     = Math.sin(progress * Math.PI); // fades to 0 at both edges
+    const y        = cy + amp * ease * Math.sin((2 * Math.PI * x / period) + phase);
     d += i === 0 ? `M ${x},${y}` : ` L ${x},${y}`;
   }
   return d;

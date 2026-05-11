@@ -9162,7 +9162,7 @@ function Upload({
       </div>
 
       {/* ── Logo — pinned to 42% from top, never displaced by other elements ── */}
-      <div style={{ position:"absolute", top:"42%", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
+      <div style={{ position:"absolute", top:"22%", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
         <BrandLockup
           logoSrc={wrapchatLogoTransparent}
           logoSize={72}
@@ -9185,7 +9185,7 @@ function Upload({
       </div>
 
       {/* ── Action zone — snapped just below tagline, independent of logo ── */}
-      <div style={{ position:"absolute", top:"calc(42% + 105px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
+      <div style={{ position:"absolute", top:"calc(22% + 105px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
         <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, width:"100%" }}>
           {[["single", "Single chat"], ["multi", "Multi-chat analysis"]].map(([mode, label]) => {
             const active = (mode === "multi") === multiMode;
