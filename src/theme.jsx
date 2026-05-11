@@ -116,7 +116,7 @@ export function injectGlobalStyles() {
     @keyframes slideL   { from{opacity:0;transform:translateX(-36px)} to{opacity:1;transform:translateX(0)} }
     @keyframes blink    { 0%,80%,100%{opacity:.1} 40%{opacity:1} }
     @keyframes toastIn  { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-    @keyframes waveDrift { from{transform:translateY(-50%) translateX(0)} to{transform:translateY(-50%) translateX(-33.333%)} }
+    @keyframes waveRise  { from{transform:translateY(12px)} to{transform:translateY(-12px)} }
     .wc-fu  { animation: fadeUp .38s cubic-bezier(.2,0,.1,1) both }
     .wc-fu2 { animation: fadeUp .38s .08s cubic-bezier(.2,0,.1,1) both }
     .wc-fu3 { animation: fadeUp .38s .16s cubic-bezier(.2,0,.1,1) both }
@@ -147,60 +147,51 @@ export function Geo({ size=60, color, shape='sq-r', top, left, right, bottom, ro
   );
 }
 
-// ── WaveLines — animated layered conversation waves ───────────────────────
-// Five sine-wave lines at different depths (opacity, amplitude, speed).
-// SVG is 3× viewport wide; CSS translateX(-33%) shifts by exactly one viewport
-// width per cycle, creating a seamless left-to-right drift.
+// ── WaveLines — layered ocean waves at the bottom ─────────────────────────
+// Five filled sine-wave SVGs stacked at different depths. Each covers the
+// full container (inset:0) with the crest drawn at a fraction of the viewBox
+// height; fill runs from the crest down to the bottom edge, creating an
+// ocean-water silhouette. translateY animation makes each layer bob up/down
+// independently — deeper layers are fainter and slower.
 export function WaveLines({ accent }) {
-  // Cubic-bezier sine approximation: CP at ±cpX horizontally and ±cpY=amp*(4/3)
-  // vertically produces a peak that lands exactly at ±amp (verified algebraically).
-  const makeD = (amp, period, cy, totalW) => {
+  const W = 430, H = 900; // viewBox matching typical phone proportions
+
+  const makeD = (amp, period, cy) => {
     const h   = period / 2;
     const cpx = h * 0.36;
     const cpy = amp * (4 / 3);
     let d   = `M 0,${cy}`;
-    let x   = 0;
-    let dir = 1;
-    while (x < totalW + h) {
+    let x   = 0, dir = 1;
+    while (x < W + h) {
       d += ` C ${x+cpx},${cy-cpy*dir} ${x+h-cpx},${cy-cpy*dir} ${x+h},${cy}`;
-      dir = -dir;
-      x  += h;
+      dir = -dir; x += h;
     }
     return d;
   };
 
-  const MULT    = 3;
-  const VIEWPORT = 430;
-  const totalW  = VIEWPORT * MULT;
-
+  // Rendered back-to-front: index 0 is deepest/most faint, index 4 is frontmost
   const waves = [
-    { top:'17%', amp:20, period:280, opacity:0.13, sw:1.6, dur:'22s', delay:'0s'    },
-    { top:'34%', amp:13, period:210, opacity:0.08, sw:1.0, dur:'31s', delay:'-7s'   },
-    { top:'52%', amp:29, period:370, opacity:0.07, sw:1.3, dur:'41s', delay:'-18s'  },
-    { top:'69%', amp:11, period:185, opacity:0.10, sw:1.4, dur:'24s', delay:'-3s'   },
-    { top:'85%', amp:17, period:310, opacity:0.05, sw:0.8, dur:'35s', delay:'-12s'  },
+    { frac:0.60, amp:10, period:220, sOp:0.12, fOp:0.04, sw:0.8, dur:'16s', del:'-6s'  },
+    { frac:0.67, amp:14, period:260, sOp:0.20, fOp:0.07, sw:1.0, dur:'12s', del:'-3s'  },
+    { frac:0.75, amp:20, period:300, sOp:0.30, fOp:0.10, sw:1.2, dur:'10s', del:'-7s'  },
+    { frac:0.82, amp:26, period:240, sOp:0.45, fOp:0.14, sw:1.5, dur:'7.5s',del:'-1s'  },
+    { frac:0.89, amp:32, period:320, sOp:0.62, fOp:0.20, sw:2.0, dur:'5.5s',del:'0s'   },
   ];
 
   return (
     <div style={{ position:'absolute', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden' }}>
       {waves.map((w, i) => {
-        const svgH = Math.ceil(w.amp * 3);
-        const cy   = svgH / 2;
+        const cy     = w.frac * H;
+        const stroke = makeD(w.amp, w.period, cy);
+        const fill   = stroke + ` L ${W},${H} L 0,${H} Z`;
         return (
-          <svg key={i}
-            viewBox={`0 0 ${totalW} ${svgH}`}
-            preserveAspectRatio="none"
+          <svg key={i} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
             style={{
-              position:'absolute', top:w.top, left:0,
-              width:`${MULT * 100}%`, height:svgH,
-              animation:`waveDrift ${w.dur} ${w.delay} linear infinite`,
-            }}
-          >
-            <path
-              d={makeD(w.amp, w.period, cy, totalW)}
-              fill="none" stroke={accent}
-              strokeWidth={w.sw} opacity={w.opacity}
-            />
+              position:'absolute', inset:0, width:'100%', height:'100%',
+              animation:`waveRise ${w.dur} ${w.del} ease-in-out infinite alternate`,
+            }}>
+            <path d={fill}   fill={accent}   opacity={w.fOp} />
+            <path d={stroke} fill="none" stroke={accent} strokeWidth={w.sw} opacity={w.sOp} />
           </svg>
         );
       })}

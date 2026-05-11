@@ -9121,6 +9121,7 @@ function Upload({
 
   return (
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
+      {/* ── Absolute overlays (never participate in flex layout) ── */}
       {onHistory && (
         <div style={{ position:"absolute", top:14, left:16, zIndex:5 }}>
           <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
@@ -9156,92 +9157,92 @@ function Upload({
           </div>
         </div>
       )}
-      <BrandLockup
-        logoSrc={wrapchatLogoTransparent}
-        logoSize={72}
-        subtitle={t("Your chats, unwrapped.")}
-        subtitleMarginBottom={showOpenPill ? 4 : 8}
-      />
-      {showOpenPill && (
-        <div style={{
-          fontSize:12, fontWeight:700,
-          color:"rgba(176,244,200,0.9)",
-          background:"rgba(20,160,80,0.12)",
-          border:"1px solid rgba(20,160,80,0.28)",
-          borderRadius:999,
-          padding:"7px 18px",
-          textAlign:"center",
-        }}>
-          Open testing · free reports
-        </div>
-      )}
-      <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, width:"100%" }}>
-        {[["single", "Single chat"], ["multi", "Multi-chat analysis"]].map(([mode, label]) => {
-          const active = (mode === "multi") === multiMode;
-          return (
-            <button key={mode} type="button" onClick={() => setMultiMode(mode === "multi")} className="wc-btn"
-              style={{ flex:1, borderRadius:999, padding:"8px 0", fontSize:12, fontWeight:800, border:"none", background:active ? "rgba(255,255,255,0.18)" : "transparent", color:active ? "#fff" : "rgba(255,255,255,0.45)", cursor:"pointer" }}>
-              {label}
-            </button>
-          );
-        })}
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
+        {HOMEPAGE_VERSION_LABEL}
       </div>
-      <label
-        htmlFor={uploadInputId}
-        onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files); }}
-        onDragOver={e => e.preventDefault()}
-        style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
-        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.35)"}
-        onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
-      >
-        <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : (multiMode ? "Upload chats" : t("Upload your chat"))}</div>
-        {multiMode && (
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:8, lineHeight:1.5 }}>
-            Select multiple exports to combine them into one analysis.
+
+      {/* ── Logo — pinned to 42% from top, never displaced by other elements ── */}
+      <div style={{ position:"absolute", top:"42%", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
+        <BrandLockup
+          logoSrc={wrapchatLogoTransparent}
+          logoSize={72}
+          subtitle={t("Your chats, unwrapped.")}
+          subtitleMarginBottom={showOpenPill ? 4 : 8}
+        />
+        {showOpenPill && (
+          <div style={{
+            fontSize:12, fontWeight:700,
+            color:"rgba(176,244,200,0.9)",
+            background:"rgba(20,160,80,0.12)",
+            border:"1px solid rgba(20,160,80,0.28)",
+            borderRadius:999,
+            padding:"7px 18px",
+            textAlign:"center",
+          }}>
+            Open testing · free reports
           </div>
         )}
-      </label>
-      <input id={uploadInputId} type="file" multiple={multiMode} accept=".txt,.zip,text/plain,application/zip" style={{ display:"none" }} onChange={e => handle(e.target.files)} />
-
-      {isTrialPending && (
-        <div style={{
-          fontSize:13, fontWeight:700, color:"rgba(160,120,240,0.95)",
-          background:"rgba(160,120,240,0.10)", border:"1px solid rgba(160,120,240,0.25)",
-          borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6,
-        }}>
-          {t("You have 1 free trial analysis included. Upload a chat to get started.")}
-        </div>
-      )}
-
-      {displayErr && <div style={{ fontSize:13, color:"#FFB090", marginTop:8, textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayErr}</div>}
-      {displayInfo && (
-        <div
-          style={{
-            fontSize:13,
-            color:"rgba(255,255,255,0.82)",
-            marginTop:8,
-            textAlign:"center",
-            background:"rgba(74,30,160,0.22)",
-            border:"1px solid rgba(160,138,240,0.22)",
-            padding:"11px 16px",
-            borderRadius:16,
-            width:"100%",
-            lineHeight:1.6,
-          }}
-        >
-          {displayInfo}
-        </div>
-      )}
-      <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", marginTop:8, textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
-      <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%", marginTop:4 }}>
-        {showAdminEntry && (
-          <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
-            Admin
-          </button>
-        )}
       </div>
-      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
-        {HOMEPAGE_VERSION_LABEL}
+
+      {/* ── Spacer — pushes action zone to bottom without touching logo ── */}
+      <div style={{ flex:1 }} />
+
+      {/* ── Action zone — mode, upload, messages, admin; never moves the logo ── */}
+      <div style={{ display:"flex", flexDirection:"column", gap:12, width:"100%", alignItems:"center" }}>
+        <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, width:"100%" }}>
+          {[["single", "Single chat"], ["multi", "Multi-chat analysis"]].map(([mode, label]) => {
+            const active = (mode === "multi") === multiMode;
+            return (
+              <button key={mode} type="button" onClick={() => setMultiMode(mode === "multi")} className="wc-btn"
+                style={{ flex:1, borderRadius:999, padding:"8px 0", fontSize:12, fontWeight:800, border:"none", background:active ? "rgba(255,255,255,0.18)" : "transparent", color:active ? "#fff" : "rgba(255,255,255,0.45)", cursor:"pointer" }}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <label
+          htmlFor={uploadInputId}
+          onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files); }}
+          onDragOver={e => e.preventDefault()}
+          style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.35)"}
+          onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
+        >
+          <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : (multiMode ? "Upload chats" : t("Upload your chat"))}</div>
+          {multiMode && (
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:8, lineHeight:1.5 }}>
+              Select multiple exports to combine them into one analysis.
+            </div>
+          )}
+        </label>
+        <input id={uploadInputId} type="file" multiple={multiMode} accept=".txt,.zip,text/plain,application/zip" style={{ display:"none" }} onChange={e => handle(e.target.files)} />
+        {isTrialPending && (
+          <div style={{
+            fontSize:13, fontWeight:700, color:"rgba(160,120,240,0.95)",
+            background:"rgba(160,120,240,0.10)", border:"1px solid rgba(160,120,240,0.25)",
+            borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6,
+          }}>
+            {t("You have 1 free trial analysis included. Upload a chat to get started.")}
+          </div>
+        )}
+        {displayErr && <div style={{ fontSize:13, color:"#FFB090", textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayErr}</div>}
+        {displayInfo && (
+          <div style={{
+            fontSize:13, color:"rgba(255,255,255,0.82)", textAlign:"center",
+            background:"rgba(74,30,160,0.22)", border:"1px solid rgba(160,138,240,0.22)",
+            padding:"11px 16px", borderRadius:16, width:"100%", lineHeight:1.6,
+          }}>
+            {displayInfo}
+          </div>
+        )}
+        <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
+        {showAdminEntry && (
+          <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%" }}>
+            <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+              Admin
+            </button>
+          </div>
+        )}
       </div>
     </Shell>
   );
