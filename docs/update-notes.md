@@ -8,8 +8,8 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
-## v2.6 — My Results UI polish + edit mode animations
-**Files:** `src/App.jsx`
+## v2.6 — My Results UI polish + edit mode animations + animated wave backgrounds
+**Files:** `src/App.jsx`, `src/theme.jsx`
 
 ### Back button — bare icon, no circular background
 `ScreenHeader` back button style simplified: removed `width:34`, `height:34`, `borderRadius:999`, and `background:"rgba(255,255,255,0.08)"`. The triangular `BackIcon` now renders as a standalone icon with `background:"none"` and minimal padding — no surrounding circle.
@@ -29,6 +29,12 @@ All 6 card types (main view: single, bundle; names view: name group; bundle deta
 - **`›` chevron** fades out and its `max-width` collapses from 24 px → 0 with `overflow:hidden`, freeing space on the right. Reverse on exit.
 - **`×` delete button** is always in the DOM at `opacity:0, pointerEvents:none`; fades to `opacity:1` when editing. All three transitions start simultaneously.
 - Card `onClick` handler conditionally fires the navigate/open action only when `!editing && !isDeleting && !isConfirming`, and confirm-overlay buttons use `e.stopPropagation()` to prevent bubbling to the card.
+
+### My Results drawer — full-width panel
+Drawer panel width changed from `min(390px, 96vw)` to `100%`. The fixed-position container already uses `inset:0`, so `100%` fills the viewport edge-to-edge with no gap on the right side.
+
+### Animated wave-line backgrounds
+Generic `Geo` polygon shapes replaced with a new `WaveLines` component in `src/theme.jsx`. Five sine-wave SVG paths are layered at different vertical positions (`17%`, `34%`, `52%`, `69%`, `85%`), each with independent amplitude (11–29 px), period (185–370 px), opacity (0.05–0.13), stroke width (0.8–1.6 px), and drift duration (22 s–41 s). Negative `animationDelay` values phase-offset the waves so they don't move in sync. Each SVG is rendered at 3× viewport width; the `@keyframes waveDrift` animation shifts by `−33.333%` (one viewport width), creating a seamless periodic loop. Cubic-bezier control points at `±period/2 × 0.36` horizontally and `±amp × 4/3` vertically ensure wave peaks land at exactly `±amp`. `RShell` now passes `<WaveLines accent={p.accent} />` as its background instead of three `<Geo>` elements; the four `<Geo>` elements in the main results shell in `App.jsx` are also replaced.
 
 ---
 

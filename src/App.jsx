@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
 import _updateNotesRaw from "../docs/update-notes.md?raw";
-import { DA, Geo, PrimaryButton, GhostButton, BackIcon } from "./theme.jsx";
+import { DA, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
@@ -6354,11 +6354,8 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         fontFamily: "system-ui, sans-serif",
         paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
-        {/* ── DECORATIVE GEO SHAPES ── */}
-        <Geo shape="sq-r"   size={90}  color={p.accent} top={60}    right={-24} rotate={18}  opacity={0.18} />
-        <Geo shape="sq-r"   size={60}  color={p.accent} bottom={100} left={-18} rotate={-14} opacity={0.13} />
-        <Geo shape="circle" size={40}  color={p.accent} bottom={200} right={20}              opacity={0.10} />
-        <Geo shape="sq-r"   size={130} color={p.accent} top={-40}   left={-50}  rotate={28}  opacity={0.07} />
+        {/* ── WAVE LINES ── */}
+        <WaveLines accent={p.accent} />
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}

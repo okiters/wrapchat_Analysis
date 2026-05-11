@@ -111,11 +111,12 @@ export function injectGlobalStyles() {
   const style = document.createElement('style');
   style.id = 'wc-styles';
   style.textContent = `
-    @keyframes fadeUp  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes slideR  { from{opacity:0;transform:translateX(36px)}  to{opacity:1;transform:translateX(0)} }
-    @keyframes slideL  { from{opacity:0;transform:translateX(-36px)} to{opacity:1;transform:translateX(0)} }
-    @keyframes blink   { 0%,80%,100%{opacity:.1} 40%{opacity:1} }
-    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideR   { from{opacity:0;transform:translateX(36px)}  to{opacity:1;transform:translateX(0)} }
+    @keyframes slideL   { from{opacity:0;transform:translateX(-36px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes blink    { 0%,80%,100%{opacity:.1} 40%{opacity:1} }
+    @keyframes toastIn  { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    @keyframes waveDrift { from{transform:translateY(-50%) translateX(0)} to{transform:translateY(-50%) translateX(-33.333%)} }
     .wc-fu  { animation: fadeUp .38s cubic-bezier(.2,0,.1,1) both }
     .wc-fu2 { animation: fadeUp .38s .08s cubic-bezier(.2,0,.1,1) both }
     .wc-fu3 { animation: fadeUp .38s .16s cubic-bezier(.2,0,.1,1) both }
@@ -143,6 +144,67 @@ export function Geo({ size=60, color, shape='sq-r', top, left, right, bottom, ro
       borderRadius: shape === 'circle' ? '50%' : shape === 'sq-r' ? size * 0.18 : 4,
       transform: `rotate(${rotate}deg)`,
     }} />
+  );
+}
+
+// ── WaveLines — animated layered conversation waves ───────────────────────
+// Five sine-wave lines at different depths (opacity, amplitude, speed).
+// SVG is 3× viewport wide; CSS translateX(-33%) shifts by exactly one viewport
+// width per cycle, creating a seamless left-to-right drift.
+export function WaveLines({ accent }) {
+  // Cubic-bezier sine approximation: CP at ±cpX horizontally and ±cpY=amp*(4/3)
+  // vertically produces a peak that lands exactly at ±amp (verified algebraically).
+  const makeD = (amp, period, cy, totalW) => {
+    const h   = period / 2;
+    const cpx = h * 0.36;
+    const cpy = amp * (4 / 3);
+    let d   = `M 0,${cy}`;
+    let x   = 0;
+    let dir = 1;
+    while (x < totalW + h) {
+      d += ` C ${x+cpx},${cy-cpy*dir} ${x+h-cpx},${cy-cpy*dir} ${x+h},${cy}`;
+      dir = -dir;
+      x  += h;
+    }
+    return d;
+  };
+
+  const MULT    = 3;
+  const VIEWPORT = 430;
+  const totalW  = VIEWPORT * MULT;
+
+  const waves = [
+    { top:'17%', amp:20, period:280, opacity:0.13, sw:1.6, dur:'22s', delay:'0s'    },
+    { top:'34%', amp:13, period:210, opacity:0.08, sw:1.0, dur:'31s', delay:'-7s'   },
+    { top:'52%', amp:29, period:370, opacity:0.07, sw:1.3, dur:'41s', delay:'-18s'  },
+    { top:'69%', amp:11, period:185, opacity:0.10, sw:1.4, dur:'24s', delay:'-3s'   },
+    { top:'85%', amp:17, period:310, opacity:0.05, sw:0.8, dur:'35s', delay:'-12s'  },
+  ];
+
+  return (
+    <div style={{ position:'absolute', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden' }}>
+      {waves.map((w, i) => {
+        const svgH = Math.ceil(w.amp * 3);
+        const cy   = svgH / 2;
+        return (
+          <svg key={i}
+            viewBox={`0 0 ${totalW} ${svgH}`}
+            preserveAspectRatio="none"
+            style={{
+              position:'absolute', top:w.top, left:0,
+              width:`${MULT * 100}%`, height:svgH,
+              animation:`waveDrift ${w.dur} ${w.delay} linear infinite`,
+            }}
+          >
+            <path
+              d={makeD(w.amp, w.period, cy, totalW)}
+              fill="none" stroke={accent}
+              strokeWidth={w.sw} opacity={w.opacity}
+            />
+          </svg>
+        );
+      })}
+    </div>
   );
 }
 
@@ -222,11 +284,8 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
 export function RShell({ sec, prog, total, onClose, step, children }) {
   const p = PAL[sec] || { bg: DA.bg, accent: DA.teal };
   return (
-    <Shell sec={sec} prog={prog} total={total} onClose={onClose} bg={p.bg} geos={<>
-      <Geo shape="sq-r"  size={90} color={p.accent} top={60}    right={-24} rotate={18}  opacity={0.20} />
-      <Geo shape="sq-r"  size={60} color={p.accent} bottom={100} left={-18} rotate={-14} opacity={0.15} />
-      <Geo shape="circle" size={40} color={p.accent} bottom={200} right={20}              opacity={0.12} />
-    </>}>
+    <Shell sec={sec} prog={prog} total={total} onClose={onClose} bg={p.bg}
+      geos={<WaveLines accent={p.accent} />}>
       <div key={step} className="wc-sR" style={{ display:'contents' }}>{children}</div>
     </Shell>
   );
