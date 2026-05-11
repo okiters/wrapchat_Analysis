@@ -9,7 +9,7 @@
 // uses these tokens and components.
 // ─────────────────────────────────────────────────────────────────────────
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // ── Base tokens ────────────────────────────────────────────────────────────
 // Used for non-result screens (auth, upload, nav chrome) and as fallbacks.
@@ -116,7 +116,6 @@ export function injectGlobalStyles() {
     @keyframes slideL   { from{opacity:0;transform:translateX(-36px)} to{opacity:1;transform:translateX(0)} }
     @keyframes blink    { 0%,80%,100%{opacity:.1} 40%{opacity:1} }
     @keyframes toastIn  { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-    @keyframes waveRise  { from{transform:translateY(12px)} to{transform:translateY(-12px)} }
     .wc-fu  { animation: fadeUp .38s cubic-bezier(.2,0,.1,1) both }
     .wc-fu2 { animation: fadeUp .38s .08s cubic-bezier(.2,0,.1,1) both }
     .wc-fu3 { animation: fadeUp .38s .16s cubic-bezier(.2,0,.1,1) both }
@@ -147,51 +146,66 @@ export function Geo({ size=60, color, shape='sq-r', top, left, right, bottom, ro
   );
 }
 
-// ── WaveLines — layered ocean waves at the bottom ─────────────────────────
-// Five filled sine-wave SVGs stacked at different depths. Each covers the
-// full container (inset:0) with the crest drawn at a fraction of the viewBox
-// height; fill runs from the crest down to the bottom edge, creating an
-// ocean-water silhouette. translateY animation makes each layer bob up/down
-// independently — deeper layers are fainter and slower.
+// ── WaveLines — layered ocean waves, phase-animated in JS ─────────────────
+// Five filled sine-wave layers at different depths. The SVG containers are
+// fixed (inset:0, no CSS transform). Each frame, requestAnimationFrame
+// advances a per-wave phase and writes new path `d` values via setAttribute —
+// the wave curve shifts in place like flowing water, not a sliding image.
+const _VW = 430, _VH = 900; // viewBox proportions
+
+const _WAVES = [
+  // back → front: deeper waves are fainter and slower
+  { frac:0.60, amp:10, period:220, sOp:0.12, fOp:0.04, sw:0.8, speed:0.50 },
+  { frac:0.67, amp:14, period:260, sOp:0.20, fOp:0.07, sw:1.0, speed:0.35 },
+  { frac:0.75, amp:20, period:300, sOp:0.30, fOp:0.10, sw:1.2, speed:0.25 },
+  { frac:0.82, amp:26, period:240, sOp:0.45, fOp:0.14, sw:1.5, speed:0.40 },
+  { frac:0.89, amp:32, period:320, sOp:0.62, fOp:0.20, sw:2.0, speed:0.60 },
+];
+
+function _buildWavePath(amp, period, cy, phase) {
+  const STEPS = 80;
+  let d = '';
+  for (let i = 0; i <= STEPS; i++) {
+    const x = (_VW * i) / STEPS;
+    const y = cy + amp * Math.sin((2 * Math.PI * x / period) + phase);
+    d += i === 0 ? `M ${x},${y}` : ` L ${x},${y}`;
+  }
+  return d;
+}
+
 export function WaveLines({ accent }) {
-  const W = 430, H = 900; // viewBox matching typical phone proportions
+  const strokeRefs = useRef([]);
+  const fillRefs   = useRef([]);
 
-  const makeD = (amp, period, cy) => {
-    const h   = period / 2;
-    const cpx = h * 0.36;
-    const cpy = amp * (4 / 3);
-    let d   = `M 0,${cy}`;
-    let x   = 0, dir = 1;
-    while (x < W + h) {
-      d += ` C ${x+cpx},${cy-cpy*dir} ${x+h-cpx},${cy-cpy*dir} ${x+h},${cy}`;
-      dir = -dir; x += h;
-    }
-    return d;
-  };
-
-  // Rendered back-to-front: index 0 is deepest/most faint, index 4 is frontmost
-  const waves = [
-    { frac:0.60, amp:10, period:220, sOp:0.12, fOp:0.04, sw:0.8, dur:'16s', del:'-6s'  },
-    { frac:0.67, amp:14, period:260, sOp:0.20, fOp:0.07, sw:1.0, dur:'12s', del:'-3s'  },
-    { frac:0.75, amp:20, period:300, sOp:0.30, fOp:0.10, sw:1.2, dur:'10s', del:'-7s'  },
-    { frac:0.82, amp:26, period:240, sOp:0.45, fOp:0.14, sw:1.5, dur:'7.5s',del:'-1s'  },
-    { frac:0.89, amp:32, period:320, sOp:0.62, fOp:0.20, sw:2.0, dur:'5.5s',del:'0s'   },
-  ];
+  useEffect(() => {
+    const phases = _WAVES.map(() => 0);
+    let raf;
+    const tick = () => {
+      _WAVES.forEach((w, i) => {
+        phases[i] -= w.speed * 0.018; // negative → crests travel leftward
+        const cy = w.frac * _VH;
+        const s  = _buildWavePath(w.amp, w.period, cy, phases[i]);
+        strokeRefs.current[i]?.setAttribute('d', s);
+        fillRefs.current[i]?.setAttribute('d', s + ` L ${_VW},${_VH} L 0,${_VH} Z`);
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   return (
     <div style={{ position:'absolute', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden' }}>
-      {waves.map((w, i) => {
-        const cy     = w.frac * H;
-        const stroke = makeD(w.amp, w.period, cy);
-        const fill   = stroke + ` L ${W},${H} L 0,${H} Z`;
+      {_WAVES.map((w, i) => {
+        const cy = w.frac * _VH;
+        const s0 = _buildWavePath(w.amp, w.period, cy, 0);
         return (
-          <svg key={i} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
-            style={{
-              position:'absolute', inset:0, width:'100%', height:'100%',
-              animation:`waveRise ${w.dur} ${w.del} ease-in-out infinite alternate`,
-            }}>
-            <path d={fill}   fill={accent}   opacity={w.fOp} />
-            <path d={stroke} fill="none" stroke={accent} strokeWidth={w.sw} opacity={w.sOp} />
+          <svg key={i} viewBox={`0 0 ${_VW} ${_VH}`} preserveAspectRatio="none"
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%' }}>
+            <path ref={el => { fillRefs.current[i]   = el; }}
+              d={s0 + ` L ${_VW},${_VH} L 0,${_VH} Z`} fill={accent} opacity={w.fOp} />
+            <path ref={el => { strokeRefs.current[i] = el; }}
+              d={s0} fill="none" stroke={accent} strokeWidth={w.sw} opacity={w.sOp} />
           </svg>
         );
       })}

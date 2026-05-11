@@ -9184,11 +9184,8 @@ function Upload({
         )}
       </div>
 
-      {/* ── Spacer — pushes action zone to bottom without touching logo ── */}
-      <div style={{ flex:1 }} />
-
-      {/* ── Action zone — mode, upload, messages, admin; never moves the logo ── */}
-      <div style={{ display:"flex", flexDirection:"column", gap:12, width:"100%", alignItems:"center" }}>
+      {/* ── Action zone — snapped just below tagline, independent of logo ── */}
+      <div style={{ position:"absolute", top:"calc(42% + 105px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
         <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, width:"100%" }}>
           {[["single", "Single chat"], ["multi", "Multi-chat analysis"]].map(([mode, label]) => {
             const active = (mode === "multi") === multiMode;
