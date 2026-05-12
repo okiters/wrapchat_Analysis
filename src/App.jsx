@@ -6149,6 +6149,121 @@ const REPORT_TYPES = [
   { id:"trial_report", label:"Chat Preview",           desc:"A quick AI snapshot — vibe, communication pattern, and one key insight. Uses 1 credit.",    palette:"trial"    },
 ];
 
+const PACK_DEFS = Object.freeze({
+  vibe: Object.freeze({
+    id: "vibe",
+    bundleId: "connection",
+    name: "Vibe Pack",
+    overline: "analysis",
+    desc: "How you two actually connect — your communication style, love language, and the energy you bring each other.",
+    reports: Object.freeze(["general", "lovelang", "energy"]),
+    tags: Object.freeze(["General Wrapped", "Love Language", "Energy"]),
+    cost: 4,
+    price: 2.99,
+    bg: "#200A4A",
+    cardBg: "#160F38",
+    accent: "#A08AF0",
+    listAccent: "#C4B0FF",
+    fg: "#1a0a52",
+    inner: "#4A1EA0",
+    outerBg: "#4A1EA050",
+    outerBorder: "#A08AF059",
+    innerBorder: "#A08AF0B3",
+    paymentSelectedBg: "#2C1268",
+    paymentSelectedBorder: "rgba(160,138,240,0.55)",
+  }),
+  rf: Object.freeze({
+    id: "rf",
+    bundleId: "tension",
+    name: "Red Flags Pack",
+    desc: "What's actually happening under the surface — tension patterns, accountability gaps, and the hard stuff.",
+    reports: Object.freeze(["toxicity", "accounta"]),
+    tags: Object.freeze(["Toxicity", "Accountability"]),
+    cost: 3,
+    price: 2.49,
+    bg: "#2E0612",
+    cardBg: "#160F38",
+    accent: "#E04040",
+    listAccent: "#C4B0FF",
+    fg: "#3d0a0a",
+    inner: "#8B1A1A",
+    outerBg: "#8B1A1A50",
+    outerBorder: "#E0404059",
+    innerBorder: "#E04040B3",
+    paymentSelectedBg: "#3D0A0A",
+    paymentSelectedBorder: "rgba(224,64,64,0.50)",
+  }),
+  full: Object.freeze({
+    id: "full",
+    bundleId: "full",
+    name: "Full Read",
+    desc: "Every report in one go — connection, tension, and growth. The complete picture of this chat.",
+    reports: Object.freeze(["general", "lovelang", "energy", "toxicity", "accounta", "growth"]),
+    tags: Object.freeze(["Vibe Pack", "Red Flags", "Growth"]),
+    cost: 8,
+    price: 5.99,
+    bg: "#160F38",
+    cardBg: "#160F38",
+    accent: "#C4B0FF",
+    listAccent: "#C4B0FF",
+    fg: "#160F38",
+    inner: "#2E1F70",
+    outerBg: "#2E1F7050",
+    outerBorder: "#C4B0FF59",
+    innerBorder: "#C4B0FFB3",
+    paymentSelectedBg: "#160F38",
+    paymentSelectedBorder: "rgba(196,176,255,0.45)",
+  }),
+  growth: Object.freeze({
+    id: "growth",
+    bundleId: null,
+    name: "Growth Report",
+    desc: "A temporal snapshot — how this chat has changed from early days to now. Growing closer or drifting apart?",
+    reports: Object.freeze(["growth"]),
+    tags: Object.freeze(["Growth"]),
+    cost: 2,
+    price: 1.49,
+    bg: "#061A0C",
+    cardBg: "#0A2E2E",
+    accent: "#3AF0C0",
+    listAccent: "#3AF0C0",
+    fg: "#062e26",
+    inner: "#1A6B5A",
+    outerBg: "#1A6B5A50",
+    outerBorder: "#3AF0C059",
+    innerBorder: "#3AF0C0B3",
+    paymentSelectedBg: "#0A2E2E",
+    paymentSelectedBorder: "rgba(58,240,192,0.45)",
+  }),
+});
+
+const PACK_ORDER = Object.freeze(["vibe", "rf", "full", "growth"]);
+
+const REPORT_BUFFER_STYLE = Object.freeze({
+  general:  { bg:"#2C1268", border:"rgba(160,138,240,0.40)", pillBg:"rgba(160,138,240,0.14)", pillBorder:"rgba(160,138,240,0.32)" },
+  lovelang: { bg:"#3D1A2E", border:"rgba(240,142,191,0.38)", pillBg:"rgba(240,142,191,0.14)", pillBorder:"rgba(240,142,191,0.30)" },
+  energy:   { bg:"#2E1A0A", border:"rgba(240,160,64,0.35)", pillBg:"rgba(240,160,64,0.14)",  pillBorder:"rgba(240,160,64,0.28)" },
+  toxicity: { bg:"#3D0A0A", border:"rgba(224,64,64,0.38)",  pillBg:"rgba(224,64,64,0.14)",  pillBorder:"rgba(224,64,64,0.30)" },
+  accounta: { bg:"#0A1A3D", border:"rgba(106,180,240,0.35)", pillBg:"rgba(106,180,240,0.14)", pillBorder:"rgba(106,180,240,0.28)" },
+  growth:   { bg:"#0A2E2E", border:"rgba(58,240,192,0.32)",  pillBg:"rgba(58,240,192,0.14)",  pillBorder:"rgba(58,240,192,0.28)" },
+});
+
+function reportTypeMeta(type) {
+  return REPORT_TYPES.find(report => report.id === type) || { id:type, label:type, palette:"upload" };
+}
+
+function packForReports(types = []) {
+  const set = new Set((Array.isArray(types) ? types : [types]).filter(Boolean));
+  return PACK_ORDER.map(id => PACK_DEFS[id]).find(pack =>
+    pack.reports.length === set.size && pack.reports.every(type => set.has(type))
+  ) || null;
+}
+
+function packForSavedRows(rows = []) {
+  const types = rows.map(row => row.report_type).filter(Boolean);
+  return packForReports(types) || (types.length === 1 && types[0] === "growth" ? PACK_DEFS.growth : null);
+}
+
 const CREDIT_PACKS = Object.freeze([
   Object.freeze({ label: "Starter", credits: 10, price: "€2.99", desc: "Enough for a Full Suite, plus room to try extras." }),
   Object.freeze({ label: "Standard", credits: 25, price: "€5.99", desc: "Run several deep dives without thinking about every tap." }),
@@ -6843,6 +6958,90 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
     </div>
   );
 }
+
+function SwatchIcon({ inner, accent, outerBg, outerBorder, innerBorder, size = 48, inset = 9, style = {} }) {
+  return (
+    <div style={{ width:size, height:size, position:"relative", flexShrink:0, ...style }}>
+      <div style={{
+        position:"absolute", inset:0,
+        borderRadius:Math.round(size * 0.27),
+        background:outerBg || `${inner}50`,
+        border:`1.5px solid ${outerBorder || `${accent}59`}`,
+      }} />
+      <div style={{
+        position:"absolute", inset,
+        borderRadius:Math.round(size * 0.17),
+        background:inner,
+        border:`1px solid ${innerBorder || `${accent}B3`}`,
+        transform:"rotate(-12deg)",
+      }} />
+    </div>
+  );
+}
+
+function PackSwatch({ pack, size = 48, inset = 9 }) {
+  return (
+    <SwatchIcon
+      size={size}
+      inset={inset}
+      inner={pack.inner}
+      accent={pack.accent}
+      outerBg={pack.outerBg}
+      outerBorder={pack.outerBorder}
+      innerBorder={pack.innerBorder}
+    />
+  );
+}
+
+function AnalysisDotsCounter({ credits, onAdd, hide = false }) {
+  if (hide || !Number.isInteger(credits)) return null;
+  return (
+    <div style={{
+      display:"flex", alignItems:"center", gap:8,
+      background:"rgba(255,255,255,0.07)",
+      border:"1px solid rgba(255,255,255,0.12)",
+      borderRadius:999,
+      padding:"8px 10px 8px 14px",
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        {PACK_ORDER.map(id => {
+          const pack = PACK_DEFS[id];
+          const count = Math.floor(credits / pack.cost);
+          return (
+            <div
+              key={id}
+              title={`${pack.name}${count > 0 ? "" : " — none"}`}
+              style={{
+                width:10, height:10, borderRadius:"50%",
+                background:count > 0 ? pack.accent : "rgba(255,255,255,0.16)",
+                transition:"all 0.2s",
+              }}
+            />
+          );
+        })}
+      </div>
+      <div style={{ width:1, height:16, background:"rgba(255,255,255,0.12)", margin:"0 2px" }} />
+      <button
+        type="button"
+        onClick={onAdd}
+        className="wc-btn"
+        aria-label="Get more analyses"
+        style={{
+          width:26, height:26, borderRadius:"50%",
+          background:"rgba(255,255,255,0.10)",
+          border:"1px solid rgba(255,255,255,0.16)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          color:"rgba(255,255,255,0.65)",
+          fontSize:16, fontWeight:300, lineHeight:1,
+          padding:0, flexShrink:0, cursor:"pointer",
+        }}
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 function Bar({ value, max, color, label, delay=0 }) {
   const [w,setW]=useState(0);
   useEffect(()=>{const t=setTimeout(()=>setW(Math.round((value/Math.max(max,1))*100)),120+delay);return()=>clearTimeout(t);},[value,max,delay]);
@@ -9078,6 +9277,7 @@ function Upload({
   accessMode = DEFAULT_ACCESS_MODE,
   onClearError,
   onUpgrade,
+  onPayment,
 }) {
   const t = useT();
   const [err, setErr] = useState("");
@@ -9148,25 +9348,7 @@ function Upload({
       )}
       {showCreditPill && (
         <div style={{ position:"absolute", top:16, right:20, zIndex:5, display:"flex", alignItems:"center" }}>
-          <div style={{
-            display:"flex", alignItems:"center",
-            background:"rgba(255,214,120,0.14)",
-            border:"1px solid rgba(255,214,120,0.22)",
-            borderRadius:999, overflow:"hidden",
-          }}>
-            <span style={{ fontSize:12, fontWeight:800, color:"rgba(255,244,214,0.88)", padding:"6px 10px 6px 12px", lineHeight:1 }}>
-              {credits} credit{credits !== 1 ? "s" : ""}
-            </span>
-            {onUpgrade && (
-              <>
-                <div style={{ width:1, alignSelf:"stretch", background:"rgba(255,214,120,0.22)" }} />
-                <button type="button" onClick={onUpgrade} className="wc-btn" aria-label="Add credits"
-                  style={{ fontSize:15, fontWeight:900, color:"rgba(255,244,214,0.9)", background:"transparent", border:"none", padding:"6px 10px", cursor:"pointer", lineHeight:1 }}>
-                  +
-                </button>
-              </>
-            )}
-          </div>
+          <AnalysisDotsCounter credits={credits} onAdd={onPayment || onUpgrade} hide={hideCredits} />
         </div>
       )}
       <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
@@ -9669,282 +9851,498 @@ const DEBUG_RELATIONSHIP_OPTIONS = [
   { id: "other", label: "Other" },
 ];
 
-function ReportSelect({
+function PackSelect({
   math,
-  onToggle,
-  onBundle = () => {},
-  onRun,
+  onRunPack,
   onBack,
-  backLabel = "Upload different file",
-  reportLang,
-  detectedLang,
-  onLangChange,
   error = "",
-  selectedTypes = [],
+  reportLang = "en",
+  detectedLang = null,
+  onLangChange = () => {},
   credits = null,
   accessMode = DEFAULT_ACCESS_MODE,
   hideCredits = false,
-  showDebugPanel = false,
-  debugJson = "",
-  debugRawText = "",
-  debugRawLabel = "",
-  debugRawBusy = false,
-  onDebugExport = () => {},
-  onDebugCopy = () => {},
-  onDebugDownload = () => {},
-  onDebugRunRawCoreA = () => {},
-  onDebugRunRawCoreB = () => {},
-  onDebugCopyRaw = () => {},
-  onDebugDownloadRaw = () => {},
+  onOpenPayment = () => {},
 }) {
-  const t = useT();
+  const [openPack, setOpenPack] = useState("vibe");
   const [langOpen, setLangOpen] = useState(false);
-  const selected = normalizeSelectedReportTypes(selectedTypes);
-  const selectedCount = selected.length;
-  const neededCredits = getTotalCreditCostBundled(selected);
-  const standaloneCost = getTotalCreditCost(selected);
-  const bundleMatch = selectedCount > 1 ? getBundleMatch(selected) : null;
-  const hasSaving = neededCredits < standaloneCost;
-  const runLabel = selectedCount === 1 ? "Run 1 report" : `Run ${selectedCount} reports`;
-  const showCredits = !hideCredits && !isOpenMode(accessMode);
-
-  const isOverridden = detectedLang && reportLang !== detectedLang.code;
-  const currentLabel = LANG_OPTIONS.find(l => l.code === reportLang)?.label ?? "English";
-
-  const stepLabel = math?.isGroup ? "STEP 2 OF 2" : "STEP 3 OF 3";
   const stepProg  = math?.isGroup ? 1 : 2;
   const stepTotal = math?.isGroup ? 2 : 3;
+  const showOpenNotice = !hideCredits && isOpenMode(accessMode);
+  const currentLangLabel = LANG_OPTIONS.find(l => l.code === reportLang)?.label ?? "English";
+  const detectedLabel = detectedLang?.label || LANG_OPTIONS.find(l => l.code === detectedLang?.code)?.label || "";
+  const isOverridden = detectedLang?.code && reportLang !== detectedLang.code;
+  const availableFor = (pack) => {
+    if (hideCredits || isOpenMode(accessMode)) return 1;
+    return Number.isInteger(credits) ? Math.floor(credits / pack.cost) : 0;
+  };
 
   return (
-    <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start">
-      <ScreenHeader back={onBack} title="Report Type" />
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
-        {math?.totalMessages?.toLocaleString()} {t("messages")} · {math?.names?.slice(0,3).join(", ") || ""}{(math?.names?.length||0)>3?` +${math.names.length-3}`:""}
-      </div>
+    <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start" hidePill>
+      <div style={{
+        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
+        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+        padding:"52px 20px 56px",
+        minHeight:0,
+      }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button
+              type="button"
+              onClick={onBack}
+              className="wc-btn"
+              aria-label="Back"
+              style={{ width:30, height:30, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.48)", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}
+            >
+              <BackIcon size={12} />
+            </button>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase", color:"rgba(255,255,255,0.30)" }}>
+              analysis
+            </div>
+          </div>
+        </div>
 
-      {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
-      {isOpenMode(accessMode) && !hideCredits && (
-        <div style={{ fontSize:12, color:"rgba(176,244,200,0.9)", background:"rgba(20,160,80,0.12)", border:"1px solid rgba(20,160,80,0.24)", borderRadius:14, padding:"8px 14px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
-          Open testing is active — reports will not use credits.
-        </div>
-      )}
-      {math?.cappedGroup && (
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", background:"rgba(255,255,255,0.08)", borderRadius:14, padding:"8px 14px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
-          {t("Large group detected — analysing the top {cap} members out of {count}.", { cap: GROUP_PARTICIPANT_CAP, count: math.originalParticipantCount })}
-        </div>
-      )}
+	        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:30, fontWeight:900, color:"#fff", letterSpacing:"-0.025em", lineHeight:1.05, marginBottom:24 }}>
+	          Pick your read.
+	        </div>
 
-      {/* ── Bundle quick-select ── */}
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase", color:DA.faint }}>
-          Bundles
-        </div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          {Object.values(BUNDLES).map(bundle => {
-            const active = bundleMatch?.id === bundle.id;
+	        <div style={{ width:"100%", marginBottom:14 }}>
+	          <button
+	            type="button"
+	            onClick={() => setLangOpen(open => !open)}
+	            className="wc-btn"
+	            style={{
+	              width:"100%",
+	              display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
+	              background:"rgba(255,255,255,0.055)",
+	              border:"1px solid rgba(255,255,255,0.10)",
+	              borderRadius:16,
+	              padding:"11px 14px",
+	              color:"#fff",
+	              cursor:"pointer",
+	            }}
+	          >
+	            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:3, minWidth:0 }}>
+	              <div style={{ fontSize:10, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.28)" }}>Report language</div>
+	              <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+	                <span style={{ fontSize:13, fontWeight:800, color:"#fff" }}>{currentLangLabel}</span>
+	                {detectedLabel && !isOverridden && <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.30)" }}>auto</span>}
+	                {isOverridden && <span style={{ fontSize:10, fontWeight:800, letterSpacing:"0.06em", textTransform:"uppercase", color:"#A08AF0" }}>changed</span>}
+	              </div>
+	            </div>
+	            <span style={{ fontSize:12, color:"rgba(255,255,255,0.42)", transform:langOpen ? "rotate(180deg)" : "none", transition:"transform 0.2s" }}>▾</span>
+	          </button>
+	          {langOpen && (
+	            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+	              {LANG_OPTIONS.map(opt => {
+	                const active = reportLang === opt.code;
+	                return (
+	                  <button
+	                    key={opt.code}
+	                    type="button"
+	                    onClick={() => { onLangChange(opt.code); setLangOpen(false); }}
+	                    className="wc-btn"
+	                    style={{
+	                      border:`1px solid ${active ? "rgba(160,138,240,0.55)" : "rgba(255,255,255,0.12)"}`,
+	                      borderRadius:999,
+	                      padding:"7px 13px",
+	                      fontSize:12,
+	                      fontWeight:active ? 800 : 700,
+	                      cursor:"pointer",
+	                      background:active ? "rgba(160,138,240,0.18)" : "rgba(255,255,255,0.06)",
+	                      color:active ? "#fff" : "rgba(255,255,255,0.58)",
+	                    }}
+	                  >
+	                    {opt.label}
+	                  </button>
+	                );
+	              })}
+	            </div>
+	          )}
+	        </div>
+
+	        {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", marginBottom:10 }}>{error}</div>}
+        {showOpenNotice && (
+          <div style={{ fontSize:12, color:"rgba(176,244,200,0.9)", background:"rgba(20,160,80,0.12)", border:"1px solid rgba(20,160,80,0.24)", borderRadius:14, padding:"8px 14px", width:"100%", textAlign:"center", lineHeight:1.6, marginBottom:10 }}>
+            Open testing is active — analyses will not use credits.
+          </div>
+        )}
+
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {PACK_ORDER.map(id => {
+            const pack = PACK_DEFS[id];
+            const open = openPack === id;
+            const left = availableFor(pack);
+            const locked = left <= 0;
             return (
-              <button
-                key={bundle.id}
-                type="button"
-                onClick={() => onBundle(active ? [] : bundle.reports)}
+              <div
+                key={id}
+                onClick={() => setOpenPack(current => current === id ? null : id)}
                 className="wc-btn"
                 style={{
-                  flex:"1 1 auto",
-                  background: active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)",
-                  border: active ? "1.5px solid rgba(255,255,255,0.32)" : "1px solid rgba(255,255,255,0.10)",
-                  borderRadius: 999,
-                  padding: "7px 13px",
-                  color: active ? "#fff" : "rgba(255,255,255,0.52)",
-                  fontSize: 12, fontWeight: 700,
-                  cursor: "pointer", transition: "all 0.15s",
-                  whiteSpace: "nowrap",
+                  borderRadius:22,
+                  overflow:"hidden",
+                  cursor:"pointer",
+                  transition:"transform 0.18s cubic-bezier(0.2,0,0.1,1)",
+                  background:pack.bg,
+                  border:`1.5px solid ${id === "vibe" ? "rgba(160,138,240,0.30)" : id === "rf" ? "rgba(224,64,64,0.28)" : id === "full" ? "rgba(196,176,255,0.28)" : "rgba(58,240,192,0.25)"}`,
                 }}
               >
-                {bundle.label}
-                {showCredits && <span style={{ opacity: active ? 0.65 : 0.45 }}> · {bundle.cost} cr</span>}
-              </button>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:open ? "16px 18px 12px" : "16px 18px", transition:"padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                    <PackSwatch pack={pack} />
+                    <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em" }}>{pack.name}</div>
+                      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.02em", color:locked ? "rgba(255,255,255,0.25)" : pack.accent }}>{left} left</div>
+                    </div>
+                  </div>
+                  <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                    ▾
+                  </div>
+                </div>
+                <div style={{ maxHeight:open ? 300 : 0, overflow:"hidden", opacity:open ? 1 : 0, padding:open ? "0 18px 18px" : "0 18px", transition:"max-height 0.35s cubic-bezier(0.2,0,0.1,1), opacity 0.22s ease, padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55, marginBottom:14 }}>
+                    {pack.desc}
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
+                    {pack.tags.map(tag => (
+                      <span key={tag} style={{ background:"rgba(255,255,255,0.08)", borderRadius:999, padding:"4px 11px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.55)" }}>{tag}</span>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:locked ? 13 : 13, fontWeight:700, color:locked ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.38)" }}>
+                      {locked ? "0 left" : <><strong style={{ fontSize:20, fontWeight:900, color:"#fff", marginRight:4 }}>{left}</strong> left</>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (locked) onOpenPayment(id);
+                        else onRunPack(pack);
+                      }}
+                      className="wc-btn"
+                      style={{
+                        borderRadius:999,
+                        padding:"10px 22px",
+                        fontSize:14,
+                        fontWeight:700,
+                        fontFamily:"'Nunito Sans',sans-serif",
+                        cursor:"pointer",
+                        border:locked ? "1.5px solid rgba(255,255,255,0.12)" : "none",
+                        background:locked ? "rgba(255,255,255,0.10)" : pack.accent,
+                        color:locked ? "rgba(255,255,255,0.40)" : pack.fg,
+                      }}
+                    >
+                      {locked ? "Unlock" : "Run"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>
-      </div>
 
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
-        {REPORT_TYPES.filter(r => r.id !== "trial_report").map((r) => {
-          const pal = PAL[r.palette] || PAL.upload;
-          const active = selected.includes(r.id);
-          const reportCost = getReportCreditCost(r.id);
-          return (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => onToggle(r.id)}
-              className="wc-btn"
-              style={{
-                display:"flex", alignItems:"center", gap:14,
-                background: active ? `${pal.accent}14` : "rgba(255,255,255,0.04)",
-                border: active ? `1.5px solid ${pal.accent}` : "1px solid rgba(255,255,255,0.10)",
-                borderRadius:20, padding:"14px 16px",
-                textAlign:"left", color:"#fff", cursor:"pointer",
-                width:"100%", transition:"all 0.18s",
-              }}
-            >
-              {/* colour swatch */}
-              <div style={{
-                width:44, height:44, borderRadius:14, flexShrink:0,
-                background: active ? pal.inner : `${pal.inner}80`,
-                border:`1px solid ${pal.accent}40`,
-                transform:"rotate(-8deg)",
-                transition:"background 0.18s",
-              }} />
-              {/* text */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:3 }}>
-                  <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3,
-                    color: active ? "#fff" : "rgba(255,255,255,0.85)" }}>
-                    {t(r.label)}
-                  </div>
-                  {showCredits && (
-                    <div style={{ fontSize:11, fontWeight:800, color:active ? pal.accent : "rgba(255,255,255,0.42)", whiteSpace:"nowrap" }}>
-                      {reportCost} cr
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontSize:12, lineHeight:1.5, color:"rgba(255,255,255,0.50)" }}>
-                  {t(r.desc)}
-                </div>
-              </div>
-              {/* checkbox */}
-              <div style={{
-                width:22, height:22, borderRadius:"50%", flexShrink:0,
-                border: active ? "none" : `1.5px solid rgba(255,255,255,0.22)`,
-                background: active ? pal.accent : "transparent",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:12, fontWeight:900,
-                color: active ? pal.bg : "transparent",
-                transition:"all 0.18s",
-              }}>
-                {active ? "✓" : ""}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* summary + cta */}
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
-        {selectedCount > 0 && (
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:600 }}>
-            {bundleMatch
-              ? <span style={{ color:"rgba(255,255,255,0.78)" }}>{bundleMatch.label}</span>
-              : <>{selectedCount} {selectedCount === 1 ? t("report") : t("reports")}</>
-            }
-            {showCredits && selectedCount > 0 && (<>
-              {" · "}
-              {hasSaving && <span style={{ textDecoration:"line-through", opacity:0.45 }}>{standaloneCost}</span>}
-              {hasSaving && " "}
-              <span style={hasSaving ? { color:"rgba(255,255,255,0.78)" } : {}}>
-                {neededCredits} {t("cr")}
-              </span>
-              {Number.isInteger(credits) && <span> · {credits} {t("available")}</span>}
-            </>)}
-            {selectedCount > 1 ? ` · ${t("saved separately")}` : ""}
-          </div>
-        )}
-        <PrimaryButton
-          onClick={onRun}
-          disabled={selectedCount === 0}
-          color={selectedCount === 0 ? "rgba(255,255,255,0.10)" : DA.teal}
-          textColor={selectedCount === 0 ? "rgba(255,255,255,0.30)" : DA.bg}
-        >
-          {runLabel}
-        </PrimaryButton>
-      </div>
-
-      {/* ── Language selector ── */}
-      <div style={{ width:"100%", marginTop:4 }}>
+        <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"18px 0" }} />
         <button
           type="button"
-          onClick={() => setLangOpen(v => !v)}
+          onClick={() => onOpenPayment(null)}
           className="wc-btn"
-          style={{
-            width:"100%", background:"rgba(255,255,255,0.06)",
-            border:"1px solid rgba(255,255,255,0.10)", borderRadius:14,
-            padding:"10px 16px", color:"#fff", cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"space-between",
-            transition:"all 0.15s",
-          }}
+          style={{ width:"100%", padding:14, borderRadius:999, background:"transparent", border:"1.5px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.48)", fontSize:14, fontWeight:600, fontFamily:"'Nunito Sans',sans-serif", cursor:"pointer", textAlign:"center" }}
         >
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)", fontWeight:600 }}>{t("Report language")}</span>
-            <span style={{ fontSize:13, fontWeight:700, color:"#fff" }}>{t(currentLabel)}</span>
-            {!isOverridden && detectedLang && (
-              <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{t("auto")}</span>
-            )}
-            {isOverridden && (
-              <span style={{ fontSize:10, color:PAL.upload.accent, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{t("changed")}</span>
-            )}
-          </div>
-          <span style={{ fontSize:11, color:"rgba(255,255,255,0.35)", transform: langOpen ? "rotate(180deg)" : "none", transition:"transform 0.2s" }}>▾</span>
+          Get more analyses
         </button>
-
-        {langOpen && (
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8, padding:"4px 0" }}>
-            {LANG_OPTIONS.map(opt => {
-              const active = reportLang === opt.code;
-              return (
-                <button
-                  key={opt.code}
-                  type="button"
-                  onClick={() => { onLangChange(opt.code); setLangOpen(false); }}
-                  className="wc-btn"
-                  style={{
-                    border: `1px solid ${active ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.12)"}`,
-                    borderRadius: 999,
-                    padding: "7px 14px",
-                    fontSize: 13,
-                    fontWeight: active ? 800 : 600,
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                    background: active ? PAL.upload.inner : "rgba(255,255,255,0.07)",
-                    color: "#fff",
-                  }}
-                >
-                  {t(opt.label)}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
-
-      <AiDebugPanel
-        enabled={showDebugPanel}
-        title="Admin AI debug"
-        description="Inspect the connection, growth, and risk request bundles and fetch the untouched model reply for the compact connection or risk families before any parsing touches it."
-        jsonText={debugJson}
-        onExport={onDebugExport}
-        onCopy={onDebugCopy}
-        onDownload={onDebugDownload}
-        rawText={debugRawText}
-        rawLabel={debugRawLabel}
-        rawBusy={debugRawBusy}
-        rawPrimaryLabel="Run Connection Raw"
-        rawSecondaryLabel="Run Risk Raw"
-        onRunRawCoreA={onDebugRunRawCoreA}
-        onRunRawCoreB={onDebugRunRawCoreB}
-        onCopyRaw={onDebugCopyRaw}
-        onDownloadRaw={onDebugDownloadRaw}
-      />
     </Shell>
   );
 }
 
-function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", accessMode = "credits" }) {
+function PaymentScreen({ preselect = null, onBack, onPaymentComingSoon }) {
+  const initial = () => {
+    const next = {};
+    PACK_ORDER.forEach(id => { next[id] = id === preselect; });
+    return next;
+  };
+  const [selected, setSelected] = useState(initial);
+
+  useEffect(() => {
+    const next = {};
+    PACK_ORDER.forEach(id => { next[id] = id === preselect; });
+    setSelected(next);
+  }, [preselect]);
+
+  const keys = PACK_ORDER.filter(id => selected[id]);
+  const total = keys.reduce((sum, id) => sum + PACK_DEFS[id].price, 0);
+  const dominant = keys.includes("full") ? "full" : keys.includes("vibe") ? "vibe" : keys.includes("rf") ? "rf" : keys[0];
+  const dominantPack = dominant ? PACK_DEFS[dominant] : null;
+  const nudge = selected.vibe && selected.full
+    ? <>Vibe Pack is included in Full Read. <strong style={{ color:"#B094F8", fontWeight:700 }}>Remove Vibe Pack</strong> to avoid paying twice.</>
+    : selected.rf && selected.full
+      ? <>Red Flags is included in Full Read. <strong style={{ color:"#B094F8", fontWeight:700 }}>Remove Red Flags</strong> to avoid paying twice.</>
+      : selected.vibe && selected.rf && !selected.full
+        ? <><strong style={{ color:"#B094F8", fontWeight:700 }}>Vibe + Red Flags</strong> together? Consider adding Growth for just €1.49 more — you'd have the full picture.</>
+        : null;
+
+  const toggle = (id) => setSelected(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const pay = () => {
+    if (!keys.length) return;
+    console.log("Payment coming soon", { packs: keys, total: Number(total.toFixed(2)) });
+    onPaymentComingSoon?.();
+  };
+
+  return (
+    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
+      <button
+        type="button"
+        onClick={onBack}
+        className="wc-btn"
+        aria-label="Close"
+        style={{ position:"absolute", top:"calc(14px + env(safe-area-inset-top, 0px))", right:16, zIndex:12, width:30, height:30, background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.45)", fontSize:14, padding:0 }}
+      >
+        ✕
+      </button>
+      <div style={{
+        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
+        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+        padding:"52px 20px 56px",
+        minHeight:0,
+      }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase", color:"rgba(255,255,255,0.30)", marginBottom:8 }}>get more analyses</div>
+        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:28, fontWeight:900, color:"#fff", letterSpacing:"-0.025em", lineHeight:1.05, marginBottom:6 }}>What do you want to unlock?</div>
+        <div style={{ fontSize:14, color:"rgba(255,255,255,0.42)", lineHeight:1.5, marginBottom:28 }}>Pick one or more. Use them on any chat, any time.</div>
+
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.22)", marginBottom:10 }}>choose your packs</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
+          {PACK_ORDER.map(id => {
+            const pack = PACK_DEFS[id];
+            const active = !!selected[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => toggle(id)}
+                className="wc-btn"
+                style={{
+                  borderRadius:20,
+                  padding:"14px 16px",
+                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
+                  cursor:"pointer",
+                  border:`1.5px solid ${active ? pack.paymentSelectedBorder : "rgba(255,255,255,0.07)"}`,
+                  background:active ? pack.paymentSelectedBg : "rgba(255,255,255,0.04)",
+                  color:"#fff",
+                  textAlign:"left",
+                }}
+              >
+                <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+                  <PackSwatch pack={pack} />
+                  <div style={{ display:"flex", flexDirection:"column", gap:3, minWidth:0 }}>
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:15, fontWeight:900, color:"#fff", letterSpacing:"-0.01em" }}>{pack.name}</div>
+                    <div style={{ fontSize:11, fontWeight:600, color:active ? `${pack.accent}B3` : "rgba(255,255,255,0.35)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {id === "vibe" ? "General Wrapped · Love Language · Energy" : id === "rf" ? "Toxicity · Accountability" : id === "full" ? "All 6 reports · Vibe + Red Flags + Growth" : "Standalone · temporal analysis"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+                  <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:active ? pack.accent : "rgba(255,255,255,0.35)" }}>€{pack.price.toFixed(2)}</div>
+                  <div style={{ width:22, height:22, borderRadius:"50%", border:`1.5px solid ${active ? pack.accent : "rgba(255,255,255,0.16)"}`, background:active ? pack.accent : "transparent", color:active ? pack.fg : "transparent", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, flexShrink:0 }}>✓</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ background:"rgba(160,138,240,0.07)", border:"1px solid rgba(160,138,240,0.18)", borderRadius:14, padding:"11px 14px", display:"flex", alignItems:"flex-start", gap:10, marginBottom:16, opacity:nudge ? 1 : 0, pointerEvents:nudge ? "auto" : "none", transition:"opacity 0.22s", minHeight:42 }}>
+          <div style={{ fontSize:14, flexShrink:0, marginTop:1 }}>↗</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.52)", lineHeight:1.5 }}>{nudge}</div>
+        </div>
+
+        <div style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, padding:"16px 18px", marginBottom:14 }}>
+          <div>
+            {keys.length === 0 ? (
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 0" }}>
+                <div style={{ color:"rgba(255,255,255,0.20)", fontSize:13 }}>Nothing selected yet</div>
+              </div>
+            ) : keys.map(id => {
+              const pack = PACK_DEFS[id];
+              return (
+                <div key={id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 0" }}>
+                  <div style={{ fontSize:13, color:`${pack.accent}CC`, fontWeight:600 }}>{pack.name}</div>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.65)", fontWeight:700 }}>€{pack.price.toFixed(2)}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"10px 0" }} />
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 0" }}>
+            <div style={{ fontSize:15, color:"#fff", fontWeight:700 }}>Total</div>
+            <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:28, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>€{total.toFixed(2)}</div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={pay}
+          disabled={!keys.length}
+          className="wc-btn"
+          style={{ width:"100%", padding:17, borderRadius:999, border:"none", fontSize:16, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:keys.length ? "pointer" : "default", marginBottom:12, background:dominantPack ? dominantPack.accent : "rgba(255,255,255,0.10)", color:dominantPack ? dominantPack.fg : "rgba(255,255,255,0.28)" }}
+        >
+          {keys.length === 0 ? "Select a pack to continue" : keys.length === 1 ? `Pay €${total.toFixed(2)}` : `Pay €${total.toFixed(2)} · ${keys.length} packs`}
+        </button>
+
+        <div style={{ textAlign:"center", fontSize:12, color:"rgba(255,255,255,0.20)", lineHeight:1.6 }}>
+          <strong style={{ color:"rgba(255,255,255,0.38)", fontWeight:600 }}>One-time purchase.</strong> No subscription, no renewal.<br/>Analyses never expire — use them on any chat.
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+function resultPreviewFields(row) {
+  const displayLang = getStoredResultDisplayLanguage(row?.result_data);
+  const ai = getDisplayResultData(row?.result_data, displayLang);
+  const math = row?.math_data || {};
+  const control = (value) => translateControlValue(displayLang, value) || value;
+  switch (row?.report_type) {
+    case "general": {
+      const score = math.bondScore ?? math.connectionScore ?? math.chatScore ?? null;
+      return {
+        stat: score != null ? String(score) : `${Math.min(10, Math.max(1, Math.round(((math.streak || 0) / 30) + 6)))}`,
+        label: "bond score",
+        insight: ai?.vibeOneLiner || ai?.relationshipSummary || ai?.groupDynamic || ai?.takeaway || "Your full chat read is ready.",
+        title: "Your Chat, Unwrapped",
+      };
+    }
+    case "lovelang": {
+      const lang = control(ai?.personA?.language || ai?.personB?.language || "");
+      return {
+        stat: lang ? String(lang).split(/\s+/)[0] : "—",
+        label: "primary",
+        insight: ai?.compatibilityRead || ai?.personA?.examples || ai?.mismatch || "Your love language read is ready.",
+        title: "How You Show Up",
+      };
+    }
+    case "energy": {
+      const scores = [ai?.personA?.netScore, ai?.personB?.netScore].map(Number).filter(Number.isFinite);
+      const avg = scores.length ? Math.round((scores.reduce((sum, n) => sum + n, 0) / scores.length) * 10) : null;
+      return {
+        stat: avg != null ? `${avg}%` : "—",
+        label: "positive",
+        insight: ai?.compatibility || ai?.personA?.goodNews || ai?.mostEnergising || "Your energy read is ready.",
+        title: "The Energy Between You",
+      };
+    }
+    case "toxicity":
+      return {
+        stat: ai?.chatHealthScore != null ? `${ai.chatHealthScore}/10` : (chatHealthLabel(ai?.chatHealthScore) || math.toxicityLevel || "—"),
+        label: "health",
+        insight: ai?.verdict || ai?.conflictPattern || "Your red flags read is ready.",
+        title: "What Feels Off",
+      };
+    case "accounta": {
+      const a = ai?.personA;
+      const b = ai?.personB;
+      const lead = [a, b].filter(Boolean).sort((left, right) => (Number(right?.score) || 0) - (Number(left?.score) || 0))[0];
+      return {
+        stat: lead?.name ? shortDisplayName(lead.name) : `${a?.kept || 0}/${b?.kept || 0}`,
+        label: "steady",
+        insight: ai?.overallVerdict || lead?.detail || ai?.followThroughPattern || "Your accountability read is ready.",
+        title: "Promises & Follow-Through",
+      };
+    }
+    case "growth":
+      return {
+        stat: control(ai?.trajectory) || "—",
+        label: "trajectory",
+        insight: ai?.arcSummary || ai?.trajectoryDetail || "Your growth read is ready.",
+        title: "The Arc",
+      };
+    default:
+      return { stat:"—", label:"read", insight:"Your report is ready.", title:reportTypeMeta(row?.report_type).label };
+  }
+}
+
+function shortDisplayName(name) {
+  return String(name || "—").trim().split(/\s+/)[0] || "—";
+}
+
+function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
+  const orderedRows = [...(rows || [])].sort((a, b) => {
+    const ai = pack.reports.indexOf(a.report_type);
+    const bi = pack.reports.indexOf(b.report_type);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  const runDate = orderedRows[0]?.created_at;
+  const daysAgo = (() => {
+    const diff = Math.floor((new Date() - new Date(runDate)) / 864e5);
+    if (!Number.isFinite(diff) || diff <= 0) return "today";
+    if (diff === 1) return "1 day ago";
+    return `${diff} days ago`;
+  })();
+
+  return (
+    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
+      <button type="button" onClick={onClose} className="wc-btn" aria-label="Close" style={{ position:"absolute", top:"calc(14px + env(safe-area-inset-top, 0px))", right:16, zIndex:12, width:30, height:30, background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.45)", fontSize:14, padding:0 }}>✕</button>
+      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"52px 20px 48px", minHeight:0 }}>
+        <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${pack.accent}1F`, border:`1px solid ${pack.accent}4D`, borderRadius:999, padding:"5px 13px", width:"fit-content", marginBottom:24 }}>
+          <PackSwatch pack={pack} size={14} inset={3} />
+          <span style={{ fontSize:11, fontWeight:700, color:pack.accent, letterSpacing:"0.06em", textTransform:"uppercase" }}>{pack.name}</span>
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {orderedRows.map(row => {
+            const rt = reportTypeMeta(row.report_type);
+            const pal = PAL[rt.palette] || PAL.upload;
+            const style = REPORT_BUFFER_STYLE[row.report_type] || REPORT_BUFFER_STYLE.general;
+            const preview = resultPreviewFields(row);
+            return (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => onOpenReport(row)}
+                className="wc-btn"
+                style={{ borderRadius:24, padding:20, cursor:"pointer", position:"relative", overflow:"hidden", display:"flex", flexDirection:"column", background:style.bg, border:`1.5px solid ${style.border}`, color:"#fff", textAlign:"left" }}
+              >
+                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+                    <SwatchIcon inner={pal.inner} accent={pal.accent} />
+                    <div style={{ display:"flex", flexDirection:"column", gap:4, minWidth:0 }}>
+                      <div style={{ borderRadius:999, padding:"3px 10px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", width:"fit-content", background:style.pillBg, color:pal.accent, border:`1px solid ${style.pillBorder}` }}>
+                        {rt.label}
+                      </div>
+                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:18, fontWeight:900, color:"#fff", letterSpacing:"-0.02em", lineHeight:1.1 }}>
+                        {preview.title}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.12)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.40)", fontSize:14, marginTop:2 }}>›</div>
+                </div>
+                <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:14 }} />
+                <div style={{ display:"flex", alignItems:"stretch", gap:12 }}>
+                  <div style={{ display:"flex", flexDirection:"column", flexShrink:0, minWidth:52 }}>
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, letterSpacing:"-0.03em", lineHeight:1, color:pal.accent }}>{preview.stat}</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.32)", letterSpacing:"0.06em", textTransform:"uppercase", marginTop:3 }}>{preview.label}</div>
+                  </div>
+                  <div style={{ width:1, background:"rgba(255,255,255,0.08)", alignSelf:"stretch" }} />
+                  <div style={{ fontSize:13, fontWeight:500, fontStyle:"italic", color:"rgba(255,255,255,0.65)", lineHeight:1.55, flex:1 }}>
+                    "{cleanQuote(preview.insight, 120)}"
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop:24, textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.20)", lineHeight:1.6, letterSpacing:"0.02em" }}>
+          {orderedRows.length} reports · {pack.name} · run {daysAgo}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", accessMode = "credits", onOpenPayment = () => {} }) {
   const t = useT();
-  const required  = info?.requiredCredits ?? 0;
-  const available = Number.isInteger(info?.availableCredits) ? info.availableCredits : credits;
   const mode      = info?.accessMode || accessMode;
-  const p         = PAL.upload;
 
   const isPayments = mode === "payments";
   const isTester   = userRole === "tester";
@@ -9953,23 +10351,42 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <ScreenHeader back={onBack} backLabel="Back to reports" title={isPayments ? "Go deeper" : "More credits needed"} />
 
-      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
-          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:4 }}>{t("Available")}</div>
-          <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{Number.isInteger(available) ? available : "—"}</div>
-        </div>
-        <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px", textAlign:"center" }}>
-          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:4 }}>{t("Required")}</div>
-          <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{required}</div>
-        </div>
-      </div>
-
       {isPayments && !isTester ? (
         <>
-          <Sub mt={2}>{t("Go deeper with the chat. Pick a credit pack to unlock full reports.")}</Sub>
-          <PricingCostOverview accent={p.accent} />
-          <CreditPackGrid accent={p.accent} />
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.38)", textAlign:"center" }}>{t("Payment integration coming soon.")}</div>
+          <Sub mt={2}>{t("Go deeper with the chat. Pick a pack to unlock full reports.")}</Sub>
+          <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
+            {PACK_ORDER.map(id => {
+              const pack = PACK_DEFS[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onOpenPayment(id)}
+                  className="wc-btn"
+                  style={{
+                    display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
+                    background:"rgba(255,255,255,0.05)",
+                    border:"1px solid rgba(255,255,255,0.10)",
+                    borderRadius:18,
+                    padding:"12px 14px",
+                    color:"#fff",
+                    textAlign:"left",
+                    cursor:"pointer",
+                  }}
+                >
+                  <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+                    <PackSwatch pack={pack} />
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:900, color:"#fff" }}>{pack.name}</div>
+                      <div style={{ fontSize:11, color:"rgba(255,255,255,0.42)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{pack.tags.join(" · ")}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:900, color:pack.accent, flexShrink:0 }}>€{pack.price.toFixed(2)}</div>
+                </button>
+              );
+            })}
+          </div>
+          <GhostButton onClick={() => onOpenPayment(null)}>Get more analyses</GhostButton>
         </>
       ) : isTester ? (
         <Sub mt={2}>{t("You're in beta testing mode — credits are managed by the admin. Reach out to get more.")}</Sub>
@@ -11414,6 +11831,134 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     return Array.from(nameMap.values()).sort((a, b) => b.latestDate - a.latestDate);
   })();
 
+  const reportLabelFor = (type) => REPORT_TYPES.find(rt => rt.id === type)?.label || type;
+
+  const packReportLabels = (pack, itemRows) => {
+    const types = pack?.reports?.length ? pack.reports : itemRows.map(row => row.report_type);
+    return [...new Set(types)].map(reportLabelFor).join(" · ");
+  };
+
+  const BundleMiniSwatch = ({ pack }) => {
+    const gridByPack = {
+      vibe: ["general", "lovelang", "energy", "general"],
+      rf: ["toxicity", "accounta", null, null],
+      full: ["general", "lovelang", "toxicity", "growth"],
+    };
+    if (pack?.id === "growth") return <PackSwatch pack={pack} />;
+    const grid = gridByPack[pack?.id] || (pack?.reports || []).slice(0, 4);
+    return (
+      <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box", borderRadius:13, background:"rgba(255,255,255,0.035)", border:"1px solid rgba(255,255,255,0.08)" }}>
+        {[0, 1, 2, 3].map(i => {
+          const type = grid[i];
+          if (!type) return <div key={i} style={{ borderRadius:4, background:"rgba(255,255,255,0.035)", border:"1px solid rgba(255,255,255,0.06)" }} />;
+          const rpal = REPORT_BUFFER_STYLE[type] || PAL.upload;
+          return <div key={i} style={{ borderRadius:4, background:rpal.inner || rpal.bg, border:`1px solid ${rpal.accent}99` }} />;
+        })}
+      </div>
+    );
+  };
+
+  const renderPackResultCard = (item) => {
+    const itemRows = item.type === "bundle" ? item.rows : [item.row];
+    const firstRow = itemRows[0];
+    const pack = item.type === "bundle"
+      ? (packForSavedRows(itemRows) || PACK_DEFS.full)
+      : (firstRow?.report_type === "growth" ? PACK_DEFS.growth : null);
+    const rt = firstRow ? REPORT_TYPES.find(r => r.id === firstRow.report_type) : null;
+    const fallbackPal = PAL[rt?.palette] || PAL.upload;
+    const cardBg = pack?.listBg || pack?.cardBg || fallbackPal.bg;
+    const cardAccent = pack?.listAccent || pack?.accent || fallbackPal.accent;
+    const key = item.type === "bundle" ? item.bundleId : firstRow.id;
+    const label = pack ? "Pack" : "Report";
+    const title = pack?.name || rt?.label || firstRow.report_type;
+    const subline = pack ? packReportLabels(pack, itemRows) : rowNames(firstRow);
+    const dateLabel = formatDate(item.created_at);
+    const isDeleting = item.type === "bundle" ? deletingBundle === item.bundleId : deletingId === firstRow.id;
+    const isConfirming = item.type === "bundle" ? confirmBundle === item.bundleId : confirmId === firstRow.id;
+    const onOpen = () => {
+      if (editing || isDeleting || isConfirming) return;
+      if (pack?.id === "growth" || item.type === "single") onRestoreResult(firstRow);
+      else setBundleView(item.bundleId);
+    };
+
+    return (
+      <div key={key}
+        onClick={onOpen}
+        style={{
+          display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
+          background:cardBg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${cardAccent}47`}`,
+          borderRadius:20, padding:"16px 18px",
+          color:"#fff", width:"100%", position:"relative",
+          textAlign:"left", transition:"border-color 0.18s",
+          cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
+        }}
+      >
+        <div style={{
+          display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+          opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
+          transform: editing ? "translateX(-6px)" : "translateX(0)",
+          transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+          pointerEvents:"none",
+        }}>
+          {pack ? (
+            <BundleMiniSwatch pack={pack} />
+          ) : (
+            <SwatchIcon inner={fallbackPal.inner} accent={fallbackPal.accent} outerBg={`${fallbackPal.inner}50`} outerBorder={`${fallbackPal.accent}35`} innerBorder={`${fallbackPal.accent}70`} />
+          )}
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", color:cardAccent, marginBottom:5 }}>
+              {label}
+            </div>
+            <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {title}
+            </div>
+            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.40)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {subline}
+            </div>
+            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4 }}>
+              {dateLabel}
+            </div>
+          </div>
+        </div>
+        <div style={{
+          fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+          overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
+          opacity: editing || isDeleting || isConfirming ? 0 : 1,
+          transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+          pointerEvents:"none",
+        }}>›</div>
+        <button type="button" onClick={(e) => { e.stopPropagation(); item.type === "bundle" ? setConfirmBundle(item.bundleId) : setConfirmId(firstRow.id); }} className="wc-btn"
+          style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
+            background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
+            color:"#fff", fontSize:14, fontWeight:800,
+            display:"flex", alignItems:"center", justifyContent:"center", padding:0,
+            opacity: editing && !isDeleting && !isConfirming ? 1 : 0,
+            transition:"opacity 0.2s",
+            pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
+            cursor:"pointer" }}
+          aria-label={item.type === "bundle" ? "Delete pack" : "Delete result"}>×</button>
+        {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
+        {isConfirming && !isDeleting && (
+          <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
+            alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
+            background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
+            <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>
+              {item.type === "bundle" ? `Delete all ${itemRows.length} reports?` : "Delete this result?"}
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button type="button" onClick={(e) => { e.stopPropagation(); item.type === "bundle" ? handleDeleteBundle(item.bundleId, itemRows) : handleDelete(firstRow.id); }} className="wc-btn"
+                style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>
+                {item.type === "bundle" ? "Delete all" : "Delete"}
+              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); item.type === "bundle" ? setConfirmBundle(null) : setConfirmId(null); }} className="wc-btn"
+                style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ── Bundle detail view ──
   if (bundleView) {
     if (rows === null) {
@@ -11426,141 +11971,18 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       );
     }
     const bRows = rows.filter(r => r.math_data?.bundle_id === bundleView);
-    const bNames = bRows.length ? rowNames(bRows[0]) : "—";
-    const bDate  = bRows.length ? formatDate(bRows[0].created_at) : "";
-    const bundleDetailContent = (
-      <div style={{
-        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-        ...(drawerMode ? {} : { margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))" }),
-        position:"relative",
-      }}>
-          {/* Fixed header */}
-          <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
-            <ScreenHeader
-              back={() => { exitEditing(); setBundleView(null); }}
-              titleNode={bNames}
-            />
-            <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
-              {bDate} · {bRows.length} report{bRows.length !== 1 ? "s" : ""}
-            </div>
-          </div>
-          {/* Scrollable list */}
-          <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-            padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
-            display:"flex", flexDirection:"column", gap:10 }}>
-            {err && (
-              <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
-            )}
-            {bRows.map(row => {
-              const rt  = REPORT_TYPES.find(r => r.id === row.report_type);
-              const pal = PAL[rt?.palette] || PAL.upload;
-              const stat = headline(row);
-              const isDeleting   = deletingId === row.id;
-              const isConfirming = confirmId  === row.id;
-              const swatchEl = makeSwatchEl(pal);
-              const textEl   = (
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
-                    {rt?.label || row.report_type}
-                  </div>
-                  {stat !== "—" && (
-                    <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:2 }}>{stat}</div>
-                  )}
-                </div>
-              );
-              return (
-                <div key={row.id}
-                  onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row, { origin: "bundle", bundleId: bundleView }); }}
-                  style={{
-                    display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                    background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                    borderRadius:20, padding:"16px 18px",
-                    color:"#fff", width:"100%", position:"relative",
-                    textAlign:"left", transition:"border-color 0.18s",
-                    cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
-                  }}
-                >
-                  <div style={{
-                    display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
-                    opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
-                    transform: editing ? "translateX(-6px)" : "translateX(0)",
-                    transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
-                    pointerEvents:"none",
-                  }}>
-                    {swatchEl}{textEl}
-                  </div>
-                  <div style={{
-                    fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
-                    overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
-                    opacity: editing || isDeleting || isConfirming ? 0 : 1,
-                    transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
-                    pointerEvents:"none",
-                  }}>›</div>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(row.id); }} className="wc-btn"
-                    style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                      background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                      color:"#fff", fontSize:14, fontWeight:800,
-                      display:"flex", alignItems:"center", justifyContent:"center", padding:0,
-                      opacity: editing && !isDeleting && !isConfirming ? 1 : 0,
-                      transition:"opacity 0.2s",
-                      pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
-                      cursor:"pointer" }}
-                    aria-label="Delete result">×</button>
-                  {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
-                  {isConfirming && !isDeleting && (
-                    <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
-                      background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this report?</div>
-                      <div style={{ display:"flex", gap:8 }}>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="wc-btn"
-                          style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(null); }} className="wc-btn"
-                          style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {bRows.length > 0 && (
-            <button
-              type="button"
-              onClick={() => editing ? exitEditing() : setEditing(true)}
-              className="wc-btn"
-              aria-label={editing ? "Done editing" : "Edit bundle"}
-              style={{
-                position:"absolute",
-                bottom:"calc(20px + env(safe-area-inset-bottom, 0px))",
-                right:20,
-                width:48, height:48,
-                borderRadius:"50%",
-                background: editing ? PAL.upload.accent : "rgba(255,255,255,0.12)",
-                border:"1px solid rgba(255,255,255,0.20)",
-                color: editing ? PAL.upload.bg : "#fff",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
-                cursor:"pointer",
-                zIndex:10,
-              }}
-            >
-              {editing
-                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              }
-            </button>
-          )}
-        </div>
-    );
-    return drawerMode ? (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative" }}>
-        {bundleDetailContent}
-      </div>
-    ) : (
-      <Shell sec="upload" prog={0} total={0} contentAlign="start">
-        {bundleDetailContent}
-      </Shell>
+    const pack = packForSavedRows(bRows) || PACK_DEFS.full;
+    return (
+      <PackResultsBuffer
+        rows={bRows}
+        pack={pack}
+        onClose={() => { exitEditing(); setBundleView(null); }}
+        onOpenReport={(row) => {
+          if (!editing && deletingId !== row.id && confirmId !== row.id) {
+            onRestoreResult(row, { origin: "bundle", bundleId: bundleView });
+          }
+        }}
+      />
     );
   }
 
@@ -11773,160 +12195,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               No saved results yet.<br/>Run an analysis to see it here.
             </div>
           )}
-          {displayItems.map(item => {
-          // ── Single report card ──
-          if (item.type === "single") {
-            const row          = item.row;
-            const rt           = REPORT_TYPES.find(r => r.id === row.report_type);
-            const pal          = PAL[rt?.palette] || PAL.upload;
-            const dateLabel    = formatDate(row.created_at);
-            const stat         = headline(row);
-            const isDeleting   = deletingId === row.id;
-            const isConfirming = confirmId  === row.id;
-            const swatchEl     = makeSwatchEl(pal);
-            const textEl       = makeTextEl(pal, rt, row, dateLabel, stat);
-
-            return (
-              <div key={row.id}
-                onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row); }}
-                style={{
-                  display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                  background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
-                  borderRadius:20, padding:"16px 18px",
-                  color:"#fff", width:"100%", position:"relative",
-                  textAlign:"left", transition:"border-color 0.18s",
-                  cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
-                }}
-              >
-                <div style={{
-                  display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
-                  opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
-                  transform: editing ? "translateX(-6px)" : "translateX(0)",
-                  transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
-                  pointerEvents:"none",
-                }}>
-                  {swatchEl}{textEl}
-                </div>
-                <div style={{
-                  fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
-                  overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
-                  opacity: editing || isDeleting || isConfirming ? 0 : 1,
-                  transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
-                  pointerEvents:"none",
-                }}>›</div>
-                <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(row.id); }} className="wc-btn"
-                  style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                    background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                    color:"#fff", fontSize:14, fontWeight:800,
-                    display:"flex", alignItems:"center", justifyContent:"center", padding:0,
-                    opacity: editing && !isDeleting && !isConfirming ? 1 : 0,
-                    transition:"opacity 0.2s",
-                    pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
-                    cursor:"pointer" }}
-                  aria-label="Delete result">×</button>
-                {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
-                {isConfirming && !isDeleting && (
-                  <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                    alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
-                    background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete this result?</div>
-                    <div style={{ display:"flex", gap:8 }}>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="wc-btn"
-                        style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(null); }} className="wc-btn"
-                        style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          // ── Bundle card ──
-          const { bundleId, rows: bundleRows } = item;
-          const bNames   = rowNames(bundleRows[0]);
-          const bDate    = formatDate(item.created_at);
-          const isConfirmingBundle = confirmBundle  === bundleId;
-          const isDeletingBundle   = deletingBundle === bundleId;
-
-          const bundleSwatchEl = (
-            <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box" }}>
-              {bundleRows.slice(0, 4).map((r, i) => {
-                const rpal = PAL[REPORT_TYPES.find(rt => rt.id === r.report_type)?.palette] || PAL.upload;
-                return <div key={i} style={{ borderRadius:4, background:rpal.inner, border:`1px solid ${rpal.accent}60` }} />;
-              })}
-            </div>
-          );
-
-          const bundleTextEl = (
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:BUNDLE_PAL.accent, marginBottom:5 }}>
-                Bundle · {bDate}
-              </div>
-              <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {bNames}
-              </div>
-              <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {bundleRows.map(r => REPORT_TYPES.find(rt => rt.id === r.report_type)?.label || r.report_type).join(" · ")}
-              </div>
-            </div>
-          );
-
-          return (
-            <div key={bundleId}
-              onClick={() => { if (!editing && !isDeletingBundle && !isConfirmingBundle) setBundleView(bundleId); }}
-              style={{
-                display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                background:BUNDLE_PAL.bg, border:`1.5px solid ${isConfirmingBundle ? "rgba(220,50,50,0.55)" : `${BUNDLE_PAL.accent}35`}`,
-                borderRadius:20, padding:"16px 18px",
-                color:"#fff", width:"100%", position:"relative",
-                textAlign:"left", transition:"border-color 0.18s",
-                cursor: editing || isDeletingBundle || isConfirmingBundle ? "default" : "pointer",
-              }}
-            >
-              <div style={{
-                display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
-                opacity: isDeletingBundle || isConfirmingBundle ? 0.3 : editing ? 0.7 : 1,
-                transform: editing ? "translateX(-6px)" : "translateX(0)",
-                transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
-                pointerEvents:"none",
-              }}>
-                {bundleSwatchEl}{bundleTextEl}
-              </div>
-              <div style={{
-                fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
-                overflow:"hidden", maxWidth: editing || isDeletingBundle || isConfirmingBundle ? "0px" : "24px",
-                opacity: editing || isDeletingBundle || isConfirmingBundle ? 0 : 1,
-                transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
-                pointerEvents:"none",
-              }}>›</div>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmBundle(bundleId); }} className="wc-btn"
-                style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
-                  background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
-                  color:"#fff", fontSize:14, fontWeight:800,
-                  display:"flex", alignItems:"center", justifyContent:"center", padding:0,
-                  opacity: editing && !isDeletingBundle && !isConfirmingBundle ? 1 : 0,
-                  transition:"opacity 0.2s",
-                  pointerEvents: editing && !isDeletingBundle && !isConfirmingBundle ? "auto" : "none",
-                  cursor:"pointer" }}
-                aria-label="Delete bundle">×</button>
-              {isDeletingBundle && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
-              {isConfirmingBundle && !isDeletingBundle && (
-                <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
-                  alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
-                  background:"rgba(10,10,16,0.82)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)" }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:"#fff", textAlign:"center" }}>Delete all {bundleRows.length} reports?</div>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteBundle(bundleId, bundleRows); }} className="wc-btn"
-                      style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmBundle(null); }} className="wc-btn"
-                      style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-          })}
+          {displayItems.map(item => renderPackResultCard(item))}
         </div>
         )}
         {viewMode === "names" && (
@@ -12078,6 +12347,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [historyBundleView, setHistoryBundleView] = useState(null);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [settingsReturnTarget, setSettingsReturnTarget] = useState("upload");
+  const [sessionCompletedBundles, setSessionCompletedBundles] = useState({});
+  const [paymentPreselect, setPaymentPreselect] = useState(null);
+  const [paymentBackPhase, setPaymentBackPhase] = useState("select");
+  const [paymentToast, setPaymentToast] = useState("");
   const [shareBusy,        setShareBusy]        = useState(false);
   const [sharePicker,      setSharePicker]      = useState(false);
   const [currentResultId,  setCurrentResultId]  = useState(null);
@@ -12355,6 +12628,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setResultsOrigin("upload");
     setReportRouteState(null);
     setHistoryBundleView(null);
+    setHistoryDrawerOpen(false);
+    setSettingsReturnTarget("upload");
+    setSessionCompletedBundles({});
+    setPaymentPreselect(null);
+    setPaymentBackPhase("select");
+    setPaymentToast("");
     setShareBusy(false);
     setSharePicker(false);
     setCurrentResultId(null);
@@ -12443,6 +12722,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setCurrentResultId(null);
     setReportRouteState(null);
     setHistoryBundleView(null);
+    setSessionCompletedBundles({});
+    setPaymentPreselect(null);
+    setPaymentBackPhase("select");
+    setPaymentToast("");
     setFeedbackTarget(null); setFeedbackChoice(""); setFeedbackNote(""); setFeedbackBusy(false); setFeedbackThanks(false);
     setReportLang("en"); setDetectedLang(null);
     setUploadError("");
@@ -12469,6 +12752,31 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDebugRelType(null);
     setSelectedReportTypes([]);
     setLoadingReportIndex(0);
+    setSessionCompletedBundles({});
+  };
+
+  const openPayment = (packId = null, backPhase = "select") => {
+    setPaymentPreselect(packId);
+    setPaymentBackPhase(backPhase || "select");
+    setPaymentToast("");
+    setDir("fwd");
+    setPhase("payment");
+    setSid(s => s + 1);
+  };
+
+  const closePayment = () => {
+    const target = paymentBackPhase || upgradeInfo?.backPhase || "select";
+    setPaymentPreselect(null);
+    setPaymentToast("");
+    setAnalysisError("");
+    setDir("bk");
+    setPhase(target);
+    setSid(s => s + 1);
+  };
+
+  const showPaymentComingSoon = () => {
+    setPaymentToast("Payment coming soon");
+    window.setTimeout(() => setPaymentToast(""), 1800);
   };
 
   const continueWithDataset = (dataset, { skipMismatch = false } = {}) => {
@@ -12790,6 +13098,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           requiredCredits: access.requiredCredits,
           availableCredits,
           accessMode: activeAccessMode,
+          backPhase: "select",
         });
         setAnalysisError(access.message);
         setStep(0);
@@ -12870,6 +13179,16 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode);
 
+    const completedPack = packForReports(successfulRuns.map(run => run.type));
+    if (completedPack) {
+      setSessionCompletedBundles(prev => ({
+        ...prev,
+        [completedPack.id]: completedPack.id === "growth"
+          ? { savedId: successfulRuns[0]?.savedId || null }
+          : { savedIds: successfulRuns.map(run => run.savedId).filter(Boolean) },
+      }));
+    }
+
     if (successfulRuns.length === 1) {
       const only = successfulRuns[0];
       restoreGeneratedResult(only.type, only.result, only.savedId);
@@ -12905,6 +13224,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const onRunSelectedReports = () => {
     setAnalysisError("");
     runAnalysis(selectedReportTypes, math?.isGroup ? null : relationshipType);
+  };
+
+  const onRunPack = (pack) => {
+    if (!pack?.reports?.length) return;
+    setAnalysisError("");
+    setSelectedReportTypes(pack.reports);
+    runAnalysis(pack.reports, math?.isGroup ? null : relationshipType);
   };
 
   // Step 3 (duo only): user picks relationship type → then choose report type
@@ -13125,15 +13451,22 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setSid(s => s + 1);
       return;
     }
+    if (phase === "payment") {
+      closePayment();
+      return;
+    }
     if (phase === "settings") {
       setDir("fade");
       setHistoryBundleView(null);
       if (settingsReturnTarget === "history") {
         setPhase("history");
         setHistoryDrawerOpen(false);
+      } else if (settingsReturnTarget === "historyDrawer") {
+        setPhase("upload");
+        setHistoryDrawerOpen(true);
       } else {
         setPhase("upload");
-        setHistoryDrawerOpen(settingsReturnTarget === "historyDrawer");
+        setHistoryDrawerOpen(false);
       }
       setSettingsReturnTarget("upload");
       setSid(s => s + 1);
@@ -13441,10 +13774,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           uploadInfo={uploadInfo}
           credits={credits}
           hideCredits={authedIsAdmin}
-          accessMode={accessMode}
-          onClearError={() => setUploadError("")}
-          onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }}
-        />
+	          accessMode={accessMode}
+	          onClearError={() => setUploadError("")}
+	          onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }}
+	          onPayment={() => openPayment(null, "upload")}
+	        />
       </Slide>
       {/* My Results slide-in drawer */}
       <div style={{ position:"fixed", inset:0, zIndex:120, pointerEvents: historyDrawerOpen ? "all" : "none" }}>
@@ -13501,38 +13835,40 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       />
     </Slide>
   );
-  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} /></Slide>);
-  if (phase === "select") return (
-    withUiLanguage(<Slide dir={dir} id={sid}>
-      <ReportSelect
-        math={math}
-        onToggle={onToggleReport}
-        onBundle={onSelectBundle}
-        onRun={onRunSelectedReports}
-        onBack={navigateBack}
-        backLabel={math?.isGroup ? "Upload different file" : "Back"}
-        reportLang={reportLang}
-        detectedLang={detectedLang}
-        onLangChange={code => { setAnalysisError(""); setReportLang(code); setCoreAnalysisA(null); setCoreAnalysisAKey(""); setCoreAnalysisB(null); setCoreAnalysisBKey(""); }}
-        error={analysisError}
-        selectedTypes={selectedReportTypes}
-        credits={credits}
-        accessMode={accessMode}
-        showDebugPanel={authedIsAdmin && !!math?.isGroup}
-        debugJson={debugExportJson}
-        debugRawText={debugRawText}
-        debugRawLabel={debugRawLabel}
-        debugRawBusy={debugRawBusy}
-        onDebugExport={buildLocalAiDebugExport}
-        onDebugCopy={copyLocalAiDebugExport}
-        onDebugDownload={downloadLocalAiDebugExport}
-        onDebugRunRawCoreA={() => runRawAiDebugExport("coreA")}
-        onDebugRunRawCoreB={() => runRawAiDebugExport("coreB")}
-        onDebugCopyRaw={copyRawAiDebugExport}
-        onDebugDownloadRaw={downloadRawAiDebugExport}
-      />
-    </Slide>)
-  );
+	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, upgradeInfo?.backPhase || "select")} /></Slide>);
+	  if (phase === "payment") return withUiLanguage(
+	    <Slide dir={dir} id={sid}>
+	      <div style={{ position:"relative" }}>
+	        <PaymentScreen
+	          preselect={paymentPreselect}
+	          onBack={closePayment}
+	          onPaymentComingSoon={showPaymentComingSoon}
+	        />
+	        {paymentToast && (
+	          <div style={{ position:"fixed", left:"50%", bottom:32, transform:"translateX(-50%)", zIndex:220, background:"rgba(20,20,28,0.96)", border:"1px solid rgba(255,255,255,0.14)", color:"#fff", padding:"11px 20px", borderRadius:999, fontSize:13, fontWeight:800, letterSpacing:"0.01em", boxShadow:"0 8px 32px rgba(0,0,0,0.4)", whiteSpace:"nowrap" }}>
+	            {paymentToast}
+	          </div>
+	        )}
+	      </div>
+	    </Slide>
+	  );
+	  if (phase === "select") return (
+	    withUiLanguage(<Slide dir={dir} id={sid}>
+	      <PackSelect
+	        math={math}
+	        onRunPack={onRunPack}
+	        onBack={navigateBack}
+	        error={analysisError}
+	        reportLang={reportLang}
+	        detectedLang={detectedLang}
+	        onLangChange={code => { setAnalysisError(""); setReportLang(code); setCoreAnalysisA(null); setCoreAnalysisAKey(""); setCoreAnalysisB(null); setCoreAnalysisBKey(""); }}
+	        credits={credits}
+	        accessMode={accessMode}
+	        hideCredits={authedIsAdmin}
+	        onOpenPayment={(packId) => openPayment(packId, "select")}
+	      />
+	    </Slide>)
+	  );
   if (phase === "relationship") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
       <RelationshipSelect

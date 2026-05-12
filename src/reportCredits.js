@@ -40,19 +40,19 @@ const FAMILY_ADDON_COST = 1;
 export const BUNDLES = Object.freeze({
   connection: Object.freeze({
     id: "connection",
-    label: "Vibe Bundle",
+    label: "Vibe Pack",
     reports: Object.freeze(["general", "lovelang", "energy"]),
     cost: 4,   // vs 5 à la carte (2 + 1 + 2)
   }),
   tension: Object.freeze({
     id: "tension",
-    label: "Red Flags Bundle",
+    label: "Red Flags Pack",
     reports: Object.freeze(["toxicity", "accounta"]),
     cost: 3,   // vs 4 à la carte (2 + 2)
   }),
   full: Object.freeze({
     id: "full",
-    label: "Full Suite",
+    label: "Full Read",
     reports: Object.freeze(["general", "lovelang", "energy", "toxicity", "accounta", "growth"]),
     cost: 8,   // vs 11 à la carte
   }),
