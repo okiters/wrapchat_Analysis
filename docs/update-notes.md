@@ -8,6 +8,47 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v2.7 — Pack selection, payment screen, pack results buffer, and analysis balance dots
+**Files:** `src/App.jsx`, `src/reportCredits.js`, `docs/update-notes.md`
+
+### ReportSelect replaced with PackSelect
+The old individual-report selection screen has been replaced by a new pack-first selection screen. Users now choose from four expandable tiles: Vibe Pack, Red Flags Pack, Full Read, and Growth Report. Only one tile can be open at a time. Each tile shows a user-facing `{N} left` count calculated from the existing internal credit balance with `Math.floor(credits / packCost)`, without exposing raw credit numbers. Running a pack calls the existing analysis pipeline with that pack's report types, so Claude/API generation and Supabase schema remain unchanged.
+
+### Manual report language selection restored
+The new PackSelect screen includes a compact manual "Report language" selector again. It uses the existing `reportLang` and `detectedLang` state, shows `auto` when matching the detected language and `changed` when manually overridden, and clears cached core analysis state on change so the next run regenerates in the selected language.
+
+### Shared swatch icon system
+Added a shared `SwatchIcon` component for the new pack/payment/results surfaces. It renders the finalized two-layer icon system: outer rounded square/ring plus an inset rotated inner square. `PackSwatch`, PackSelect tiles, PaymentScreen rows, PackResultsBuffer pills/cards, and Growth pack cards reuse the same visual system.
+
+### New PaymentScreen phase
+Added `phase === "payment"` with a new PaymentScreen. Entry points now include PackSelect "Unlock", PackSelect "Get more analyses", upgrade screen pack CTAs, upgrade screen "Get more analyses", and the home balance dots plus button. `paymentPreselect` controls which pack is initially selected. The screen supports multi-select, live Euro total, overlap nudges for redundant pack combinations, dominant-accent pay button coloring, and a fallback console log + "Payment coming soon" toast when no real payment provider is wired.
+
+### Upgrade flow routes into payment
+The payments-mode upgrade screen now shows pack purchase rows instead of raw credit pack counters. Pack CTAs route to PaymentScreen with the relevant pack preselected; "Get more analyses" routes with no preselection. Back navigation from payment returns to the phase that opened it via `paymentBackPhase` / `upgradeInfo.backPhase`.
+
+### Homepage analysis balance dots
+The old numeric credit pill on the Upload screen has been replaced by a compact four-dot analysis balance indicator. Dots appear in fixed order: Vibe, Red Flags, Full Read, Growth. Each dot is colored only when the user has at least one corresponding pack available (`Math.floor(credits / packCost) >= 1`), otherwise muted. The plus button opens PaymentScreen with no preselected pack. The raw credit balance is no longer shown to users.
+
+### PackResultsBuffer for multi-report packs
+Opening a completed multi-report pack from My Results now shows a buffer page with the individual reports inside that pack. Each report card uses its report-type palette, shows a swatch, report pill, title, divider, key stat, insight quote, and tappable arrow. Tapping a card restores the existing single-report result screen using the saved row. Growth is a single-report pack and opens directly without the buffer.
+
+### My Results listing redesigned around packs
+The My Results "Results" tab now renders pack-level cards chronologically instead of individual report cards for completed pack runs. Multi-report packs show a 2×2 bundle swatch grid; Growth uses the shared single swatch. Pack cards preserve the existing edit FAB and delete confirmation flow. Tapping Vibe, Red Flags, or Full Read opens PackResultsBuffer; tapping Growth opens the Growth report directly.
+
+### Session-completed pack tracking
+Added `sessionCompletedBundles` state with the requested shape (`vibe`, `rf`, `full`, `growth`). It is cleared on new parsed uploads and populated after successful pack runs with saved result ids. This gives the session a pack-level record without changing persisted database schema.
+
+### Settings return from drawer fixed
+Back navigation from Settings now correctly restores the My Results drawer when Settings was opened from the drawer, instead of returning to Upload with the drawer closed. The `historyDrawer` return target is handled explicitly in `navigateBack()`.
+
+### Pack label updates
+Updated bundle labels in `src/reportCredits.js`: "Vibe Bundle" → "Vibe Pack", "Red Flags Bundle" → "Red Flags Pack", and "Full Suite" → "Full Read". Costs and report memberships remain unchanged.
+
+### Verification
+`npm test` passes all 12 tests. `npm run build` completes successfully. The existing Vite large chunk warning remains unchanged.
+
+---
+
 ## v2.6 — My Results UI polish + edit mode animations + animated wave backgrounds
 **Files:** `src/App.jsx`, `src/theme.jsx`
 
