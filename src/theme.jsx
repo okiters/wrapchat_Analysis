@@ -38,12 +38,14 @@ export const PAL = {
   funny:    { bg:'#4A6A04', inner:'#6E9A08', accent:'#C8F06A' },
   stats:    { bg:'#083870', inner:'#0E5AAA', accent:'#6AB4F0' },
   ai:       { bg:'#1A3060', inner:'#2A4A90', accent:'#8AACF0' },
-  upload:   { bg:'#2C1268', inner:'#4A1EA0', accent:'#A08AF0' },
-  toxicity: { bg:'#3D0A0A', inner:'#8B1A1A', accent:'#E04040' },
-  lovelang: { bg:'#3D1A2E', inner:'#8B3A5A', accent:'#F08EBF' },
-  growth:   { bg:'#0A2E2E', inner:'#1A6B5A', accent:'#3AF0C0' },
-  accounta: { bg:'#0A1A3D', inner:'#1A3A8B', accent:'#6AB4F0' },
-  energy:   { bg:'#2E1A0A', inner:'#8B5A1A', accent:'#F0A040' },
+  upload:   { bg:'#2A1969', inner:'#3D2090', accent:'#A08AF0' },
+  general:  { bg:'#1C0E5A', inner:'#361A96', accent:'#9B72FF' },
+  toxicity: { bg:'#3A0808', inner:'#8A1A1A', accent:'#FF3C40' },
+  lovelang: { bg:'#3D1A2E', inner:'#8B3A5A', accent:'#FF82B8' },
+  growth:   { bg:'#0A2E2E', inner:'#1A6B5A', accent:'#28EAA8' },
+  accounta: { bg:'#0A1A3D', inner:'#1A3A8B', accent:'#5AADFF' },
+  energy:   { bg:'#2E1A0A', inner:'#8B5A1A', accent:'#FFA030' },
+  trial:    { bg:'#0C0D30', inner:'#1A1E72', accent:'#7A90FF' },
 };
 
 // accent hex → card inner color (ACard auto-lookup, no extra prop needed)
@@ -52,7 +54,7 @@ Object.values(PAL).forEach(p => { ACCENT_INNER[p.accent] = p.inner; });
 
 // report type id → palette key
 export const RT_PAL = {
-  general:  'upload',
+  general:  'general',
   toxicity: 'toxicity',
   lovelang: 'lovelang',
   growth:   'growth',
@@ -69,6 +71,7 @@ export const PILL_LABEL = {
   stats:    'The Stats',
   ai:       'Insight',
   upload:   'Wrapped',
+  general:  'Wrapped',
   toxicity: 'Toxicity Report',
   lovelang: 'Love Language',
   growth:   'Growth Report',

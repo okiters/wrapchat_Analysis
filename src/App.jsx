@@ -5856,19 +5856,20 @@ const PAL = {
   stats:    { bg:"#083870", inner:"#0E5AAA", text:"#fff", accent:"#6AB4F0" },
   ai:       { bg:"#1A3060", inner:"#2A4A90", text:"#fff", accent:"#8AACF0" },
   finale:   { bg:"#5E1228", inner:"#8A1C3C", text:"#fff", accent:"#F08EBF" },
-  upload:   { bg:"#2C1268", inner:"#4A1EA0", text:"#fff", accent:"#A08AF0" },
-  toxicity: { bg:"#3D0A0A", inner:"#8B1A1A", text:"#fff", accent:"#E04040" },
-  lovelang: { bg:"#3D1A2E", inner:"#8B3A5A", text:"#fff", accent:"#F08EBF" },
-  growth:   { bg:"#0A2E2E", inner:"#1A6B5A", text:"#fff", accent:"#3AF0C0" },
-  accounta: { bg:"#0A1A3D", inner:"#1A3A8B", text:"#fff", accent:"#6AB4F0" },
-  energy:   { bg:"#2E1A0A", inner:"#8B5A1A", text:"#fff", accent:"#F0A040" },
-  trial:    { bg:"#1A0A3D", inner:"#2E1A6B", text:"#fff", accent:"#A078F0" },
+  upload:   { bg:"#2A1969", inner:"#3D2090", text:"#fff", accent:"#A08AF0" },
+  general:  { bg:"#1C0E5A", inner:"#361A96", text:"#fff", accent:"#9B72FF" },
+  toxicity: { bg:"#3A0808", inner:"#8A1A1A", text:"#fff", accent:"#FF3C40" },
+  lovelang: { bg:"#3D1A2E", inner:"#8B3A5A", text:"#fff", accent:"#FF82B8" },
+  growth:   { bg:"#0A2E2E", inner:"#1A6B5A", text:"#fff", accent:"#28EAA8" },
+  accounta: { bg:"#0A1A3D", inner:"#1A3A8B", text:"#fff", accent:"#5AADFF" },
+  energy:   { bg:"#2E1A0A", inner:"#8B5A1A", text:"#fff", accent:"#FFA030" },
+  trial:    { bg:"#0C0D30", inner:"#1A1E72", text:"#fff", accent:"#7A90FF" },
 };
 
 const PILL_LABEL = {
   roast:"The Roast", lovely:"The Lovely", funny:"The Funny", stats:"The Stats", ai:"Insight", finale:"WrapChat",
   toxicity:"Toxicity Report", lovelang:"Love Language", growth:"Growth Report", accounta:"Accountability", energy:"Energy Report",
-  trial:"Chat Preview",
+  trial:"Quick Read",
 };
 
 
@@ -6140,13 +6141,13 @@ function chatHealthLabel(score) {
 // REPORT TYPES — shown on the report selection screen
 // ─────────────────────────────────────────────────────────────────
 const REPORT_TYPES = [
-  { id:"general",      label:"General Wrapped",       desc:"The full Wrapped-style deep dive — stats, AI insights, and your chat personality.",         palette:"upload"   },
+  { id:"general",      label:"General Wrapped",       desc:"The full Wrapped-style deep dive — stats, AI insights, and your chat personality.",         palette:"general"  },
   { id:"toxicity",     label:"Toxicity Report",        desc:"Red flags, power imbalances, who apologises more, conflict patterns, health scores.",        palette:"toxicity" },
   { id:"lovelang",     label:"Love Language Report",   desc:"How each person shows affection, mapped to the 5 love languages. Works for friends too.",   palette:"lovelang" },
   { id:"growth",       label:"Growth Report",          desc:"First 3 months vs last 3 months — are you growing together or drifting apart?",             palette:"growth"   },
   { id:"accounta",     label:"Accountability Report",  desc:"Promises made in the chat and whether they were followed through. Receipts for both.",       palette:"accounta" },
   { id:"energy",       label:"Energy Report",          desc:"Who brings good energy vs drains it — net energy score per person.",                         palette:"energy"   },
-  { id:"trial_report", label:"Chat Preview",           desc:"A quick AI snapshot — vibe, communication pattern, and one key insight. Uses 1 credit.",    palette:"trial"    },
+  { id:"trial_report", label:"Quick Read",             desc:"A quick AI snapshot — vibe, communication pattern, and one key insight. Uses 1 credit.",    palette:"trial"    },
 ];
 
 const PACK_DEFS = Object.freeze({
@@ -6160,17 +6161,15 @@ const PACK_DEFS = Object.freeze({
     tags: Object.freeze(["General Wrapped", "Love Language", "Energy"]),
     cost: 4,
     price: 2.99,
-    bg: "#200A4A",
-    cardBg: "#160F38",
-    accent: "#A08AF0",
-    listAccent: "#C4B0FF",
-    fg: "#1a0a52",
-    inner: "#4A1EA0",
-    outerBg: "#4A1EA050",
-    outerBorder: "#A08AF059",
-    innerBorder: "#A08AF0B3",
-    paymentSelectedBg: "#2C1268",
-    paymentSelectedBorder: "rgba(160,138,240,0.55)",
+    bg: "#2A1460",
+    cardBg: "#1E0E48",
+    listBg: "#2A1460",
+    accent: "#C4AAFF",
+    listAccent: "#C4AAFF",
+    fg: "#100630",
+    inner: "#1E0E48",
+    paymentSelectedBg: "#2A1460",
+    paymentSelectedBorder: "rgba(196,170,255,0.62)",
   }),
   rf: Object.freeze({
     id: "rf",
@@ -6181,17 +6180,15 @@ const PACK_DEFS = Object.freeze({
     tags: Object.freeze(["Toxicity", "Accountability"]),
     cost: 3,
     price: 2.49,
-    bg: "#2E0612",
-    cardBg: "#160F38",
-    accent: "#E04040",
-    listAccent: "#C4B0FF",
-    fg: "#3d0a0a",
-    inner: "#8B1A1A",
-    outerBg: "#8B1A1A50",
-    outerBorder: "#E0404059",
-    innerBorder: "#E04040B3",
-    paymentSelectedBg: "#3D0A0A",
-    paymentSelectedBorder: "rgba(224,64,64,0.50)",
+    bg: "#420C28",
+    cardBg: "#32081E",
+    listBg: "#420C28",
+    accent: "#BE2050",
+    listAccent: "#BE2050",
+    fg: "#fff",
+    inner: "#32081E",
+    paymentSelectedBg: "#420C28",
+    paymentSelectedBorder: "rgba(190,32,80,0.58)",
   }),
   full: Object.freeze({
     id: "full",
@@ -6202,17 +6199,15 @@ const PACK_DEFS = Object.freeze({
     tags: Object.freeze(["Vibe Pack", "Red Flags", "Growth"]),
     cost: 8,
     price: 5.99,
-    bg: "#160F38",
-    cardBg: "#160F38",
-    accent: "#C4B0FF",
-    listAccent: "#C4B0FF",
-    fg: "#160F38",
-    inner: "#2E1F70",
-    outerBg: "#2E1F7050",
-    outerBorder: "#C4B0FF59",
-    innerBorder: "#C4B0FFB3",
-    paymentSelectedBg: "#160F38",
-    paymentSelectedBorder: "rgba(196,176,255,0.45)",
+    bg: "#382208",
+    cardBg: "#281808",
+    listBg: "#382208",
+    accent: "#C8962A",
+    listAccent: "#C8962A",
+    fg: "#1a0e00",
+    inner: "#281808",
+    paymentSelectedBg: "#382208",
+    paymentSelectedBorder: "rgba(200,150,42,0.58)",
   }),
   growth: Object.freeze({
     id: "growth",
@@ -6223,29 +6218,27 @@ const PACK_DEFS = Object.freeze({
     tags: Object.freeze(["Growth"]),
     cost: 2,
     price: 1.49,
-    bg: "#061A0C",
-    cardBg: "#0A2E2E",
-    accent: "#3AF0C0",
-    listAccent: "#3AF0C0",
+    bg: "#0E3A1E",
+    cardBg: "#0A2C16",
+    listBg: "#0E3A1E",
+    accent: "#3DC87A",
+    listAccent: "#3DC87A",
     fg: "#062e26",
-    inner: "#1A6B5A",
-    outerBg: "#1A6B5A50",
-    outerBorder: "#3AF0C059",
-    innerBorder: "#3AF0C0B3",
-    paymentSelectedBg: "#0A2E2E",
-    paymentSelectedBorder: "rgba(58,240,192,0.45)",
+    inner: "#0A2C16",
+    paymentSelectedBg: "#0E3A1E",
+    paymentSelectedBorder: "rgba(61,200,122,0.55)",
   }),
 });
 
 const PACK_ORDER = Object.freeze(["vibe", "rf", "full", "growth"]);
 
 const REPORT_BUFFER_STYLE = Object.freeze({
-  general:  { bg:"#2C1268", border:"rgba(160,138,240,0.40)", pillBg:"rgba(160,138,240,0.14)", pillBorder:"rgba(160,138,240,0.32)" },
-  lovelang: { bg:"#3D1A2E", border:"rgba(240,142,191,0.38)", pillBg:"rgba(240,142,191,0.14)", pillBorder:"rgba(240,142,191,0.30)" },
-  energy:   { bg:"#2E1A0A", border:"rgba(240,160,64,0.35)", pillBg:"rgba(240,160,64,0.14)",  pillBorder:"rgba(240,160,64,0.28)" },
-  toxicity: { bg:"#3D0A0A", border:"rgba(224,64,64,0.38)",  pillBg:"rgba(224,64,64,0.14)",  pillBorder:"rgba(224,64,64,0.30)" },
-  accounta: { bg:"#0A1A3D", border:"rgba(106,180,240,0.35)", pillBg:"rgba(106,180,240,0.14)", pillBorder:"rgba(106,180,240,0.28)" },
-  growth:   { bg:"#0A2E2E", border:"rgba(58,240,192,0.32)",  pillBg:"rgba(58,240,192,0.14)",  pillBorder:"rgba(58,240,192,0.28)" },
+  general:  { bg:"#1C0E5A", border:"rgba(155,114,255,0.40)", pillBg:"rgba(155,114,255,0.14)", pillBorder:"rgba(155,114,255,0.32)" },
+  lovelang: { bg:"#3D1A2E", border:"rgba(255,130,184,0.38)", pillBg:"rgba(255,130,184,0.14)", pillBorder:"rgba(255,130,184,0.30)" },
+  energy:   { bg:"#2E1A0A", border:"rgba(255,160,48,0.35)",  pillBg:"rgba(255,160,48,0.14)",  pillBorder:"rgba(255,160,48,0.28)" },
+  toxicity: { bg:"#3A0808", border:"rgba(255,60,64,0.38)",   pillBg:"rgba(255,60,64,0.14)",   pillBorder:"rgba(255,60,64,0.30)" },
+  accounta: { bg:"#0A1A3D", border:"rgba(90,173,255,0.35)",  pillBg:"rgba(90,173,255,0.14)",  pillBorder:"rgba(90,173,255,0.28)" },
+  growth:   { bg:"#0A2E2E", border:"rgba(40,234,168,0.32)",  pillBg:"rgba(40,234,168,0.14)",  pillBorder:"rgba(40,234,168,0.28)" },
 });
 
 function reportTypeMeta(type) {
@@ -6394,8 +6387,8 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false }) {
-  const p = PAL[sec] || PAL.upload;
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false }) {
+  const p = palette || PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
   const feedbackApi = useContext(FeedbackContext);
@@ -6420,9 +6413,13 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = p.bg;
+    document.documentElement.style.transition = `background ${SLIDE_MS}ms ${SLIDE_EASE}`;
+    document.body.style.transition = `background ${SLIDE_MS}ms ${SLIDE_EASE}`;
+    document.documentElement.style.background = p.bg;
+    document.body.style.background = p.bg;
   }, [p.bg]);
 
   prevContentRef.current = children;
@@ -6469,6 +6466,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         fontFamily: "system-ui, sans-serif",
         paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:"env(safe-area-inset-top, 0px)", background:p.bg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES ── */}
         <WaveLines accent={p.accent} />
 
@@ -6477,7 +6475,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         <div data-share-hide style={{ position:"absolute", top:"env(safe-area-inset-top, 0px)", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
         </div>
-        {share?.onShare && (
+        {!hideChromeButtons && share?.onShare && (
           <button
             data-share-hide
             onClick={share.onShare}
@@ -6512,7 +6510,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           </div>
         )}
         {/* Close button */}
-        {onClose && (
+        {!hideChromeButtons && onClose && (
           <button
             data-share-hide
             onClick={onClose}
@@ -6923,7 +6921,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
 function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null }) {
   const t = useT();
   return (
-    <div data-share-hide style={{ width:"100%", display:"grid", gridTemplateColumns:"34px minmax(0, 1fr) 34px", alignItems:"center", columnGap:8, flexShrink:0, paddingTop:8 }}>
+    <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"start", columnGap:8, flexShrink:0 }}>
       {back && (
         <button
           type="button"
@@ -6933,6 +6931,7 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
           style={{
             width:34,
             height:34,
+            marginTop:-1,
             border:"none",
             padding:0,
             background:"none",
@@ -6949,30 +6948,30 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
       {!back && <div />}
       <div style={{
         minWidth:0,
-        fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.1,
+        fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.08,
         textAlign:"left", overflowWrap:"anywhere",
       }}>
         {titleNode ?? t(title)}
       </div>
-      <div style={{ width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center" }}>{action}</div>
+      <div style={{ width:40, height:34, marginTop:-1, display:"flex", alignItems:"center", justifyContent:"center" }}>{action}</div>
     </div>
   );
 }
 
-function SwatchIcon({ inner, accent, outerBg, outerBorder, innerBorder, size = 48, inset = 9, style = {} }) {
+function SwatchIcon({ inner, accent, size = 48, inset = 9, style = {} }) {
   return (
     <div style={{ width:size, height:size, position:"relative", flexShrink:0, ...style }}>
       <div style={{
         position:"absolute", inset:0,
         borderRadius:Math.round(size * 0.27),
-        background:outerBg || `${inner}50`,
-        border:`1.5px solid ${outerBorder || `${accent}59`}`,
+        background:`${accent}20`,
+        border:`1.5px solid ${accent}55`,
       }} />
       <div style={{
         position:"absolute", inset,
         borderRadius:Math.round(size * 0.17),
-        background:inner,
-        border:`1px solid ${innerBorder || `${accent}B3`}`,
+        background:inner || `${accent}38`,
+        border:`1px solid ${accent}90`,
         transform:"rotate(-12deg)",
       }} />
     </div>
@@ -6984,11 +6983,8 @@ function PackSwatch({ pack, size = 48, inset = 9 }) {
     <SwatchIcon
       size={size}
       inset={inset}
-      inner={pack.inner}
+      inner={`${pack.accent}60`}
       accent={pack.accent}
-      outerBg={pack.outerBg}
-      outerBorder={pack.outerBorder}
-      innerBorder={pack.innerBorder}
     />
   );
 }
@@ -6997,13 +6993,13 @@ function AnalysisDotsCounter({ credits, onAdd, hide = false }) {
   if (hide || !Number.isInteger(credits)) return null;
   return (
     <div style={{
-      display:"flex", alignItems:"center", gap:8,
+      display:"flex", alignItems:"center", gap:6,
       background:"rgba(255,255,255,0.07)",
       border:"1px solid rgba(255,255,255,0.12)",
       borderRadius:999,
-      padding:"8px 10px 8px 14px",
+      padding:"5px 7px 5px 10px",
     }}>
-      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:4 }}>
         {PACK_ORDER.map(id => {
           const pack = PACK_DEFS[id];
           const count = Math.floor(credits / pack.cost);
@@ -7012,7 +7008,7 @@ function AnalysisDotsCounter({ credits, onAdd, hide = false }) {
               key={id}
               title={`${pack.name}${count > 0 ? "" : " — none"}`}
               style={{
-                width:10, height:10, borderRadius:"50%",
+                width:8, height:8, borderRadius:"50%",
                 background:count > 0 ? pack.accent : "rgba(255,255,255,0.16)",
                 transition:"all 0.2s",
               }}
@@ -7020,19 +7016,19 @@ function AnalysisDotsCounter({ credits, onAdd, hide = false }) {
           );
         })}
       </div>
-      <div style={{ width:1, height:16, background:"rgba(255,255,255,0.12)", margin:"0 2px" }} />
+      <div style={{ width:1, height:14, background:"rgba(255,255,255,0.12)", margin:"0 1px" }} />
       <button
         type="button"
         onClick={onAdd}
         className="wc-btn"
         aria-label="Get more analyses"
         style={{
-          width:26, height:26, borderRadius:"50%",
+          width:22, height:22, borderRadius:"50%",
           background:"rgba(255,255,255,0.10)",
           border:"1px solid rgba(255,255,255,0.16)",
           display:"flex", alignItems:"center", justifyContent:"center",
           color:"rgba(255,255,255,0.65)",
-          fontSize:16, fontWeight:300, lineHeight:1,
+          fontSize:14, fontWeight:400, lineHeight:1,
           padding:0, flexShrink:0, cursor:"pointer",
         }}
       >
@@ -7771,6 +7767,7 @@ const TRIAL_SCREENS = 7;
 function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
   const t = useT();
   const loading = aiLoading && !ai;
+  const [openPack, setOpenPack] = useState("vibe");
   const names = s.names || [];
   const msgCounts = s.msgCounts || [];
   const colors = ["#E06030", "#4A90D4", "#3ABDA0", "#C4809A", "#8A70D4", "#D4A840"];
@@ -7785,7 +7782,7 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
     : (s.ghostEqual ? t("Balanced") : (s.ghostName || "—"));
   const firstCardTitle = s.isGroup ? "Group snapshot" : "Chat snapshot";
   const screens = [
-    <Shell sec="trial" prog={1} total={TRIAL_SCREENS + 1}>
+    <Shell sec="trial" prog={1} total={TRIAL_SCREENS + 2}>
       <T>{t(firstCardTitle)}</T>
       <Sub mt={4}>{names.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:8 }}>
@@ -7797,7 +7794,7 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    <Shell sec="trial" prog={2} total={TRIAL_SCREENS + 1}>
+    <Shell sec="trial" prog={2} total={TRIAL_SCREENS + 2}>
       <T>{t(s.isGroup ? "Who carries the chat?" : "Message balance")}</T>
       <div style={{ width:"100%", marginTop:12 }}>
         {topMembers.map((name, i) => (
@@ -7815,7 +7812,7 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="trial" prog={3} total={TRIAL_SCREENS + 1}>
+    <Shell sec="trial" prog={3} total={TRIAL_SCREENS + 2}>
       <T>{t("Conversation rhythm")}</T>
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:8 }}>
         <Cell label={t(s.isGroup ? "Main character" : "Ghost award")} value={s.isGroup ? (s.mainChar || "—") : ghostValue} />
@@ -7827,7 +7824,7 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="trial" prog={4} total={TRIAL_SCREENS + 1}>
+    <Shell sec="trial" prog={4} total={TRIAL_SCREENS + 2}>
       <T>{t("Chat texture")}</T>
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:6, marginTop:4 }}>{t("Most used words")}</div>
       <Words words={s.topWords} bigrams={s.topBigrams} />
@@ -7844,7 +7841,7 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="trial" prog={5} total={TRIAL_SCREENS + 1}>
+    <Shell sec="trial" prog={5} total={TRIAL_SCREENS + 2}>
       <T>{t("How you connect")}</T>
       <Sub mt={4}>{t("Two reads from the AI.")}</Sub>
       <AICard label={t("How you communicate")}    value={ai?.pattern}  loading={loading} />
@@ -7852,36 +7849,71 @@ function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="trial" prog={6} total={TRIAL_SCREENS + 1}>
+    <Shell sec="trial" prog={6} total={TRIAL_SCREENS + 2}>
       <T>{t("The vibe")}</T>
       <AICard label={t("Chat vibe")} value={ai?.vibe} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="trial" prog={7} total={TRIAL_SCREENS + 1}>
-      <T>{t("Full reports go deeper")}</T>
-      <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"14px 16px" }}>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:10 }}>
-          {t("That was your free preview. Here's what the full reports include:")}
-        </div>
-        {[
-          { label: "General Wrapped — stats + full AI deep dive", type: "general" },
-          { label: "Toxicity & red flags",                        type: "toxicity" },
-          { label: "Love Language Report",                        type: "lovelang" },
-          { label: "Energy Report",                               type: "energy" },
-          { label: "Growth over time",                            type: "growth" },
-          { label: "Accountability",                              type: "accounta" },
-        ].map(({ label, type }, i) => (
-          <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }} aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <div style={{ fontSize:13, color:"rgba(255,255,255,0.42)", flex:1 }}>{t(label)}</div>
-            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.30)", flexShrink:0 }}>{getReportCreditCost(type)} cr</div>
-          </div>
-        ))}
+    <Shell sec="trial" prog={7} total={TRIAL_SCREENS + 2}>
+      <T>{t("Your summary")}</T>
+      <Sub mt={4}>{t("A short version of what stood out in this chat.")}</Sub>
+      <AICard label={t("Chat vibe")} value={ai?.vibe} loading={loading} />
+      <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <Cell label={t("Messages")} value={s.totalMessages?.toLocaleString() || "—"} />
+        <Cell label={t("Best streak")} value={t("{count} days", { count: s.streak || 0 })} />
+        <Cell label={t("Top month")} value={topMonth ? `${topMonth[0]} · ${topMonth[1].toLocaleString()}` : "—"} />
+        <Cell label={t(s.isGroup ? "People" : "Chatters")} value={names.length || "—"} />
       </div>
-
-      <Nav back={back} next={next} nextLabel="Upgrade" showArrow={false} />
+      <div style={{ width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:18, padding:"13px 16px", color:"rgba(255,255,255,0.70)", fontSize:13, lineHeight:1.55, textAlign:"center" }}>
+        {t("There is a lot more to read in this chat. See the packs to unlock the deeper reports.")}
+      </div>
+      <Nav back={back} next={next} nextLabel="See packs" showArrow={false} />
     </Shell>,
+
+    <Shell sec="upload" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 2} contentAlign="start" hidePill hideChromeButtons>
+          <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px 0", minHeight:0, overflow:"hidden" }}>
+            <div style={{ marginBottom:18, flexShrink:0 }}>
+              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, color:"#fff", letterSpacing:"-0.02em", lineHeight:1.1, textAlign:"left" }}>
+                Here's what you can unlock.
+              </div>
+            </div>
+            <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:10, paddingBottom:16 }}>
+              {PACK_ORDER.map(id => {
+                const pack = PACK_DEFS[id];
+                const open = openPack === id;
+                const reportCount = pack.reports.length;
+                return (
+                  <div key={id} onClick={() => setOpenPack(cur => cur === id ? null : id)} className="wc-btn"
+                    style={{ borderRadius:22, overflow:"hidden", cursor:"pointer", background:pack.bg, border:`1.5px solid ${pack.accent}55`, flexShrink:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:open ? "16px 18px 12px" : "16px 18px", transition:"padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                        <PackSwatch pack={pack} />
+                        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                          <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em", textAlign:"left" }}>{pack.name}</div>
+                          <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:pack.accent, textAlign:"left" }}>{reportCount} {reportCount === 1 ? t("report") : t("reports")}</div>
+                        </div>
+                      </div>
+                      <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)", flexShrink:0 }}>▾</div>
+                    </div>
+                    <div style={{ maxHeight:open ? 200 : 0, overflow:"hidden", opacity:open ? 1 : 0, padding:open ? "0 18px 16px" : "0 18px", transition:"max-height 0.35s cubic-bezier(0.2,0,0.1,1), opacity 0.22s ease, padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                      <div style={{ fontSize:13, color:"rgba(255,255,255,0.60)", lineHeight:1.55, marginBottom:12, textAlign:"left" }}>{PACK_EXPLAINER_DESCS[id]}</div>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                        {pack.reports.map(r => {
+                          const rc = REPORT_PILL_STYLE[r] || {};
+                          return <span key={r} style={{ background:rc.bg, border:`1px solid ${rc.border}`, borderRadius:999, padding:"4px 11px", fontSize:11, fontWeight:700, color:rc.text }}>{REPORT_LABELS_EXP[r] || r}</span>;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ flexShrink:0, paddingBottom:"calc(16px + env(safe-area-inset-bottom, 0px))", paddingTop:10 }}>
+              <Nav back={back} next={next} nextLabel="See pricing" showArrow={false} />
+            </div>
+          </div>
+        </Shell>,
   ];
   return screens[step] ?? null;
 }
@@ -7956,19 +7988,37 @@ function PricingCostOverview({ accent = DA.teal, compact = false }) {
   );
 }
 
-function TrialFinale({ s, restart, back }) {
-  const t = useT();
-  const p = PAL.trial;
+const PACK_EXPLAINER_DESCS = {
+  vibe:   "Who talks more, how love and care show up in the text, and the emotional energy you two actually bring to each other.",
+  rf:     "The uncomfortable read. Toxic language patterns, passive aggression, who apologizes — and who deflects.",
+  full:   "Every report in one run. Connection, love language, energy, tension, accountability, and how the relationship has evolved.",
+  growth: "Tracks this chat across time — early messages vs. recent ones. Is this relationship deepening, or slowly fading?",
+};
+
+const REPORT_PILL_STYLE = {
+  general:  { text:"rgba(155,114,255,1)",  bg:"rgba(155,114,255,0.14)", border:"rgba(155,114,255,0.32)" },
+  lovelang: { text:"rgba(255,130,184,1)",  bg:"rgba(255,130,184,0.14)", border:"rgba(255,130,184,0.30)" },
+  energy:   { text:"rgba(255,160,48,1)",   bg:"rgba(255,160,48,0.14)",  border:"rgba(255,160,48,0.28)"  },
+  toxicity: { text:"rgba(255,60,64,1)",    bg:"rgba(255,60,64,0.14)",   border:"rgba(255,60,64,0.30)"   },
+  accounta: { text:"rgba(90,173,255,1)",   bg:"rgba(90,173,255,0.14)",  border:"rgba(90,173,255,0.28)"  },
+  growth:   { text:"rgba(40,234,168,1)",   bg:"rgba(40,234,168,0.14)",  border:"rgba(40,234,168,0.28)"  },
+};
+
+const REPORT_LABELS_EXP = {
+  general:  "General Wrapped",
+  lovelang: "Love Language",
+  energy:   "Energy",
+  toxicity: "Toxicity",
+  accounta: "Accountability",
+  growth:   "Growth",
+};
+
+
+function TrialFinale({ back, onPaymentComingSoon }) {
   return (
-    <Shell sec="trial" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 1} shareType="summary" contentAlign="start">
-      <T s={22}>{t("Go deeper with this chat")}</T>
-      <Sub mt={4}>{s.names?.join(" & ") || ""} · {t("Your preview is done. Unlock the full report bundles with credits.")}</Sub>
-      <PricingCostOverview accent={p.accent} />
-      <CreditPackGrid accent={p.accent} />
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.38)", textAlign:"center", width:"100%" }}>{t("Payment integration coming soon.")}</div>
-      <PrimaryButton onClick={restart} color={p.accent} textColor={p.bg}>{t("Upload another chat")}</PrimaryButton>
-      <GhostButton onClick={back}>← {t("Back")}</GhostButton>
-    </Shell>
+    <ShareResultsContext.Provider value={null}>
+      <PaymentScreen preselect="vibe" onBack={back} onPaymentComingSoon={onPaymentComingSoon} />
+    </ShareResultsContext.Provider>
   );
 }
 
@@ -8594,9 +8644,6 @@ function RelationshipSelect({
   return (
     <Shell sec="upload" prog={1} total={3} contentAlign="start">
       <ScreenHeader back={onBack} title="Relationship" />
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.6, width:"100%" }}>
-        {t("This helps the AI frame the analysis correctly.")}
-      </div>
 
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
 
@@ -9335,9 +9382,9 @@ function Upload({
     <Shell sec="upload" prog={0} total={1} scrollable={false}>
       {/* ── Absolute overlays (never participate in flex layout) ── */}
       {onHistory && (
-        <div style={{ position:"absolute", top:14, left:16, zIndex:5 }}>
+        <div style={{ position:"absolute", top:16, left:16, zIndex:5 }}>
           <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
-            style={{ width:36, height:36, borderRadius:"50%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
             <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <line x1="1" y1="1.5" x2="15" y2="1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -9347,7 +9394,7 @@ function Upload({
         </div>
       )}
       {showCreditPill && (
-        <div style={{ position:"absolute", top:16, right:20, zIndex:5, display:"flex", alignItems:"center" }}>
+        <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:5, display:"flex", alignItems:"center" }}>
           <AnalysisDotsCounter credits={credits} onAdd={onPayment || onUpgrade} hide={hideCredits} />
         </div>
       )}
@@ -9381,11 +9428,11 @@ function Upload({
       {/* ── Action zone — snapped just below tagline, independent of logo ── */}
       <div style={{ position:"absolute", top:"calc(32% + 105px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
         <div style={{ display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2, width:"100%" }}>
-          {[["single", "Single chat"], ["multi", "Multi-chat analysis"]].map(([mode, label]) => {
+          {[["single", "Single chat"], ["multi", "Multi chats"]].map(([mode, label]) => {
             const active = (mode === "multi") === multiMode;
             return (
               <button key={mode} type="button" onClick={() => setMultiMode(mode === "multi")} className="wc-btn"
-                style={{ flex:1, borderRadius:999, padding:"8px 0", fontSize:12, fontWeight:800, border:"none", background:active ? "rgba(255,255,255,0.18)" : "transparent", color:active ? "#fff" : "rgba(255,255,255,0.45)", cursor:"pointer" }}>
+                style={{ flex:"1 1 0", minWidth:0, borderRadius:999, padding:"8px 6px", fontSize:12, lineHeight:1.1, fontWeight:800, border:"none", background:active ? "rgba(255,255,255,0.18)" : "transparent", color:active ? "#fff" : "rgba(255,255,255,0.45)", cursor:"pointer", whiteSpace:"nowrap" }}>
                 {label}
               </button>
             );
@@ -9882,29 +9929,12 @@ function PackSelect({
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        padding:"52px 20px 56px",
+        padding:"16px 20px 56px",
         minHeight:0,
       }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <button
-              type="button"
-              onClick={onBack}
-              className="wc-btn"
-              aria-label="Back"
-              style={{ width:30, height:30, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.48)", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}
-            >
-              <BackIcon size={12} />
-            </button>
-            <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase", color:"rgba(255,255,255,0.30)" }}>
-              analysis
-            </div>
-          </div>
+        <div style={{ marginBottom:22 }}>
+          <ScreenHeader back={onBack} title="Pick your read." />
         </div>
-
-	        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:30, fontWeight:900, color:"#fff", letterSpacing:"-0.025em", lineHeight:1.05, marginBottom:24 }}>
-	          Pick your read.
-	        </div>
 
 	        <div style={{ width:"100%", marginBottom:14 }}>
 	          <button
@@ -9985,7 +10015,7 @@ function PackSelect({
                   cursor:"pointer",
                   transition:"transform 0.18s cubic-bezier(0.2,0,0.1,1)",
                   background:pack.bg,
-                  border:`1.5px solid ${id === "vibe" ? "rgba(160,138,240,0.30)" : id === "rf" ? "rgba(224,64,64,0.28)" : id === "full" ? "rgba(196,176,255,0.28)" : "rgba(58,240,192,0.25)"}`,
+                  border:`1.5px solid ${pack.accent}55`,
                 }}
               >
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:open ? "16px 18px 12px" : "16px 18px", transition:"padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
@@ -9993,7 +10023,7 @@ function PackSelect({
                     <PackSwatch pack={pack} />
                     <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                       <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em" }}>{pack.name}</div>
-                      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.02em", color:locked ? "rgba(255,255,255,0.25)" : pack.accent }}>{left} left</div>
+                      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.02em", color:locked ? "rgba(255,255,255,0.52)" : pack.accent, textAlign:"left" }}>{`${left} left`}</div>
                     </div>
                   </div>
                   <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
@@ -10001,7 +10031,7 @@ function PackSelect({
                   </div>
                 </div>
                 <div style={{ maxHeight:open ? 300 : 0, overflow:"hidden", opacity:open ? 1 : 0, padding:open ? "0 18px 18px" : "0 18px", transition:"max-height 0.35s cubic-bezier(0.2,0,0.1,1), opacity 0.22s ease, padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55, marginBottom:14 }}>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
                     {pack.desc}
                   </div>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
@@ -10010,8 +10040,8 @@ function PackSelect({
                     ))}
                   </div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:locked ? 13 : 13, fontWeight:700, color:locked ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.38)" }}>
-                      {locked ? "0 left" : <><strong style={{ fontSize:20, fontWeight:900, color:"#fff", marginRight:4 }}>{left}</strong> left</>}
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:locked ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.38)" }}>
+                      {locked ? <><strong style={{ fontSize:20, fontWeight:900, color:"rgba(255,255,255,0.35)", marginRight:4 }}>0</strong> left</> : <><strong style={{ fontSize:20, fontWeight:900, color:"#fff", marginRight:4 }}>{left}</strong> left</>}
                     </div>
                     <button
                       type="button"
@@ -10028,12 +10058,12 @@ function PackSelect({
                         fontWeight:700,
                         fontFamily:"'Nunito Sans',sans-serif",
                         cursor:"pointer",
-                        border:locked ? "1.5px solid rgba(255,255,255,0.12)" : "none",
-                        background:locked ? "rgba(255,255,255,0.10)" : pack.accent,
-                        color:locked ? "rgba(255,255,255,0.40)" : pack.fg,
+                        border:"none",
+                        background:locked ? pack.accent : pack.accent,
+                        color:locked ? pack.fg : pack.fg,
                       }}
                     >
-                      {locked ? "Unlock" : "Run"}
+                      {locked ? "Add more" : "Run"}
                     </button>
                   </div>
                 </div>
@@ -10059,72 +10089,61 @@ function PackSelect({
 function PaymentScreen({ preselect = null, onBack, onPaymentComingSoon }) {
   const initial = () => {
     const next = {};
-    PACK_ORDER.forEach(id => { next[id] = id === preselect; });
+    PACK_ORDER.forEach(id => { next[id] = id === preselect ? 1 : 0; });
     return next;
   };
   const [selected, setSelected] = useState(initial);
 
   useEffect(() => {
     const next = {};
-    PACK_ORDER.forEach(id => { next[id] = id === preselect; });
+    PACK_ORDER.forEach(id => { next[id] = id === preselect ? 1 : 0; });
     setSelected(next);
   }, [preselect]);
 
-  const keys = PACK_ORDER.filter(id => selected[id]);
-  const total = keys.reduce((sum, id) => sum + PACK_DEFS[id].price, 0);
+  const keys = PACK_ORDER.filter(id => (selected[id] || 0) > 0);
+  const itemCount = keys.reduce((sum, id) => sum + (selected[id] || 0), 0);
+  const total = keys.reduce((sum, id) => sum + PACK_DEFS[id].price * (selected[id] || 0), 0);
   const dominant = keys.includes("full") ? "full" : keys.includes("vibe") ? "vibe" : keys.includes("rf") ? "rf" : keys[0];
   const dominantPack = dominant ? PACK_DEFS[dominant] : null;
-  const nudge = selected.vibe && selected.full
-    ? <>Vibe Pack is included in Full Read. <strong style={{ color:"#B094F8", fontWeight:700 }}>Remove Vibe Pack</strong> to avoid paying twice.</>
-    : selected.rf && selected.full
-      ? <>Red Flags is included in Full Read. <strong style={{ color:"#B094F8", fontWeight:700 }}>Remove Red Flags</strong> to avoid paying twice.</>
-      : selected.vibe && selected.rf && !selected.full
-        ? <><strong style={{ color:"#B094F8", fontWeight:700 }}>Vibe + Red Flags</strong> together? Consider adding Growth for just €1.49 more — you'd have the full picture.</>
-        : null;
 
-  const toggle = (id) => setSelected(prev => ({ ...prev, [id]: !prev[id] }));
+  const changeQty = (id, delta) => {
+    setSelected(prev => {
+      const current = prev[id] || 0;
+      return { ...prev, [id]: Math.max(0, Math.min(9, current + delta)) };
+    });
+  };
 
   const pay = () => {
     if (!keys.length) return;
-    console.log("Payment coming soon", { packs: keys, total: Number(total.toFixed(2)) });
+    console.log("Payment coming soon", { packs: keys, quantities: selected, total: Number(total.toFixed(2)) });
     onPaymentComingSoon?.();
   };
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
-      <button
-        type="button"
-        onClick={onBack}
-        className="wc-btn"
-        aria-label="Close"
-        style={{ position:"absolute", top:"calc(14px + env(safe-area-inset-top, 0px))", right:16, zIndex:12, width:30, height:30, background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.45)", fontSize:14, padding:0 }}
-      >
-        ✕
-      </button>
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        padding:"52px 20px 56px",
+        padding:"16px 20px 56px",
         minHeight:0,
       }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.10em", textTransform:"uppercase", color:"rgba(255,255,255,0.30)", marginBottom:8 }}>get more analyses</div>
-        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:28, fontWeight:900, color:"#fff", letterSpacing:"-0.025em", lineHeight:1.05, marginBottom:6 }}>What do you want to unlock?</div>
+        <div style={{ marginBottom:10 }}>
+          <ScreenHeader back={onBack} title="What do you want to unlock?" />
+        </div>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.42)", lineHeight:1.5, marginBottom:28 }}>Pick one or more. Use them on any chat, any time.</div>
 
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.22)", marginBottom:10 }}>choose your packs</div>
         <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
           {PACK_ORDER.map(id => {
             const pack = PACK_DEFS[id];
-            const active = !!selected[id];
+            const qty = selected[id] || 0;
+            const active = qty > 0;
             return (
-              <button
+              <div
                 key={id}
-                type="button"
-                onClick={() => toggle(id)}
                 className="wc-btn"
                 style={{
                   borderRadius:20,
-                  padding:"14px 16px",
+                  padding:"12px 14px",
                   display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
                   cursor:"pointer",
                   border:`1.5px solid ${active ? pack.paymentSelectedBorder : "rgba(255,255,255,0.07)"}`,
@@ -10133,27 +10152,61 @@ function PaymentScreen({ preselect = null, onBack, onPaymentComingSoon }) {
                   textAlign:"left",
                 }}
               >
-                <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
-                  <PackSwatch pack={pack} />
+                <div
+                  onClick={() => !active && changeQty(id, 1)}
+                  style={{ display:"flex", alignItems:"center", gap:12, minWidth:0, flex:"1 1 auto" }}
+                >
+                  <PackSwatch pack={pack} size={42} inset={8} />
                   <div style={{ display:"flex", flexDirection:"column", gap:3, minWidth:0 }}>
                     <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:15, fontWeight:900, color:"#fff", letterSpacing:"-0.01em" }}>{pack.name}</div>
-                    <div style={{ fontSize:11, fontWeight:600, color:active ? `${pack.accent}B3` : "rgba(255,255,255,0.35)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    <div style={{ fontSize:11, fontWeight:600, color:active ? `${pack.accent}B3` : "rgba(255,255,255,0.35)", lineHeight:1.35, whiteSpace:"normal" }}>
                       {id === "vibe" ? "General Wrapped · Love Language · Energy" : id === "rf" ? "Toxicity · Accountability" : id === "full" ? "All 6 reports · Vibe + Red Flags + Growth" : "Standalone · temporal analysis"}
                     </div>
                   </div>
                 </div>
-                <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
-                  <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:active ? pack.accent : "rgba(255,255,255,0.35)" }}>€{pack.price.toFixed(2)}</div>
-                  <div style={{ width:22, height:22, borderRadius:"50%", border:`1.5px solid ${active ? pack.accent : "rgba(255,255,255,0.16)"}`, background:active ? pack.accent : "transparent", color:active ? pack.fg : "transparent", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, flexShrink:0 }}>✓</div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:8, flex:"0 0 auto", minWidth:active ? 104 : 64 }}>
+                  {!active ? (
+                    <button
+                      type="button"
+                      onClick={() => changeQty(id, 1)}
+                      className="wc-btn"
+                      aria-label={`Select ${pack.name}`}
+                      style={{ border:"none", background:"transparent", padding:"8px 0", fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:"rgba(255,255,255,0.46)", cursor:"pointer" }}
+                    >
+                      €{pack.price.toFixed(2)}
+                    </button>
+                  ) : (
+                    <>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:pack.accent }}>€{pack.price.toFixed(2)}</div>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:5, border:`1px solid ${pack.accent}66`, background:"rgba(0,0,0,0.14)", borderRadius:999, padding:3 }}>
+                        <button
+                          type="button"
+                          onClick={() => changeQty(id, -1)}
+                          className="wc-btn"
+                          aria-label={`Remove ${pack.name}`}
+                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.72)", display:"flex", alignItems:"center", justifyContent:"center", padding:0, fontSize:15, fontWeight:800, cursor:"pointer" }}
+                        >
+                          -
+                        </button>
+                        <div style={{ width:18, textAlign:"center", fontSize:13, fontWeight:900, color:pack.accent }}>{qty}</div>
+                        <button
+                          type="button"
+                          onClick={() => changeQty(id, 1)}
+                          className="wc-btn"
+                          aria-label={`Add ${pack.name}`}
+                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:pack.fg, display:"flex", alignItems:"center", justifyContent:"center", padding:0, fontSize:15, fontWeight:900, cursor:"pointer" }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </button>
+              </div>
             );
           })}
-        </div>
-
-        <div style={{ background:"rgba(160,138,240,0.07)", border:"1px solid rgba(160,138,240,0.18)", borderRadius:14, padding:"11px 14px", display:"flex", alignItems:"flex-start", gap:10, marginBottom:16, opacity:nudge ? 1 : 0, pointerEvents:nudge ? "auto" : "none", transition:"opacity 0.22s", minHeight:42 }}>
-          <div style={{ fontSize:14, flexShrink:0, marginTop:1 }}>↗</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.52)", lineHeight:1.5 }}>{nudge}</div>
         </div>
 
         <div style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, padding:"16px 18px", marginBottom:14 }}>
@@ -10164,10 +10217,11 @@ function PaymentScreen({ preselect = null, onBack, onPaymentComingSoon }) {
               </div>
             ) : keys.map(id => {
               const pack = PACK_DEFS[id];
+              const qty = selected[id] || 0;
               return (
                 <div key={id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 0" }}>
-                  <div style={{ fontSize:13, color:`${pack.accent}CC`, fontWeight:600 }}>{pack.name}</div>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.65)", fontWeight:700 }}>€{pack.price.toFixed(2)}</div>
+                  <div style={{ fontSize:13, color:`${pack.accent}CC`, fontWeight:700 }}>{pack.name}{qty > 1 ? ` x${qty}` : ""}</div>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.65)", fontWeight:700 }}>€{(pack.price * qty).toFixed(2)}</div>
                 </div>
               );
             })}
@@ -10175,7 +10229,7 @@ function PaymentScreen({ preselect = null, onBack, onPaymentComingSoon }) {
           <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"10px 0" }} />
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 0" }}>
             <div style={{ fontSize:15, color:"#fff", fontWeight:700 }}>Total</div>
-            <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:28, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>€{total.toFixed(2)}</div>
+            <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:28, fontWeight:900, color:dominantPack ? dominantPack.accent : "#fff", letterSpacing:"-0.02em" }}>€{total.toFixed(2)}</div>
           </div>
         </div>
 
@@ -10186,7 +10240,7 @@ function PaymentScreen({ preselect = null, onBack, onPaymentComingSoon }) {
           className="wc-btn"
           style={{ width:"100%", padding:17, borderRadius:999, border:"none", fontSize:16, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:keys.length ? "pointer" : "default", marginBottom:12, background:dominantPack ? dominantPack.accent : "rgba(255,255,255,0.10)", color:dominantPack ? dominantPack.fg : "rgba(255,255,255,0.28)" }}
         >
-          {keys.length === 0 ? "Select a pack to continue" : keys.length === 1 ? `Pay €${total.toFixed(2)}` : `Pay €${total.toFixed(2)} · ${keys.length} packs`}
+          {keys.length === 0 ? "Select a pack to continue" : itemCount === 1 ? `Pay €${total.toFixed(2)}` : `Pay €${total.toFixed(2)} · ${itemCount} items`}
         </button>
 
         <div style={{ textAlign:"center", fontSize:12, color:"rgba(255,255,255,0.20)", lineHeight:1.6 }}>
@@ -10272,6 +10326,14 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
   const runDate = orderedRows[0]?.created_at;
+  const firstRow = orderedRows[0] || {};
+  const participantLabel = (() => {
+    const displayTitle = firstRow?.result_data?.runMetadata?.displayTitle || firstRow?.math_data?.display_title || firstRow?.math_data?.displayTitle || "";
+    if (displayTitle) return displayTitle;
+    const names = Array.isArray(firstRow?.names) ? firstRow.names.filter(Boolean) : [];
+    return names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+  })();
+  const stackTitle = participantLabel ? `${participantLabel} – ${pack.name}` : pack.name;
   const daysAgo = (() => {
     const diff = Math.floor((new Date() - new Date(runDate)) / 864e5);
     if (!Number.isFinite(diff) || diff <= 0) return "today";
@@ -10280,12 +10342,10 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
   })();
 
   return (
-    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
-      <button type="button" onClick={onClose} className="wc-btn" aria-label="Close" style={{ position:"absolute", top:"calc(14px + env(safe-area-inset-top, 0px))", right:16, zIndex:12, width:30, height:30, background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.45)", fontSize:14, padding:0 }}>✕</button>
-      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"52px 20px 48px", minHeight:0 }}>
-        <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${pack.accent}1F`, border:`1px solid ${pack.accent}4D`, borderRadius:999, padding:"5px 13px", width:"fit-content", marginBottom:24 }}>
-          <PackSwatch pack={pack} size={14} inset={3} />
-          <span style={{ fontSize:11, fontWeight:700, color:pack.accent, letterSpacing:"0.06em", textTransform:"uppercase" }}>{pack.name}</span>
+    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, bg:pack.bg, inner:pack.cardBg || pack.inner, accent:pack.accent }}>
+      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px 48px", minHeight:0 }}>
+        <div style={{ marginBottom:18 }}>
+          <ScreenHeader back={onClose} titleNode={stackTitle} />
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -10308,9 +10368,6 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
                     <div style={{ display:"flex", flexDirection:"column", gap:4, minWidth:0 }}>
                       <div style={{ borderRadius:999, padding:"3px 10px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", width:"fit-content", background:style.pillBg, color:pal.accent, border:`1px solid ${style.pillBorder}` }}>
                         {rt.label}
-                      </div>
-                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:18, fontWeight:900, color:"#fff", letterSpacing:"-0.02em", lineHeight:1.1 }}>
-                        {preview.title}
                       </div>
                     </div>
                   </div>
@@ -10365,8 +10422,8 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                   className="wc-btn"
                   style={{
                     display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
-                    background:"rgba(255,255,255,0.05)",
-                    border:"1px solid rgba(255,255,255,0.10)",
+                    background:`${pack.accent}0C`,
+                    border:`1.5px solid ${pack.accent}45`,
                     borderRadius:18,
                     padding:"12px 14px",
                     color:"#fff",
@@ -11739,6 +11796,12 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     return resultDisplayTitle(row) || namesLabel(row.names);
   };
 
+  const participantTitleFor = (row, packOrReportName) => {
+    const participant = rowNames(row);
+    const name = String(participant || "").trim();
+    return name && name !== "—" ? `${name} – ${packOrReportName}` : packOrReportName;
+  };
+
   const datasetBadge = (row) => {
     const count = row?.result_data?.runMetadata?.sourceChatCount || row?.math_data?.source_chat_count || row?.math_data?.sourceChatCount || 1;
     const kind = row?.result_data?.runMetadata?.datasetKind || row?.math_data?.dataset_kind || row?.math_data?.datasetKind || "single";
@@ -11746,12 +11809,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   };
 
   // Shared swatch for a single report card
-  const makeSwatchEl = (pal) => (
-    <div style={{ width:48, height:48, flexShrink:0, position:"relative" }}>
-      <div style={{ position:"absolute", inset:0, borderRadius:13, background:`${pal.inner}50`, border:`1.5px solid ${pal.accent}35` }} />
-      <div style={{ position:"absolute", inset:9, borderRadius:8, background:pal.inner, border:`1px solid ${pal.accent}70`, transform:"rotate(-12deg)" }} />
-    </div>
-  );
+  const makeSwatchEl = (pal) => <SwatchIcon inner={pal.inner} accent={pal.accent} />;
 
   // Shared text block for a single report card
   const makeTextEl = (pal, rt, row, dateLabel, stat) => (
@@ -11774,7 +11832,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   // Bundle palette — visually distinct from per-report-type colors
   const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
   // Name palette — for participant name cards in Names view
-  const NAME_PAL = { bg:"#0F2238", inner:"#1F4870", accent:"#60C0FF" };
+  const NAME_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
 
   // ── Compute display items (singles + bundles) ──
   const displayItems = (() => {
@@ -11847,11 +11905,12 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     if (pack?.id === "growth") return <PackSwatch pack={pack} />;
     const grid = gridByPack[pack?.id] || (pack?.reports || []).slice(0, 4);
     return (
-      <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box", borderRadius:13, background:"rgba(255,255,255,0.035)", border:"1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box", borderRadius:13, background:`${pack.accent}20`, border:`1.5px solid ${pack.accent}55` }}>
         {[0, 1, 2, 3].map(i => {
           const type = grid[i];
-          if (!type) return <div key={i} style={{ borderRadius:4, background:"rgba(255,255,255,0.035)", border:"1px solid rgba(255,255,255,0.06)" }} />;
-          const rpal = REPORT_BUFFER_STYLE[type] || PAL.upload;
+          if (!type) return <div key={i} style={{ borderRadius:4, background:`${pack.accent}18`, border:`1px solid ${pack.accent}30` }} />;
+          const meta = reportTypeMeta(type);
+          const rpal = PAL[meta.palette] || PAL.upload;
           return <div key={i} style={{ borderRadius:4, background:rpal.inner || rpal.bg, border:`1px solid ${rpal.accent}99` }} />;
         })}
       </div>
@@ -11869,9 +11928,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const cardBg = pack?.listBg || pack?.cardBg || fallbackPal.bg;
     const cardAccent = pack?.listAccent || pack?.accent || fallbackPal.accent;
     const key = item.type === "bundle" ? item.bundleId : firstRow.id;
-    const label = pack ? "Pack" : "Report";
-    const title = pack?.name || rt?.label || firstRow.report_type;
-    const subline = pack ? packReportLabels(pack, itemRows) : rowNames(firstRow);
+    const packOrReportName = pack?.name || rt?.label || firstRow.report_type;
+    const title = participantTitleFor(firstRow, packOrReportName);
+    const subline = pack ? packReportLabels(pack, itemRows) : (rt?.label || firstRow.report_type);
     const dateLabel = formatDate(item.created_at);
     const isDeleting = item.type === "bundle" ? deletingBundle === item.bundleId : deletingId === firstRow.id;
     const isConfirming = item.type === "bundle" ? confirmBundle === item.bundleId : confirmId === firstRow.id;
@@ -11886,7 +11945,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         onClick={onOpen}
         style={{
           display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-          background:cardBg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${cardAccent}47`}`,
+          background:cardBg, border:`1.5px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${cardAccent}55`}`,
           borderRadius:20, padding:"16px 18px",
           color:"#fff", width:"100%", position:"relative",
           textAlign:"left", transition:"border-color 0.18s",
@@ -11895,20 +11954,17 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       >
         <div style={{
           display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
-          opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
-          transform: editing ? "translateX(-6px)" : "translateX(0)",
-          transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+          opacity: isDeleting || isConfirming ? 0.3 : 1,
+          transform:"translateX(0)",
+          transition:"opacity 0.22s",
           pointerEvents:"none",
         }}>
           {pack ? (
             <BundleMiniSwatch pack={pack} />
           ) : (
-            <SwatchIcon inner={fallbackPal.inner} accent={fallbackPal.accent} outerBg={`${fallbackPal.inner}50`} outerBorder={`${fallbackPal.accent}35`} innerBorder={`${fallbackPal.accent}70`} />
+            <SwatchIcon inner={fallbackPal.inner} accent={fallbackPal.accent} />
           )}
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", color:cardAccent, marginBottom:5 }}>
-              {label}
-            </div>
             <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {title}
             </div>
@@ -12036,7 +12092,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row); }}
                   style={{
                     display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                    background:pal.bg, border:`1px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}28`}`,
+                    background:pal.bg, border:`1.5px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}55`}`,
                     borderRadius:20, padding:"16px 18px",
                     color:"#fff", width:"100%", position:"relative",
                     textAlign:"left", transition:"border-color 0.18s",
@@ -12045,9 +12101,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 >
                   <div style={{
                     display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
-                    opacity: isDeleting || isConfirming ? 0.3 : editing ? 0.7 : 1,
-                    transform: editing ? "translateX(-6px)" : "translateX(0)",
-                    transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                    opacity: isDeleting || isConfirming ? 0.3 : 1,
+                    transform:"translateX(0)",
+                    transition:"opacity 0.22s",
                     pointerEvents:"none",
                   }}>
                     {swatchEl}{textEl}
@@ -12248,7 +12304,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   onClick={() => { if (!editing && !isDeletingName && !isConfirmingName) setNameView(group.name); }}
                   style={{
                     display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                    background:NAME_PAL.bg, border:`1.5px solid ${isConfirmingName ? "rgba(220,50,50,0.55)" : `${NAME_PAL.accent}35`}`,
+                    background:NAME_PAL.bg, border:`1.5px solid ${isConfirmingName ? "rgba(220,50,50,0.55)" : `${NAME_PAL.accent}55`}`,
                     borderRadius:20, padding:"16px 18px",
                     color:"#fff", width:"100%", position:"relative",
                     textAlign:"left", transition:"border-color 0.18s",
@@ -12257,9 +12313,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 >
                   <div style={{
                     display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
-                    opacity: isDeletingName || isConfirmingName ? 0.3 : editing ? 0.7 : 1,
-                    transform: editing ? "translateX(-6px)" : "translateX(0)",
-                    transition:"opacity 0.22s, transform 0.24s cubic-bezier(.2,0,.1,1)",
+                    opacity: isDeletingName || isConfirmingName ? 0.3 : 1,
+                    transform:"translateX(0)",
+                    transition:"opacity 0.22s",
                     pointerEvents:"none",
                   }}>
                     {nameSwatchEl}{nameTextEl}
@@ -13896,12 +13952,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // ── Trial report routing ──
   if (reportType === "trial_report") {
-    if (step < TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} />);
+    if (step <= TRIAL_SCREENS) return wrap(<TrialReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} />);
     return wrap(
       <TrialFinale
         s={math}
         restart={restart}
         back={navigateBack}
+        onPaymentComingSoon={showPaymentComingSoon}
       />
     );
   }

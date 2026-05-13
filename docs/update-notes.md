@@ -8,6 +8,20 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v2.8 — Pack explainer screen + pack selection UX polish
+**Files:** `src/App.jsx`, `docs/update-notes.md`
+
+### Pack explainer screen between Quick Read and pricing
+A new screen inserted at step 8 of the Quick Read flow (before TrialFinale / PaymentScreen). It lives inside `TrialReportScreen`'s screens array so the Shell DOM node is reused across the transition — identical mechanism to General Wrapped's background color transitions. When the user taps "See packs" on the last trial card, the Shell background smoothly animates from the trial deep-purple (`#0C0D30`) to the app default purple (`#2A1969`) via the existing `transition: background 480ms` on the `.wc-root` div. `document.body` and `documentElement` now also carry the same transition so the background visible outside the card animates in sync. Share and Close chrome buttons are hidden on this screen via a new `hideChromeButtons` prop on Shell rather than context provider overrides, which would have broken the DOM-reuse transition.
+
+### Pack explainer — accordion cards with colored report pills
+The explainer shows all four packs (Vibe Pack, Red Flags Pack, Full Read, Growth Report) as expandable accordion tiles. One tile is open at a time; Vibe Pack is open by default. Each tile header shows the pack swatch icon, pack name left-aligned, and a report count ("3 reports", "1 report") instead of raw credits. The expanded body shows a rewritten pack description (more specific than the picker copy) and report pills colored per report type using `REPORT_PILL_STYLE` (purple for General Wrapped, pink for Love Language, orange for Energy, red for Toxicity, blue for Accountability, teal for Growth). Nav row: Back + "See pricing".
+
+### Pack selection page — credit count and button label fixes
+The subtitle under each pack name on the PackSelect screen now always shows `{N} left` (including `0 left`) instead of the word "Unlock" when the user has no credits. The action button inside the expanded tile now reads "Add more" when credits are zero and "Run" when the user has credits available. Pack description text was also given `textAlign: "left"` and the `0 left` subtitle received an explicit `textAlign: "left"` to override the `wc-btn` class center-alignment.
+
+---
+
 ## v2.7 — Pack selection, payment screen, pack results buffer, and analysis balance dots
 **Files:** `src/App.jsx`, `src/reportCredits.js`, `docs/update-notes.md`
 
