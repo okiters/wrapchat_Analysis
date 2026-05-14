@@ -6511,15 +6511,15 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         display: "flex",
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
-        paddingTop: "max(44px, env(safe-area-inset-top, 0px))",
+        paddingTop: "max(20px, env(safe-area-inset-top, 0px))",
       }}>
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:"max(44px, env(safe-area-inset-top, 0px))", background:p.bg, zIndex:4, pointerEvents:"none" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:"max(20px, env(safe-area-inset-top, 0px))", background:p.bg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES ── */}
         <WaveLines accent={p.accent} />
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
-        <div data-share-hide style={{ position:"absolute", top:"max(44px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
+        <div data-share-hide style={{ position:"absolute", top:"max(20px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
         </div>
         {!hideChromeButtons && share?.onShare && (
@@ -6531,7 +6531,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             disabled={share.busy}
             style={{
               position:"absolute",
-              top:"calc(14px + max(44px, env(safe-area-inset-top, 0px)))", left:14,
+              top:"calc(14px + max(20px, env(safe-area-inset-top, 0px)))", left:14,
               minWidth:66, height:30,
               borderRadius:999,
               border:"none",
@@ -6552,7 +6552,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           </button>
         )}
         {feedback?.resultId && feedbackApi?.openFeedback && (
-          <div data-share-hide style={{ position:"absolute", top:"calc(14px + max(44px, env(safe-area-inset-top, 0px)))", right:onClose ? 54 : 14, zIndex:11 }}>
+          <div data-share-hide style={{ position:"absolute", top:"calc(14px + max(20px, env(safe-area-inset-top, 0px)))", right:onClose ? 54 : 14, zIndex:11 }}>
             <FeedbackButton onClick={() => feedbackApi.openFeedback(feedback)} />
           </div>
         )}
@@ -6565,7 +6565,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             aria-label="Close results"
             style={{
               position: "absolute",
-              top: "calc(14px + max(44px, env(safe-area-inset-top, 0px)))", right: 14,
+              top: "calc(14px + max(20px, env(safe-area-inset-top, 0px)))", right: 14,
               width: 30, height: 30,
               borderRadius: "50%",
               border: "none",
