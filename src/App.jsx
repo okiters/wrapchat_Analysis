@@ -8,7 +8,6 @@ import {
   buildCombinedDataset,
   buildDatasetFromParsedChat,
   detectOtherParticipantMismatches,
-  getDatasetDisplayTitle,
   toAnalysisMessagesFromDataset,
 } from "./import/datasetBuilder";
 import { applyApprovedMerges, normalizeDisplayName } from "./utils/identityMerge";
@@ -2356,12 +2355,55 @@ function hasUserProvidedDisplayName(user) {
   return Boolean(userProvidedDisplayName(user));
 }
 
-function getParticipantDisplayTitle(dataset, mathData = null) {
-  return dataset?.combinedMeta?.displayTitle || (mathData?.names || []).join(", ") || "WrapChat result";
+function namesWithoutCurrentUser(names = [], user = null) {
+  const normalizedUser = normalizeDisplayName(userProvidedDisplayName(user));
+  const cleanNames = (Array.isArray(names) ? names : [])
+    .map(name => String(name || "").trim())
+    .filter(Boolean);
+  if (!normalizedUser) return cleanNames;
+  const otherNames = cleanNames.filter(name => normalizeDisplayName(name) !== normalizedUser);
+  return otherNames.length ? otherNames : cleanNames;
+}
+
+function compactNamesLabel(names = [], maxVisible = 2) {
+  const cleanNames = [...new Set((Array.isArray(names) ? names : [])
+    .map(name => String(name || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean))];
+  if (!cleanNames.length) return "";
+  if (cleanNames.length <= maxVisible) return cleanNames.join(", ");
+  return `${cleanNames.slice(0, maxVisible).join(", ")} +${cleanNames.length - maxVisible}`;
+}
+
+function getParticipantDisplayTitle(dataset, mathData = null, user = null) {
+  const datasetNames = Array.isArray(dataset?.participants)
+    ? dataset.participants.map(participant => participant.displayName)
+    : [];
+  const mathNames = Array.isArray(mathData?.names) ? mathData.names : [];
+  const names = namesWithoutCurrentUser(datasetNames.length ? datasetNames : mathNames, user);
+  return compactNamesLabel(names) || dataset?.combinedMeta?.displayTitle || "WrapChat result";
 }
 
 function detectParticipantConsistencyMismatch(dataset, user) {
   return detectOtherParticipantMismatches(dataset, userProvidedDisplayName(user));
+}
+
+function applyAutomaticParticipantMerges(dataset) {
+  const suggestions = dataset?.mergeState?.suggestions || [];
+  if (!suggestions.length) return dataset;
+  const autoIds = suggestions
+    .filter(suggestion => {
+      const reason = String(suggestion?.reason || "");
+      const confidence = Number(suggestion?.confidence) || 0;
+      return reason === "normalized-name-match" || reason === "phone-match" || confidence >= 0.96;
+    })
+    .map(suggestion => suggestion.id);
+  if (!autoIds.length) return dataset;
+  return applyApprovedMerges(dataset, autoIds, suggestions);
+}
+
+function getReviewableMergeSuggestions(dataset) {
+  const approvedIds = new Set((dataset?.mergeState?.approved || []).map(suggestion => suggestion.id));
+  return (dataset?.mergeState?.suggestions || []).filter(suggestion => !approvedIds.has(suggestion.id));
 }
 // ─────────────────────────────────────────────────────────────────
 // LOCAL MATH
@@ -6469,15 +6511,15 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         display: "flex",
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
-        paddingTop: "max(20px, env(safe-area-inset-top, 0px))",
+        paddingTop: "max(44px, env(safe-area-inset-top, 0px))",
       }}>
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:"max(20px, env(safe-area-inset-top, 0px))", background:p.bg, zIndex:4, pointerEvents:"none" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:"max(44px, env(safe-area-inset-top, 0px))", background:p.bg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES ── */}
         <WaveLines accent={p.accent} />
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
-        <div data-share-hide style={{ position:"absolute", top:"max(20px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
+        <div data-share-hide style={{ position:"absolute", top:"max(44px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
         </div>
         {!hideChromeButtons && share?.onShare && (
@@ -6489,7 +6531,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             disabled={share.busy}
             style={{
               position:"absolute",
-              top:"calc(14px + max(20px, env(safe-area-inset-top, 0px)))", left:14,
+              top:"calc(14px + max(44px, env(safe-area-inset-top, 0px)))", left:14,
               minWidth:66, height:30,
               borderRadius:999,
               border:"none",
@@ -6510,7 +6552,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           </button>
         )}
         {feedback?.resultId && feedbackApi?.openFeedback && (
-          <div data-share-hide style={{ position:"absolute", top:"calc(14px + max(20px, env(safe-area-inset-top, 0px)))", right:onClose ? 54 : 14, zIndex:11 }}>
+          <div data-share-hide style={{ position:"absolute", top:"calc(14px + max(44px, env(safe-area-inset-top, 0px)))", right:onClose ? 54 : 14, zIndex:11 }}>
             <FeedbackButton onClick={() => feedbackApi.openFeedback(feedback)} />
           </div>
         )}
@@ -6523,7 +6565,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             aria-label="Close results"
             style={{
               position: "absolute",
-              top: "calc(14px + max(20px, env(safe-area-inset-top, 0px)))", right: 14,
+              top: "calc(14px + max(44px, env(safe-area-inset-top, 0px)))", right: 14,
               width: 30, height: 30,
               borderRadius: "50%",
               border: "none",
@@ -6994,8 +7036,9 @@ function PackSwatch({ pack, size = 48, inset = 9 }) {
   );
 }
 
-function AnalysisDotsCounter({ credits, onAdd, hide = false }) {
+function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = false }) {
   if (hide || !Number.isInteger(credits)) return null;
+  const useExplicitPackState = activePackIds && typeof activePackIds === "object";
   return (
     <div style={{
       display:"flex", alignItems:"center", gap:6,
@@ -7007,14 +7050,14 @@ function AnalysisDotsCounter({ credits, onAdd, hide = false }) {
       <div style={{ display:"flex", alignItems:"center", gap:4 }}>
         {PACK_ORDER.map(id => {
           const pack = PACK_DEFS[id];
-          const count = Math.floor(credits / pack.cost);
+          const active = useExplicitPackState ? Boolean(activePackIds[id]) : Math.floor(credits / pack.cost) > 0;
           return (
             <div
               key={id}
-              title={`${pack.name}${count > 0 ? "" : " — none"}`}
+              title={`${pack.name}${active ? "" : " — none"}`}
               style={{
                 width:8, height:8, borderRadius:"50%",
-                background:count > 0 ? pack.accent : "rgba(255,255,255,0.16)",
+                background:active ? pack.accent : "rgba(255,255,255,0.16)",
                 transition:"all 0.2s",
               }}
             />
@@ -9346,7 +9389,8 @@ function TooShort({ onBack }) {
 }
 
 function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
-  const suggestions = dataset?.mergeState?.suggestions || [];
+  const suggestions = getReviewableMergeSuggestions(dataset);
+  const existingApprovedIds = (dataset?.mergeState?.approved || []).map(suggestion => suggestion.id);
   const [approvedIds, setApprovedIds] = useState([]);
   const markApproved = (id) => setApprovedIds(prev => prev.includes(id) ? prev : [...prev, id]);
   const markSeparate = (id) => setApprovedIds(prev => prev.filter(item => item !== id));
@@ -9406,7 +9450,7 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
           );
         })}
       </div>
-      <PrimaryButton onClick={() => onContinue(approvedIds)}>Continue</PrimaryButton>
+      <PrimaryButton onClick={() => onContinue([...existingApprovedIds, ...approvedIds])}>Continue</PrimaryButton>
     </Shell>
   );
 }
@@ -9465,6 +9509,7 @@ function Upload({
   credits = null,
   quickReadAvailable = false,
   hideCredits = false,
+  unlockedPackIds = {},
   accessMode = DEFAULT_ACCESS_MODE,
   onClearError,
   onUpgrade,
@@ -9524,7 +9569,7 @@ function Upload({
       )}
       {showCreditPill && (
         <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:5, display:"flex", alignItems:"center" }}>
-          <AnalysisDotsCounter credits={credits} onAdd={onUpgrade || onPayment} hide={hideCredits} />
+          <AnalysisDotsCounter credits={credits} activePackIds={unlockedPackIds} onAdd={onUpgrade || onPayment} hide={hideCredits} />
         </div>
       )}
       <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
@@ -10089,7 +10134,7 @@ function PackSelect({
             return (
               <div
                 key={id}
-                onClick={() => setOpenPack(current => current === id ? null : id)}
+                onClick={() => locked ? onOpenUnlock(id) : setOpenPack(current => current === id ? null : id)}
                 className="wc-btn"
                 style={{
                   borderRadius:22,
@@ -10158,7 +10203,7 @@ function PackSelect({
         <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"18px 0" }} />
         <button
           type="button"
-          onClick={() => onOpenPayment(null)}
+          onClick={() => onOpenUnlock(null)}
           className="wc-btn"
           style={{ width:"100%", padding:14, borderRadius:999, background:"transparent", border:"1.5px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.48)", fontSize:14, fontWeight:600, fontFamily:"'Nunito Sans',sans-serif", cursor:"pointer", textAlign:"center" }}
         >
@@ -10379,12 +10424,24 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
   const runDate = orderedRows[0]?.created_at;
   const firstRow = orderedRows[0] || {};
   const participantLabel = (() => {
-    const displayTitle = firstRow?.result_data?.runMetadata?.displayTitle || firstRow?.math_data?.display_title || firstRow?.math_data?.displayTitle || "";
-    if (displayTitle) return displayTitle;
     const names = Array.isArray(firstRow?.names) ? firstRow.names.filter(Boolean) : [];
-    return names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+    const namesTitle = compactNamesLabel(names);
+    if (namesTitle) return namesTitle;
+    const displayTitle = firstRow?.result_data?.runMetadata?.displayTitle || firstRow?.math_data?.display_title || firstRow?.math_data?.displayTitle || "";
+    return String(displayTitle || "").replace(/,\s*combined\b/i, "").trim();
   })();
-  const stackTitle = participantLabel ? `${participantLabel} – ${pack.name}` : pack.name;
+  const titleNode = (
+    <div style={{ display:"flex", flexDirection:"column", gap:5, minWidth:0 }}>
+      <span style={{ display:"block", fontSize:participantLabel.length > 24 ? 23 : 27, lineHeight:1.04, fontWeight:900, letterSpacing:-1, overflowWrap:"anywhere" }}>
+        {participantLabel || pack.name}
+      </span>
+      {participantLabel && (
+        <span style={{ display:"block", width:"fit-content", maxWidth:"100%", borderRadius:999, padding:"3px 9px", background:`${pack.accent}20`, border:`1px solid ${pack.accent}55`, color:pack.accent, fontSize:10, lineHeight:1.1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+          {pack.name}
+        </span>
+      )}
+    </div>
+  );
   const daysAgo = (() => {
     const diff = Math.floor((new Date() - new Date(runDate)) / 864e5);
     if (!Number.isFinite(diff) || diff <= 0) return "today";
@@ -10394,9 +10451,9 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, bg:pack.bg, inner:pack.cardBg || pack.inner, accent:pack.accent }}>
-      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px 48px", minHeight:0 }}>
+      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px calc(96px + env(safe-area-inset-bottom, 0px))", minHeight:0, overflowY:"auto", overscrollBehavior:"contain" }}>
         <div style={{ marginBottom:18 }}>
-          <ScreenHeader back={onClose} titleNode={stackTitle} />
+          <ScreenHeader back={onClose} titleNode={titleNode} />
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -10454,6 +10511,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
 
   const isPayments = mode === "payments";
   const isTester   = userRole === "tester";
+  const canUnlockWithCredits = (isPayments || mode === "credits") && !isTester;
   const balance = Number.isInteger(credits) ? credits : null;
   const initialPackId = PACK_ORDER.find(id => PACK_DEFS[id].cost === info?.requiredCredits) || "vibe";
   const [selected, setSelected] = useState(() => (
@@ -10491,7 +10549,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
-      {isPayments && !isTester && (
+      {canUnlockWithCredits && (
         <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
           <div style={{
             height:34,
@@ -10506,32 +10564,36 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
               <span style={{ fontSize:10, lineHeight:1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.38)" }}>Credits</span>
               <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:14, lineHeight:1, fontWeight:900, color:"#fff" }}>{balance != null ? balance : "—"}</span>
             </div>
-            <div style={{ width:1, height:14, background:"rgba(255,255,255,0.12)", margin:"0 1px" }} />
-            <button
-              type="button"
-              onClick={() => onOpenPayment(null)}
-              className="wc-btn"
-              aria-label="Add Credits"
-              style={{
-                width:22, height:22, borderRadius:"50%",
-                background:"rgba(255,255,255,0.10)",
-                border:"1px solid rgba(255,255,255,0.16)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                color:"rgba(255,255,255,0.65)",
-                fontSize:14, fontWeight:400, lineHeight:1,
-                padding:0, flexShrink:0, cursor:"pointer",
-              }}
-            >
-              +
-            </button>
+            {isPayments && (
+              <>
+                <div style={{ width:1, height:14, background:"rgba(255,255,255,0.12)", margin:"0 1px" }} />
+                <button
+                  type="button"
+                  onClick={() => onOpenPayment(null)}
+                  className="wc-btn"
+                  aria-label="Add Credits"
+                  style={{
+                    width:22, height:22, borderRadius:"50%",
+                    background:"rgba(255,255,255,0.10)",
+                    border:"1px solid rgba(255,255,255,0.16)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    color:"rgba(255,255,255,0.65)",
+                    fontSize:14, fontWeight:400, lineHeight:1,
+                    padding:0, flexShrink:0, cursor:"pointer",
+                  }}
+                >
+                  +
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
-      <ScreenHeader back={onBack} backLabel="Back to reports" title={isPayments ? "Unlock reads" : "More credits needed"} />
+      <ScreenHeader back={onBack} backLabel="Back to reports" title={canUnlockWithCredits ? "Unlock reads" : "More credits needed"} />
 
-      {isPayments && !isTester ? (
+      {canUnlockWithCredits ? (
         <>
-          <Sub mt={2}>{t("Choose the reads you want to spend credits on. Leftover credits stay in your account.")}</Sub>
+          <Sub mt={2}>{isPayments ? t("Choose the reads you want to unlock. Leftover credits stay in your account.") : t("Choose the reads you want to unlock with your available credits.")}</Sub>
 
           <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
             {PACK_ORDER.map(id => {
@@ -10650,6 +10712,17 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
           {selectedItemCount > 1 && hasEnoughCredits && (
             <div style={{ fontSize:11, color:"rgba(255,255,255,0.34)", textAlign:"center", lineHeight:1.5 }}>Pick one read to unlock on this chat.</div>
           )}
+          {!hasEnoughCredits && selectedCreditTotal > 0 && (
+            <button
+              type="button"
+              onClick={() => isPayments ? onOpenPayment(selectedSingleId) : null}
+              disabled={!isPayments}
+              className="wc-btn"
+              style={{ width:"100%", padding:14, borderRadius:999, background:isPayments ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)", border:"1.5px solid rgba(255,255,255,0.12)", color:isPayments ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.34)", fontSize:14, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:isPayments ? "pointer" : "default", textAlign:"center" }}
+            >
+              {isPayments ? "Add Credits" : "Ask admin for more credits"}
+            </button>
+          )}
         </>
       ) : isTester ? (
         <Sub mt={2}>{t("You're in beta testing mode — credits are managed by the admin. Reach out to get more.")}</Sub>
@@ -10766,7 +10839,8 @@ async function saveResult(type, result, mathData, bundleId = null, creditMeta = 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const generatedAt = new Date().toISOString();
-    const displayTitle = mathData.displayTitle || (mathData.names || []).join(", ") || "WrapChat result";
+    const visibleNames = namesWithoutCurrentUser(mathData.names, user);
+    const displayTitle = compactNamesLabel(visibleNames) || mathData.displayTitle || "WrapChat result";
     const datasetKind = mathData.datasetKind || "single";
     const sourceChatCount = mathData.sourceChatCount || 1;
     const registeredName = normalizeDisplayName(userProvidedDisplayName(user));
@@ -10774,7 +10848,7 @@ async function saveResult(type, result, mathData, bundleId = null, creditMeta = 
       ? (mathData.names.filter(name => normalizeDisplayName(name) !== registeredName).length
           ? mathData.names.filter(name => normalizeDisplayName(name) !== registeredName)
           : mathData.names)
-      : mathData.names;
+      : (visibleNames.length ? visibleNames : mathData.names);
     const safeMathData = {
       ...mathData,
       ...(bundleId ? { bundle_id: bundleId } : {}),
@@ -11986,10 +12060,12 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   };
 
   const resultDisplayTitle = (row) =>
-    row?.result_data?.runMetadata?.displayTitle ||
-    row?.math_data?.display_title ||
-    row?.math_data?.displayTitle ||
-    "";
+    String(
+      row?.result_data?.runMetadata?.displayTitle ||
+      row?.math_data?.display_title ||
+      row?.math_data?.displayTitle ||
+      ""
+    ).replace(/,\s*combined\b/i, "").trim();
 
   const duoNamesForCurrentUser = (row) => {
     if (row?.chat_type !== "duo" || !Array.isArray(row.names)) return null;
@@ -12009,13 +12085,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   const rowNames = (row) => {
     const duoNames = duoNamesForCurrentUser(row);
     if (duoNames) return namesLabel(duoNames);
-    return resultDisplayTitle(row) || namesLabel(row.names);
-  };
-
-  const participantTitleFor = (row, packOrReportName) => {
-    const participant = rowNames(row);
-    const name = String(participant || "").trim();
-    return name && name !== "—" ? `${name} – ${packOrReportName}` : packOrReportName;
+    const savedNames = Array.isArray(row?.names)
+      ? namesWithoutCurrentUser(row.names, { user_metadata: { full_name: currentUserName } })
+      : [];
+    return namesLabel(savedNames) || resultDisplayTitle(row) || "—";
   };
 
   const datasetBadge = (row) => {
@@ -12145,7 +12218,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const cardAccent = pack?.listAccent || pack?.accent || fallbackPal.accent;
     const key = item.type === "bundle" ? item.bundleId : firstRow.id;
     const packOrReportName = pack?.name || rt?.label || firstRow.report_type;
-    const title = participantTitleFor(firstRow, packOrReportName);
+    const participantName = rowNames(firstRow);
     const subline = pack ? packReportLabels(pack, itemRows) : (rt?.label || firstRow.report_type);
     const dateLabel = formatDate(item.created_at);
     const isDeleting = item.type === "bundle" ? deletingBundle === item.bundleId : deletingId === firstRow.id;
@@ -12180,15 +12253,20 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           ) : (
             <SwatchIcon inner={fallbackPal.inner} accent={fallbackPal.accent} />
           )}
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {title}
+          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:4 }}>
+            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:12, minWidth:0 }}>
+              <div style={{ fontSize:15, fontWeight:900, letterSpacing:-0.25, color:"#fff", lineHeight:1.15, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0 }}>
+                {packOrReportName}
+              </div>
+              <div style={{ fontSize:11, fontWeight:800, color:"rgba(255,255,255,0.50)", flexShrink:0 }}>
+                {dateLabel}
+              </div>
             </div>
-            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.40)", marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            <div style={{ fontSize:13, fontWeight:800, letterSpacing:-0.15, color:"rgba(255,255,255,0.86)", lineHeight:1.18, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {participantName}
+            </div>
+            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.40)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {subline}
-            </div>
-            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4 }}>
-              {dateLabel}
             </div>
           </div>
         </div>
@@ -13108,7 +13186,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const tooShort = msgs.length < MIN_MESSAGES;
     const summary = {
       participants: dataset.participants.map(participant => participant.displayName),
-      participantLabel: getDatasetDisplayTitle(dataset),
+      participantLabel: getParticipantDisplayTitle(dataset, null, authedUser),
       messageCount: msgs.length,
       dateRange: dataset.sourceChats?.[0]?.dateRange || [msgs[0]?.date || null, msgs.at(-1)?.date || null],
       dateRangeLabel: dataset.sourceChats?.length > 1 ? `${dataset.sourceChats.length} chats combined` : undefined,
@@ -13124,7 +13202,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         datasetId: dataset.datasetId,
         datasetKind: dataset.datasetKind,
         sourceChatCount: dataset.combinedMeta?.sourceChatCount || 1,
-        displayTitle: getDatasetDisplayTitle(dataset),
+        displayTitle: getParticipantDisplayTitle(dataset, null, authedUser),
       },
     });
     if (tooShort) {
@@ -13145,7 +13223,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           m.datasetId = dataset.datasetId;
           m.datasetKind = dataset.datasetKind;
           m.sourceChatCount = dataset.combinedMeta?.sourceChatCount || 1;
-          m.displayTitle = getParticipantDisplayTitle(dataset, m);
+          m.displayTitle = getParticipantDisplayTitle(dataset, m, authedUser);
           m.participantAliases = dataset.participantAliases;
           m.mergeState = dataset.mergeState;
           m.sourceChats = dataset.sourceChats;
@@ -13199,12 +13277,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setPendingSkipRelationship(false);
     try {
       const isMultiUpload = Array.isArray(parsedInput?.parsedChats);
-      const dataset = isMultiUpload
+      const rawDataset = isMultiUpload
         ? buildCombinedDataset(parsedInput.parsedChats)
         : buildDatasetFromParsedChat(parsedInput);
+      const dataset = applyAutomaticParticipantMerges(rawDataset);
       if (!isMultiUpload) setPendingParsedInput(parsedInput);
       else setPendingParsedInput(null);
-      if (dataset.mergeState?.suggestions?.length) {
+      if (getReviewableMergeSuggestions(dataset).length) {
         setPendingDataset(dataset);
         setParticipantMismatch(null);
         setDir("fwd");
@@ -13587,8 +13666,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const allParsedChats = [pendingParsedInput, ...extraParsedChats].filter(Boolean);
     setPendingParsedInput(null);
     try {
-      const dataset = buildCombinedDataset(allParsedChats);
-      if (dataset.mergeState?.suggestions?.length) {
+      const dataset = applyAutomaticParticipantMerges(buildCombinedDataset(allParsedChats));
+      if (getReviewableMergeSuggestions(dataset).length) {
         setPendingDataset(dataset);
         setParticipantMismatch(null);
         setPendingSkipRelationship(true);
@@ -14168,6 +14247,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           uploadError={uploadError}
           uploadInfo={uploadInfo}
           credits={credits}
+          unlockedPackIds={unlockedPackIds}
           quickReadAvailable={quickReadAvailable}
           hideCredits={authedIsAdmin}
 	          accessMode={accessMode}
