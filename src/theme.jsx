@@ -289,7 +289,8 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
 
       {/* scrollable content */}
       <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column',
-        alignItems:'center', justifyContent:'center', gap:20, padding:'58px 24px 56px',
+        alignItems:'center', justifyContent:'center', gap:20,
+        padding:'max(58px, calc(20px + env(safe-area-inset-top, 0px))) 24px calc(40px + env(safe-area-inset-bottom, 0px))',
         overflowY:'auto', flex:1 }}>
         {children}
       </div>

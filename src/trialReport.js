@@ -1,4 +1,4 @@
-// Trial report — lightweight 1-credit preview that runs in payments mode.
+// Quick Read — lightweight onboarding gift tracked separately from purchased credits.
 // Pure functions only; callClaude lives in App.jsx.
 
 export function buildTrialPrompt(messages, math, relType, buildSampleText) {

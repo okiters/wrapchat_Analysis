@@ -8,6 +8,38 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v2.9 — Quick Read entitlement, pack-based credit pricing, multi-chat upload, iOS polish
+**Files:** `src/App.jsx`, `src/reportCredits.js`, `src/accessMode.js`, `src/trialReport.js`, `src/theme.jsx`, `supabase/migrations/20260514120000_quick_read_entitlement.sql`
+
+### Quick Read separated from purchased credits
+Quick Read is no longer charged against the user's credit balance. It is tracked as a separate one-time entitlement (`quick_read_available`) in the `credits` table. New Supabase migration adds `quick_read_available boolean default true` and `quick_read_used_at timestamptz` columns; a backfill marks existing users who already ran a Quick Read as having used it. `initialise_credits` recreated to start new users at 0 purchased credits + `quick_read_available = true`. New `consume_quick_read_trial(p_user_id)` RPC marks the gift as spent after a successful Quick Read run. `QUICK_READ_TRIAL_CONFIG` exported from `reportCredits.js` (`creditCost: 0`). App `getUserProfile()` now returns `quickReadAvailable`; new `quickReadAvailable` state replaces the old `credits === 1` trigger. `deductCreditsBatch` filters out `trial_report` so Quick Read never touches the balance.
+
+### Pack-based credit pricing
+Credit costs overhauled. New `REPORT_PACKS` object in `reportCredits.js` defines four packs with integer credit costs: growth (45), rf (80), vibe (95), full (210). `PACK_DEFS` costs in App.jsx now reference `REPORT_PACKS` directly — single source of truth. `CREDIT_BUNDLES` replaces the old inline array: Starter (100 cr, €1.99), Plus (250 cr, €3.99, recommended), All Access (450 cr, €7.99). New exports: `REPORT_PACK_ORDER`, `getPackCreditCost`, `estimateAnalysesLeft`, `getCreditBundleById`. `getTotalCreditCostBundled` now resolves to the cheapest covering pack when no exact bundle match exists, removing the old `FAMILY_ADDON_COST` logic. Individual `reportCredits` entries map to their cheapest covering pack cost so no legacy 1–2 credit prices leak through.
+
+### CreditPackGrid — recommended star badge
+`SolidStarIcon` component added. Shown inline next to the pack label when `pack.recommended === true` (Plus pack). Pack description line simplified: recommended packs show "Recommended", others show "One-time credits". Grid item key changed from `pack.label` to `pack.id`; `pack.price` → `pack.priceLabel`.
+
+### PricingCostOverview — bundles section now uses PACK_DEFS
+Bundle rows in `PricingCostOverview` now iterate `PACK_ORDER` and render from `PACK_DEFS` instead of the old `BUNDLES` object, so the displayed costs are always in sync with pack definitions. The "Report costs" tile replaced with a "Credit rules" tile ("Credits never expire.", "One-time purchases only.", "No subscriptions.").
+
+### RelationshipSelect — optional extra chat files
+Screen title changed from "Relationship" to "Set up this chat". Users can optionally add a second chat export from the relationship screen. Tapping the extra-file area runs `processImportedChatFile` and appends the result to a local `extraChats` list. On relationship confirm, `onSelectRelationship` forwards `extraParsedChats` to the app; if extra chats are present and `pendingParsedInput` exists, `buildCombinedAndContinue` merges all inputs via `buildCombinedDataset`, resolves any merge suggestions, and advances to `select` with `skipRelationship: true` so the relationship screen is not shown again. `pendingParsedInput` stored on parse (single uploads only) for use in the combine step; `pendingSkipRelationship` flag propagated through merge-review and participant-mismatch confirmation paths.
+
+### PackSelect — unlock flow replaces direct payment
+`onOpenPayment` prop on PackSelect replaced with `onOpenUnlock`. New `openUnlockReads` function navigates to the upgrade screen without directly opening payment. New `unlockPackForCurrentChat` function marks a pack as locally unlocked (`unlockedPackIds` state) and returns to the select screen — gives the upgrade/payment flow a way to signal that a pack is available for the current chat session. `UpgradePlaceholder` receives `onUnlockPack` when `messages` and `math` are present.
+
+### Report language moved to Settings
+`reportLang` / `onReportLangChange` props removed from `PackSelect`. `SettingsScreen` now receives `reportLang` and `onReportLangChange` props; language change from Settings still resets the core analysis cache. Default `reportLang` on reset changed from `"en"` to `"auto"` in both reset paths.
+
+### iOS safe area — 20 px floor
+All `env(safe-area-inset-top, 0px)` references in Shell (App.jsx and theme.jsx) replaced with `max(20px, env(safe-area-inset-top, 0px))`. Prevents chrome buttons and the progress bar from touching the top edge on devices that report a zero safe-area inset. Bottom padding in `theme.jsx` Shell now uses `calc(40px + env(safe-area-inset-bottom, 0px))`.
+
+### Copy polish
+Quick Read description: "A quick onboarding gift — vibe, communication pattern, and one key insight." (removed "Uses 1 credit."). Growth Report description: "Standalone temporal analysis — how this chat has changed from early days to now." Analysis dots + button aria-label: "Unlock more reads". Out-of-credits error messages across `accessMode.js`, `reportCredits.js`, and `runAnalysis`: "You need more credits to unlock this read."
+
+---
+
 ## v2.8 — Pack explainer screen + pack selection UX polish
 **Files:** `src/App.jsx`, `docs/update-notes.md`
 

@@ -74,7 +74,7 @@ export function checkReportAccess({ isAdmin = false, accessMode, credits = null,
   }
 
   const message = isPaymentMode(mode)
-    ? "Your free trial or paid credits are used up. Add credits to run more reports."
+    ? "You need more credits to unlock this read."
     : needed > 1
       ? `You need ${needed} credits to run these reports.`
       : "You need 1 credit to run this report.";

@@ -1,24 +1,77 @@
 import { supabase } from "./supabase";
 import { isOpenMode } from "./accessMode";
 
-// Credit pricing is intentionally centralized here.
-// These values are relative estimates based on current API shape:
-// - each report uses one major Claude family call when run standalone
-// - growth/risk-heavy reports send broader context or ask for denser output
-// - same-family reports reuse the cached core digest during bundled runs, so
-//   bundles and family-aware pricing reflect the actual compute saving.
-// Adjust these after production token/cost logs are available.
-export const reportCredits = Object.freeze({
-  general:      2,
-  toxicity:     2,
-  lovelang:     1,
-  growth:       2,
-  accounta:     2,
-  energy:       2,
-  trial_report: 1,
+export const QUICK_READ_TRIAL_CONFIG = Object.freeze({
+  reportId: "trial_report",
+  label: "Quick Read",
+  creditCost: 0,
 });
 
-const DEFAULT_REPORT_CREDIT_COST = 2;
+export const CREDIT_BUNDLES = Object.freeze([
+  Object.freeze({ id: "starter", label: "Starter", credits: 100, price: 1.99, priceLabel: "€1.99" }),
+  Object.freeze({ id: "plus", label: "Plus", credits: 250, price: 3.99, priceLabel: "€3.99", recommended: true }),
+  Object.freeze({ id: "all_access", label: "All Access", credits: 450, price: 7.99, priceLabel: "€7.99" }),
+]);
+
+export const REPORT_PACKS = Object.freeze({
+  growth: Object.freeze({
+    id: "growth",
+    bundleId: null,
+    label: "Growth Report",
+    shortDescription: "Standalone temporal analysis",
+    reports: Object.freeze(["growth"]),
+    reportLabels: Object.freeze(["Growth"]),
+    cost: 45,
+  }),
+  rf: Object.freeze({
+    id: "rf",
+    bundleId: "tension",
+    label: "Red Flags Pack",
+    shortDescription: "Toxicity · Accountability",
+    reports: Object.freeze(["toxicity", "accounta"]),
+    reportLabels: Object.freeze(["Toxicity", "Accountability"]),
+    cost: 80,
+  }),
+  vibe: Object.freeze({
+    id: "vibe",
+    bundleId: "connection",
+    label: "Vibe Pack",
+    shortDescription: "General Wrapped · Love Language · Energy",
+    reports: Object.freeze(["general", "lovelang", "energy"]),
+    reportLabels: Object.freeze(["General Wrapped", "Love Language", "Energy"]),
+    cost: 95,
+  }),
+  full: Object.freeze({
+    id: "full",
+    bundleId: "full",
+    label: "Full Read",
+    shortDescription: "All 6 reports",
+    reports: Object.freeze(["general", "lovelang", "energy", "toxicity", "accounta", "growth"]),
+    reportLabels: Object.freeze(["General Wrapped", "Love Language", "Energy", "Toxicity", "Accountability", "Growth"]),
+    cost: 210,
+  }),
+});
+
+export const REPORT_PACK_ORDER = Object.freeze(["vibe", "rf", "full", "growth"]);
+
+export const PACK_CREDIT_COSTS = Object.freeze(
+  Object.fromEntries(Object.values(REPORT_PACKS).map(pack => [pack.id, pack.cost]))
+);
+
+// Standalone report runs are not exposed in the current pack-first UI. If an
+// older path asks for a single report, charge the cheapest defined pack that
+// unlocks that report so no legacy 1/2-credit prices leak back in.
+export const reportCredits = Object.freeze({
+  general:      REPORT_PACKS.vibe.cost,
+  toxicity:     REPORT_PACKS.rf.cost,
+  lovelang:     REPORT_PACKS.vibe.cost,
+  growth:       REPORT_PACKS.growth.cost,
+  accounta:     REPORT_PACKS.rf.cost,
+  energy:       REPORT_PACKS.vibe.cost,
+  trial_report: QUICK_READ_TRIAL_CONFIG.creditCost,
+});
+
+const DEFAULT_REPORT_CREDIT_COST = REPORT_PACKS.growth.cost;
 
 // Which shared AI digest each report is built from.
 // Reports in the same family share one API call when run together.
@@ -32,35 +85,52 @@ const REPORT_FAMILY = Object.freeze({
   trial_report: "trial",
 });
 
-// Add-on price for each extra report within the same family (beyond the first).
-const FAMILY_ADDON_COST = 1;
-
-// Named bundles — fixed prices reflecting shared-compute savings.
-// cost is always less than the sum of individual reportCredits values.
+// Named bundles and saved-result bundle matching.
 export const BUNDLES = Object.freeze({
   connection: Object.freeze({
     id: "connection",
     label: "Vibe Pack",
-    reports: Object.freeze(["general", "lovelang", "energy"]),
-    cost: 4,   // vs 5 à la carte (2 + 1 + 2)
+    reports: REPORT_PACKS.vibe.reports,
+    cost: REPORT_PACKS.vibe.cost,
   }),
   tension: Object.freeze({
     id: "tension",
     label: "Red Flags Pack",
-    reports: Object.freeze(["toxicity", "accounta"]),
-    cost: 3,   // vs 4 à la carte (2 + 2)
+    reports: REPORT_PACKS.rf.reports,
+    cost: REPORT_PACKS.rf.cost,
   }),
   full: Object.freeze({
     id: "full",
     label: "Full Read",
-    reports: Object.freeze(["general", "lovelang", "energy", "toxicity", "accounta", "growth"]),
-    cost: 8,   // vs 11 à la carte
+    reports: REPORT_PACKS.full.reports,
+    cost: REPORT_PACKS.full.cost,
   }),
 });
 
+export function getPackCreditCost(packId) {
+  const cost = PACK_CREDIT_COSTS[String(packId || "")];
+  return Number.isInteger(cost) && cost >= 0 ? cost : null;
+}
+
+export function getAffordablePacks(balance) {
+  const parsed = Number.parseInt(String(balance), 10);
+  if (!Number.isInteger(parsed)) return [];
+  return REPORT_PACK_ORDER.map(id => REPORT_PACKS[id]).filter(pack => parsed >= pack.cost);
+}
+
+export function estimateAnalysesLeft(balance) {
+  const parsed = Number.parseInt(String(balance), 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) return 0;
+  return Math.floor(parsed / REPORT_PACKS.growth.cost);
+}
+
+export function getCreditBundleById(bundleId) {
+  return CREDIT_BUNDLES.find(bundle => bundle.id === bundleId) || null;
+}
+
 export function getReportCreditCost(reportType) {
   const cost = reportCredits[String(reportType || "")];
-  return Number.isInteger(cost) && cost > 0 ? cost : DEFAULT_REPORT_CREDIT_COST;
+  return Number.isInteger(cost) && cost >= 0 ? cost : DEFAULT_REPORT_CREDIT_COST;
 }
 
 // Standalone sum — used for showing original price before discount.
@@ -81,8 +151,8 @@ export function getBundleMatch(selectedTypes = []) {
   return null;
 }
 
-// Bundle-aware total: named bundle price if matched, otherwise family-aware discount
-// (first report per family = full price, each additional same-family report = FAMILY_ADDON_COST).
+// Bundle-aware total: named pack price if matched, otherwise the cheapest pack
+// covering the selected report set.
 export function getTotalCreditCostBundled(selectedReportTypes = []) {
   const uniqueTypes = Array.from(new Set(
     (Array.isArray(selectedReportTypes) ? selectedReportTypes : [selectedReportTypes]).filter(Boolean)
@@ -92,12 +162,16 @@ export function getTotalCreditCostBundled(selectedReportTypes = []) {
   const bundle = getBundleMatch(uniqueTypes);
   if (bundle) return bundle.cost;
 
-  // Family-aware fallback: anchor (highest individual cost in family) = full price,
-  // each additional same-family report = FAMILY_ADDON_COST.
+  const matchingPack = REPORT_PACK_ORDER
+    .map(id => REPORT_PACKS[id])
+    .filter(pack => uniqueTypes.every(type => pack.reports.includes(type)))
+    .sort((a, b) => a.cost - b.cost)[0];
+  if (matchingPack) return matchingPack.cost;
+
   const familySeen = new Set();
   return uniqueTypes.reduce((total, type) => {
     const family = REPORT_FAMILY[type] || type;
-    if (familySeen.has(family)) return total + FAMILY_ADDON_COST;
+    if (familySeen.has(family)) return total;
     familySeen.add(family);
     return total + getReportCreditCost(type);
   }, 0);
@@ -127,7 +201,7 @@ export function canUserRunReports(user, selectedReportTypes = [], accessMode = "
   }
 
   const message = accessMode === "payments"
-    ? "Your free trial or paid credits are used up. Add credits to run more reports."
+    ? "You need more credits to unlock this read."
     : `You need ${requiredCredits} credits to run ${selectedReportTypes.length === 1 ? "this report" : "these reports"}.`;
 
   return { allowed: false, requiredCredits, availableCredits: credits, message };
