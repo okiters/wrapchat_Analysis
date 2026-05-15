@@ -9,7 +9,7 @@
 // uses these tokens and components.
 // ─────────────────────────────────────────────────────────────────────────
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 
 // ── Base tokens ────────────────────────────────────────────────────────────
 // Used for non-result screens (auth, upload, nav chrome) and as fallbacks.
@@ -27,6 +27,20 @@ export const DA = {
   dp:     "'Nunito',sans-serif",        // display — headings
   bp:     "'Nunito Sans',sans-serif",   // body — labels, body copy
 };
+
+export function setAppSafeAreaColor(color = DA.bg) {
+  if (typeof document === "undefined") return;
+  const nextColor = color || DA.bg;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = nextColor;
+
+  document.documentElement.style.setProperty("--app-safe-area-bg", nextColor);
+  document.documentElement.style.backgroundColor = nextColor;
+  document.body.style.backgroundColor = nextColor;
+
+  const root = document.getElementById("root");
+  if (root) root.style.backgroundColor = nextColor;
+}
 
 // ── Per-section palettes ───────────────────────────────────────────────────
 // bg    → full-screen background for that section
@@ -237,10 +251,16 @@ export function WaveLines({ accent }) {
 export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, children }) {
   const pill      = PILL_LABEL[sec];
   const pillColor = PILL_COLOR[sec] || DA.teal;
+  const shellBg   = bg || DA.bg;
+
+  useLayoutEffect(() => {
+    setAppSafeAreaColor(shellBg);
+  });
+
   return (
     <div style={{
       width: 'min(430px,100vw)', minHeight: '100svh',
-      background: bg || DA.bg,
+      background: shellBg,
       position: 'relative', display: 'flex', flexDirection: 'column',
       flexShrink: 0, overflow: 'hidden',
       WebkitFontSmoothing: 'antialiased',

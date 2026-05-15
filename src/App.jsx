@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
 import _updateNotesRaw from "../docs/update-notes.md?raw";
-import { DA, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon, ForwardIcon } from "./theme.jsx";
+import { DA, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon, ForwardIcon, setAppSafeAreaColor } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
@@ -6470,13 +6470,10 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = p.bg;
     document.documentElement.style.transition = `background ${SLIDE_MS}ms ${SLIDE_EASE}`;
     document.body.style.transition = `background ${SLIDE_MS}ms ${SLIDE_EASE}`;
-    document.documentElement.style.background = p.bg;
-    document.body.style.background = p.bg;
-  }, [p.bg]);
+    setAppSafeAreaColor(p.bg);
+  });
 
   prevContentRef.current = children;
 
@@ -9767,12 +9764,11 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
       <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
         <div style={{
           alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-          margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
         }}>
-          <div style={{ padding:"19px 20px 12px", flexShrink:0 }}>
+          <div style={{ flexShrink:0, marginBottom:12 }}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
-          <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, padding:"12px 20px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
+          <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, minHeight:0 }}>
             <div style={{
               width:"100%",
               background:"rgba(255,255,255,0.06)",
@@ -12351,17 +12347,16 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const nameDetailContent = (
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-        ...(drawerMode ? {} : { margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))" }),
         position:"relative",
       }}>
-        <div style={{ padding:"19px 20px 12px", flexShrink:0 }}>
+        <div style={{ flexShrink:0, marginBottom:12 }}>
           <ScreenHeader back={() => { exitEditing(); setNameView(null); }} titleNode={nameView} />
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
             {totalReports} report{totalReports !== 1 ? "s" : ""}
           </div>
         </div>
         <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-          padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+          padding:"4px 0 0",
           display:"flex", flexDirection:"column", gap:10 }}>
           {err && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>}
           {allNameRows.map(row => {
@@ -12463,11 +12458,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   const mainInnerContent = (
     <div style={{
       alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-      ...(drawerMode ? {} : { margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))" }),
       position:"relative",
     }}>
       {/* Fixed header */}
-      <div style={{ padding:"19px 20px 12px", flexShrink:0 }}>
+      <div style={{ flexShrink:0, marginBottom:12 }}>
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
@@ -12526,7 +12520,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
         {viewMode === "reports" && (
         <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-          padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+          padding:"4px 0 0",
           display:"flex", flexDirection:"column", gap:10 }}>
           {rows === null && !err && (
             <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
@@ -12544,7 +12538,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         )}
         {viewMode === "names" && (
           <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-            padding:"4px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+            padding:"4px 0 0",
             display:"flex", flexDirection:"column", gap:10 }}>
             {rows === null && !err && (
               <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
@@ -14328,7 +14322,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         <div style={{
           position:"absolute", top:0, left:0, bottom:0,
           width:"100%",
-          paddingTop:"max(20px, env(safe-area-inset-top, 0px))",
+          padding:"calc(max(20px, env(safe-area-inset-top, 0px)) + 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px))",
           transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
           transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
           background:DA.bg,

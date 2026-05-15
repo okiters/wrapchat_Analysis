@@ -5,6 +5,7 @@
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
   --accent: #aa3bff;
+  --app-safe-area-bg: #2A1969;
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
@@ -55,7 +56,7 @@ body {
   height: 100%;
   overflow: hidden;
   touch-action: manipulation;
-  background: #0c0c16;
+  background: var(--app-safe-area-bg);
 }
 
 body {
@@ -75,6 +76,7 @@ body {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  background: var(--app-safe-area-bg);
 }
 
 @media (max-width: 430px) {
