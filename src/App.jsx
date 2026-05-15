@@ -58,6 +58,7 @@ import colleagueIcon from "../assets/colleage.svg";
 import otherIcon from "../assets/other.svg";
 import cardShareIcon from "../assets/card-share.svg";
 import sumShareIcon from "../assets/sum-share.svg";
+import coinIcon from "../assets/wrpcht-coin.svg";
 import { buildTrialPrompt, deriveTrialReport } from "./trialReport";
 
 // Provided by App during the results phase; Shell reads it to show the close button.
@@ -6264,7 +6265,7 @@ const PACK_DEFS = Object.freeze({
   growth: Object.freeze({
     id: "growth",
     bundleId: null,
-    name: "Growth Report",
+    name: "Growth Read",
     desc: "Standalone temporal analysis — how this chat has changed from early days to now.",
     reports: Object.freeze(["growth"]),
     tags: Object.freeze(["Growth"]),
@@ -6282,6 +6283,14 @@ const PACK_DEFS = Object.freeze({
 });
 
 const PACK_ORDER = REPORT_PACK_ORDER;
+
+// CSS filters to shift the coin SVG (base hue ~271° purple) to each pack's accent color.
+const PACK_COIN_FILTER = Object.freeze({
+  vibe:   "hue-rotate(-13deg) brightness(1.15) saturate(1.3)",
+  rf:     "hue-rotate(71deg) brightness(0.70) saturate(1.3)",
+  full:   "hue-rotate(130deg) brightness(0.72) saturate(1.05)",
+  growth: "hue-rotate(235deg) brightness(0.75) saturate(1.0)",
+});
 
 const REPORT_BUFFER_STYLE = Object.freeze({
   general:  { bg:"#1C0E5A", border:"rgba(155,114,255,0.40)", pillBg:"rgba(155,114,255,0.14)", pillBorder:"rgba(155,114,255,0.32)" },
@@ -6519,9 +6528,9 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
-        {!hideProgressBar && (
+        {!hideProgressBar && total > 0 && (
         <div data-share-hide style={{ position:"absolute", top:"max(20px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
-          <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
+          <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${Math.round((prog/total)*100)}%`, transition:"width 0.4s" }} />
         </div>
         )}
         {!hideChromeButtons && share?.onShare && (
@@ -6967,7 +6976,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
     </div>
   );
 }
-function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null }) {
+function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null, centerTitle=false }) {
   const t = useT();
   return (
     <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"start", columnGap:8, flexShrink:0 }}>
@@ -6998,7 +7007,7 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
       <div style={{
         minWidth:0,
         fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.08,
-        textAlign:"left", overflowWrap:"anywhere",
+        textAlign:centerTitle ? "center" : "left", overflowWrap:"anywhere",
       }}>
         {titleNode ?? t(title)}
       </div>
@@ -8720,7 +8729,7 @@ function RelationshipSelect({
 
   return (
     <Shell sec="upload" prog={1} total={3} contentAlign="start">
-      <ScreenHeader back={onBack} title="Set up this chat" />
+      <ScreenHeader back={onBack} title="Set up this chat" centerTitle />
 
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
 
@@ -9226,7 +9235,7 @@ function TermsFlow({ onAccepted, onLogout }) {
   const linkBtn = { background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
 
   return (
-    <Shell sec="upload" prog={0} total={1} scrollable={false}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>
         One thing before you start.
       </div>
@@ -9372,7 +9381,7 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
 
 function TooShort({ onBack }) {
   return (
-    <Shell sec="upload" prog={0} total={1} scrollable={false}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <BrandLockup />
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
@@ -9555,7 +9564,7 @@ function Upload({
   const showOpenPill = isOpenMode(accessMode) && !hideCredits;
 
   return (
-    <Shell sec="upload" prog={0} total={1} scrollable={false}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false}>
       {/* ── Absolute overlays (never participate in flex layout) ── */}
       {onHistory && (
         <div style={{ position:"absolute", top:16, left:16, zIndex:5 }}>
@@ -10087,26 +10096,10 @@ function PackSelect({
   const stepTotal = math?.isGroup ? 2 : 3;
   const showOpenNotice = !hideCredits && isOpenMode(accessMode);
   const showCreditsCounter = !hideCredits && !isOpenMode(accessMode) && Number.isInteger(credits);
-  const isPackActive = (id) => Boolean(hideCredits || isOpenMode(accessMode) || unlockedPackIds?.[id]);
+  const isPackOwned = (id) => Boolean(hideCredits || isOpenMode(accessMode) || unlockedPackIds?.[id]);
 
   return (
     <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start" hidePill>
-      {showCreditsCounter && (
-        <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
-          <div style={{
-            height:34,
-            boxSizing:"border-box",
-            display:"flex", alignItems:"center", gap:6,
-            background:"rgba(255,255,255,0.07)",
-            border:"1px solid rgba(255,255,255,0.12)",
-            borderRadius:999,
-            padding:"5px 10px",
-          }}>
-            <span style={{ fontSize:10, lineHeight:1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.38)" }}>Credits</span>
-            <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:14, lineHeight:1, fontWeight:900, color:"#fff" }}>{credits}</span>
-          </div>
-        </div>
-      )}
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
@@ -10114,7 +10107,7 @@ function PackSelect({
         minHeight:0,
       }}>
         <div style={{ marginBottom:14 }}>
-          <ScreenHeader back={onBack} title="Pick your read" />
+          <ScreenHeader back={onBack} title="Pick your read" centerTitle />
         </div>
         <div style={{ fontSize:13, color:"rgba(255,255,255,0.42)", lineHeight:1.5, textAlign:"center", margin:"-4px 8px 16px" }}>
           Choose the angle you want on this chat and uncover what is actually going on.
@@ -10131,70 +10124,76 @@ function PackSelect({
           {PACK_ORDER.map(id => {
             const pack = PACK_DEFS[id];
             const open = openPack === id;
-            const active = isPackActive(id);
-            const locked = !active;
+            const owned = isPackOwned(id);
+            const locked = !owned;
             return (
               <div
                 key={id}
-                onClick={() => locked ? onOpenUnlock(id) : setOpenPack(current => current === id ? null : id)}
+                onClick={() => setOpenPack(current => current === id ? null : id)}
                 className="wc-btn"
                 style={{
                   borderRadius:22,
                   overflow:"hidden",
                   cursor:"pointer",
                   transition:"transform 0.18s cubic-bezier(0.2,0,0.1,1)",
-                  background:active ? pack.bg : `${pack.accent}0C`,
-                  border:`1.5px solid ${active ? `${pack.accent}55` : `${pack.accent}32`}`,
-                  opacity:active ? 1 : 0.86,
+                  background:owned ? pack.bg : `${pack.accent}0C`,
+                  border:`1.5px solid ${owned ? `${pack.accent}55` : `${pack.accent}32`}`,
+                  opacity:owned ? 1 : 0.86,
                 }}
               >
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:open ? "16px 18px 12px" : "16px 18px", transition:"padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:14 }}>
                     <PackSwatch pack={pack} />
                     <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em" }}>{pack.name}</div>
-                      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.02em", color:locked ? "rgba(255,255,255,0.52)" : pack.accent, textAlign:"left" }}>{pack.cost} credits</div>
+                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em", textAlign:"left" }}>{pack.name}</div>
+                      <div style={{ fontSize:10, fontWeight:700, color:locked ? "rgba(255,255,255,0.35)" : pack.accent, marginTop:3, textAlign:"left" }}>
+                        {pack.reports.length === 6 ? "All 6 reports" : `${pack.reports.length} ${pack.reports.length === 1 ? "report" : "reports"}`}
+                      </div>
                     </div>
                   </div>
                   <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
                     ▾
                   </div>
                 </div>
-                <div style={{ maxHeight:open ? 300 : 0, overflow:"hidden", opacity:open ? 1 : 0, padding:open ? "0 18px 18px" : "0 18px", transition:"max-height 0.35s cubic-bezier(0.2,0,0.1,1), opacity 0.22s ease, padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
-                    {pack.desc}
-                  </div>
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
-                    {pack.tags.map(tag => (
-                      <span key={tag} style={{ background:"rgba(255,255,255,0.08)", borderRadius:999, padding:"4px 11px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.55)" }}>{tag}</span>
-                    ))}
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.38)" }}>
-                      <strong style={{ fontSize:18, fontWeight:900, color:locked ? "rgba(255,255,255,0.45)" : "#fff", marginRight:4 }}>{active ? 1 : 0}</strong> left
+                <div style={{ display:"grid", gridTemplateRows:open ? "1fr" : "0fr", transition:"grid-template-rows 0.32s cubic-bezier(0.2,0,0.1,1)" }}>
+                  <div style={{ minHeight:0, overflow:"hidden" }}>
+                    <div style={{ padding:"4px 18px 18px", opacity:open ? 1 : 0, transition:"opacity 0.22s ease" }}>
+                      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
+                        {pack.desc}
+                      </div>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
+                        {pack.tags.map(tag => (
+                          <span key={tag} style={{ background:"rgba(255,255,255,0.08)", borderRadius:999, padding:"4px 11px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.55)" }}>{tag}</span>
+                        ))}
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.38)" }}>
+                          <strong style={{ fontSize:18, fontWeight:900, color:locked ? "rgba(255,255,255,0.45)" : "#fff", marginRight:4 }}>{owned ? 1 : 0}</strong> left
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (locked) onOpenUnlock(id);
+                            else onRunPack(pack);
+                          }}
+                          className="wc-btn"
+                          style={{
+                            borderRadius:999,
+                            padding:"10px 22px",
+                            fontSize:14,
+                            fontWeight:700,
+                            fontFamily:"'Nunito Sans',sans-serif",
+                            cursor:"pointer",
+                            border:"none",
+                            background:locked ? pack.accent : pack.accent,
+                            color:locked ? pack.fg : pack.fg,
+                          }}
+                        >
+                          {locked ? "Unlock" : "Run"}
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (locked) onOpenUnlock(id);
-                        else onRunPack(pack);
-                      }}
-                      className="wc-btn"
-                      style={{
-                        borderRadius:999,
-                        padding:"10px 22px",
-                        fontSize:14,
-                        fontWeight:700,
-                        fontFamily:"'Nunito Sans',sans-serif",
-                        cursor:"pointer",
-                        border:"none",
-                        background:locked ? pack.accent : pack.accent,
-                        color:locked ? pack.fg : pack.fg,
-                      }}
-                    >
-                      {locked ? "Unlock" : "Run"}
-                    </button>
                   </div>
                 </div>
               </div>
@@ -10202,15 +10201,6 @@ function PackSelect({
           })}
         </div>
 
-        <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"18px 0" }} />
-        <button
-          type="button"
-          onClick={() => onOpenUnlock(null)}
-          className="wc-btn"
-          style={{ width:"100%", padding:14, borderRadius:999, background:"transparent", border:"1.5px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.48)", fontSize:14, fontWeight:600, fontFamily:"'Nunito Sans',sans-serif", cursor:"pointer", textAlign:"center" }}
-        >
-          Get more credits
-        </button>
       </div>
     </Shell>
   );
@@ -10507,14 +10497,15 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
   );
 }
 
-function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", accessMode = "credits", onOpenPayment = () => {}, onUnlockPack = null }) {
+function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", accessMode = "credits", onOpenPayment = () => {}, onBuyPacks = null }) {
   const t = useT();
   const mode      = info?.accessMode || accessMode;
+  const [buying, setBuying] = useState(false);
 
   const isPayments = mode === "payments";
   const isTester   = userRole === "tester";
   const canUnlockWithCredits = (isPayments || mode === "credits") && !isTester;
-  const balance = Number.isInteger(credits) ? credits : null;
+  const balance = parseCreditBalance(credits);
   const initialPackId = PACK_ORDER.find(id => PACK_DEFS[id].cost === info?.requiredCredits) || "vibe";
   const [selected, setSelected] = useState(() => (
     Object.fromEntries(PACK_ORDER.map(id => [id, id === initialPackId ? 1 : 0]))
@@ -10525,9 +10516,13 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
   const selectedCreditTotal = selectedIds.reduce((sum, id) => sum + (PACK_DEFS[id].cost * (selected[id] || 0)), 0);
   const selectedSingleId = selectedItemCount === 1 ? selectedIds[0] : null;
   const selectedPack = selectedSingleId ? PACK_DEFS[selectedSingleId] : null;
+  const selectedPacks = selectedIds.map(id => PACK_DEFS[id]).filter(Boolean);
+  const selectedAccent = selectedPack?.accent || "#C4AAFF";
+  const selectedFg = selectedPack?.fg || "#100630";
   const hasEnoughCredits = balance != null && selectedCreditTotal > 0 && balance >= selectedCreditTotal;
   const remainingAfterSelection = balance != null ? balance - selectedCreditTotal : null;
-  const canUnlockSelection = hasEnoughCredits && selectedSingleId && selectedPack && onUnlockPack;
+  const canBuySelectedPacks = typeof onBuyPacks === "function";
+  const canUnlockSelection = Boolean(hasEnoughCredits && selectedPacks.length && canBuySelectedPacks && !buying);
   const packDescriptionText = (id) => (
     id === "vibe" ? "See the connection style, affection, and energy underneath the chat." :
     id === "rf" ? "Spot tension, accountability gaps, and moments worth noticing." :
@@ -10542,10 +10537,13 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
     });
   };
 
-  const handlePrimary = () => {
+  const handlePrimary = async () => {
     if (!canUnlockSelection) return;
-    if (selectedPack && onUnlockPack) {
-      onUnlockPack(selectedPack);
+    setBuying(true);
+    try {
+      await onBuyPacks(selectedPacks, selectedCreditTotal);
+    } finally {
+      setBuying(false);
     }
   };
 
@@ -10562,8 +10560,8 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             borderRadius:999,
             padding:"5px 7px 5px 10px",
           }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:5 }}>
-              <span style={{ fontSize:10, lineHeight:1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.38)" }}>Credits</span>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <img src={coinIcon} alt="credits" style={{ width:16, height:16 }} />
               <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:14, lineHeight:1, fontWeight:900, color:"#fff" }}>{balance != null ? balance : "—"}</span>
             </div>
             {isPayments && (
@@ -10644,9 +10642,9 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                         type="button"
                         onClick={(event) => { event.stopPropagation(); changeQty(id, 1); }}
                         className="wc-btn"
-                        style={{ border:"none", background:"transparent", padding:"8px 0", fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:900, color:pack.accent, cursor:"pointer" }}
+                        style={{ border:"none", background:"transparent", padding:"8px 0", fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:900, color:pack.accent, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}
                       >
-                        {pack.cost} cr
+                        <img src={coinIcon} alt="" style={{ width:14, height:14, filter:PACK_COIN_FILTER[id] }} />{pack.cost}
                       </button>
                     ) : (
                       <div style={{ display:"flex", alignItems:"center", gap:5, border:`1px solid ${pack.accent}66`, background:"rgba(0,0,0,0.14)", borderRadius:999, padding:3 }}>
@@ -10684,7 +10682,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
               return (
                 <div key={id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
                   <div style={{ fontSize:13, color:`${pack.accent}CC`, fontWeight:800 }}>{pack.name}{qty > 1 ? ` x${qty}` : ""}</div>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.66)", fontWeight:800 }}>{pack.cost * qty} credits</div>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.66)", fontWeight:800, display:"flex", alignItems:"center", gap:4 }}><img src={coinIcon} alt="" style={{ width:13, height:13, filter:PACK_COIN_FILTER[id] }} />{pack.cost * qty}</div>
                 </div>
               );
             }) : (
@@ -10693,11 +10691,12 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"2px 0" }} />
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
               <div style={{ fontSize:14, fontWeight:900, color:"#fff" }}>Total</div>
-              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:24, fontWeight:900, color:selectedPack?.accent || "#fff" }}>{selectedCreditTotal} credits</div>
+              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:24, fontWeight:900, color:selectedPacks.length ? selectedAccent : "#fff", display:"flex", alignItems:"center", gap:6 }}><img src={coinIcon} alt="" style={{ width:20, height:20, filter:selectedSingleId ? PACK_COIN_FILTER[selectedSingleId] : undefined }} />{selectedCreditTotal}</div>
             </div>
             {remainingAfterSelection != null && (
-              <div style={{ fontSize:12, color:remainingAfterSelection >= 0 ? "rgba(255,255,255,0.44)" : "rgba(255,176,144,0.86)", textAlign:"right", fontWeight:800 }}>
-                {remainingAfterSelection >= 0 ? `${remainingAfterSelection} credits left after unlock` : `${Math.abs(remainingAfterSelection)} more credits needed`}
+              <div style={{ fontSize:12, color:remainingAfterSelection >= 0 ? "rgba(255,255,255,0.44)" : "rgba(255,176,144,0.86)", textAlign:"right", fontWeight:800, display:"flex", alignItems:"center", justifyContent:"flex-end", gap:4 }}>
+                <img src={coinIcon} alt="" style={{ width:12, height:12, filter:selectedSingleId ? PACK_COIN_FILTER[selectedSingleId] : undefined }} />
+                {remainingAfterSelection >= 0 ? `${remainingAfterSelection} left after unlock` : `${Math.abs(remainingAfterSelection)} more needed`}
               </div>
             )}
           </div>
@@ -10707,13 +10706,10 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             onClick={handlePrimary}
             disabled={!canUnlockSelection}
             className="wc-btn"
-            style={{ width:"100%", padding:16, borderRadius:999, border:"none", fontSize:16, fontWeight:800, fontFamily:"'Nunito Sans',sans-serif", cursor:canUnlockSelection ? "pointer" : "default", background:canUnlockSelection ? (selectedPack?.accent || "#C4AAFF") : "rgba(255,255,255,0.10)", color:canUnlockSelection ? (selectedPack?.fg || "#100630") : "rgba(255,255,255,0.30)", opacity:canUnlockSelection ? 1 : 0.72 }}
+            style={{ width:"100%", padding:16, borderRadius:999, border:"none", fontSize:16, fontWeight:800, fontFamily:"'Nunito Sans',sans-serif", cursor:canUnlockSelection ? "pointer" : "default", background:canUnlockSelection ? selectedAccent : "rgba(255,255,255,0.10)", color:canUnlockSelection ? selectedFg : "rgba(255,255,255,0.30)", opacity:canUnlockSelection ? 1 : 0.72 }}
           >
-            Unlock
+            {buying ? "Unlocking..." : "Unlock"}
           </button>
-          {selectedItemCount > 1 && hasEnoughCredits && (
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.34)", textAlign:"center", lineHeight:1.5 }}>Pick one read to unlock on this chat.</div>
-          )}
           {!hasEnoughCredits && selectedCreditTotal > 0 && (
             <button
               type="button"
@@ -13117,7 +13113,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSelectedReportTypes([]);
     setLoadingReportIndex(0);
     setSessionCompletedBundles({});
-    setUnlockedPackIds({});
   };
 
   const openPayment = (packId = null, backPhase = "select") => {
@@ -13143,14 +13138,46 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
-  const unlockPackForCurrentChat = (pack) => {
-    if (!pack?.id) return;
-    setUnlockedPackIds({ [pack.id]: true });
+  const buyPacksWithCredits = async (packs, creditCost) => {
+    const selectedPacks = (Array.isArray(packs) ? packs : []).filter(pack => pack?.id && Array.isArray(pack.reports));
+    if (!selectedPacks.length) return;
+    const amount = parseCreditBalance(creditCost);
+    if (amount == null || amount <= 0) return;
+
+    let availableCredits = credits;
+    try {
+      availableCredits = await getUserCredits();
+      setCredits(availableCredits);
+    } catch (error) {
+      console.error("Credit check failed", error);
+      setAnalysisError("Couldn't check your credits right now. Try again.");
+      return;
+    }
+
+    if (availableCredits == null || availableCredits < amount) {
+      setCredits(availableCredits);
+      setAnalysisError(`You need ${amount} credits to unlock ${selectedPacks.length === 1 ? "this read" : "these reads"}.`);
+      return;
+    }
+
+    try {
+      const nextBalance = await deductCreditsAmount(authedUser?.id, amount);
+      setCredits(nextBalance);
+    } catch (error) {
+      console.error("Pack unlock credit deduction failed", error);
+      setAnalysisError("Couldn't unlock these reads right now. Try again.");
+      return;
+    }
+
+    setUnlockedPackIds(prev => ({
+      ...prev,
+      ...Object.fromEntries(selectedPacks.map(pack => [pack.id, true])),
+    }));
     setAnalysisError("");
     setUploadInfo("");
     setUpgradeInfo(null);
     setDir("bk");
-    setPhase("select");
+    setPhase(upgradeInfo?.backPhase || (messages?.length && math ? "select" : "upload"));
     setSid(s => s + 1);
   };
 
@@ -13427,11 +13454,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return true;
   };
 
-  const deductCreditsBatch = async (types, mode = accessMode) => {
+  const deductCreditsBatch = async (types, mode = accessMode, amountOverride = null) => {
     const selectedTypes = normalizeSelectedReportTypes(Array.isArray(types) ? types : [types]).filter(type => type && type !== QUICK_READ_TRIAL_CONFIG.reportId);
     if (authedIsAdmin || isOpenMode(mode) || !selectedTypes.length) return;
     try {
-      const amount = getTotalCreditCostBundled(selectedTypes);
+      const parsedOverride = parseCreditBalance(amountOverride);
+      const amount = parsedOverride != null ? parsedOverride : getTotalCreditCostBundled(selectedTypes);
       const nextBalance = await deductCreditsAmount(authedUser?.id, amount);
       setCredits(nextBalance);
     } catch (error) {
@@ -13450,10 +13478,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   };
 
   // Run AI analysis with the selected report type(s) and relationship type
-  const runAnalysis = async (types, relType) => {
+  const runAnalysis = async (types, relType, options = {}) => {
     const selectedTypes = normalizeSelectedReportTypes(Array.isArray(types) ? types : [types]).filter(Boolean);
     const isQuickReadRun = selectedTypes.length === 1 && selectedTypes[0] === QUICK_READ_TRIAL_CONFIG.reportId;
     const contentLang = reportContentLang;
+    const creditCostOverride = parseCreditBalance(options?.creditCostOverride);
+    const bundleNameOverride = String(options?.bundleNameOverride || "").trim();
+    const skipCreditDeduction = Boolean(options?.skipCreditDeduction);
+    const consumePackIds = Array.isArray(options?.consumePackIds) ? options.consumePackIds.filter(Boolean) : [];
     setAnalysisError("");
     if (!selectedTypes.length) {
       setAnalysisError("Choose at least one report.");
@@ -13487,7 +13519,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
-    if (!isQuickReadRun && !authedIsAdmin && !isOpenMode(activeAccessMode)) {
+    if (!isQuickReadRun && !authedIsAdmin && !isOpenMode(activeAccessMode) && !skipCreditDeduction) {
       let availableCredits = credits;
       try {
         availableCredits = await getUserCredits();
@@ -13498,11 +13530,20 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCredits(null);
       }
 
-      const access = canUserRunReports({
-        ...authedUser,
-        role: authedIsAdmin ? "admin" : authedUser?.role,
-        credits: availableCredits,
-      }, selectedTypes, activeAccessMode);
+      const access = creditCostOverride != null
+        ? {
+            allowed: availableCredits != null && availableCredits >= creditCostOverride,
+            requiredCredits: creditCostOverride,
+            availableCredits,
+            message: activeAccessMode === "payments"
+              ? "You need more credits to unlock this read."
+              : `You need ${creditCostOverride} credits to run ${selectedTypes.length === 1 ? "this report" : "these reports"}.`,
+          }
+        : canUserRunReports({
+            ...authedUser,
+            role: authedIsAdmin ? "admin" : authedUser?.role,
+            credits: availableCredits,
+          }, selectedTypes, activeAccessMode);
 
       if (!access.allowed) {
         setUpgradeInfo({
@@ -13521,12 +13562,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       }
     }
 
-    const runCreditCost = getTotalCreditCostBundled(selectedTypes);
+    const runCreditCost = creditCostOverride != null ? creditCostOverride : getTotalCreditCostBundled(selectedTypes);
     const matchedBundle = getBundleMatch(selectedTypes);
-    const bundleName = matchedBundle?.label
+    const bundleName = bundleNameOverride
+      || (matchedBundle?.label
       ?? (selectedTypes.length > 1
         ? selectedTypes.map(type => REPORT_TYPES.find(r => r.id === type)?.label || type).join(" + ")
-        : null);
+        : null));
 
     setUploadInfo("");
     setUpgradeInfo(null);
@@ -13589,7 +13631,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
-    await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode);
+    if (!skipCreditDeduction) {
+      await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode, runCreditCost);
+    }
+    if (consumePackIds.length) {
+      setUnlockedPackIds(prev => ({
+        ...prev,
+        ...Object.fromEntries(consumePackIds.map(id => [id, false])),
+      }));
+    }
     if (isQuickReadRun && !authedIsAdmin && !isOpenMode(activeAccessMode)) {
       try {
         await consumeQuickReadTrial(authedUser?.id);
@@ -13648,9 +13698,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const onRunPack = (pack) => {
     if (!pack?.reports?.length) return;
+    const owned = Boolean(unlockedPackIds?.[pack.id]);
     setAnalysisError("");
     setSelectedReportTypes(pack.reports);
-    runAnalysis(pack.reports, math?.isGroup ? null : relationshipType);
+    runAnalysis(pack.reports, math?.isGroup ? null : relationshipType, owned ? {
+      skipCreditDeduction: true,
+      creditCostOverride: 0,
+      bundleNameOverride: pack.name,
+      consumePackIds: [pack.id],
+    } : {});
   };
 
   // Step 3 (duo only): user picks relationship type → then choose report type
@@ -14311,7 +14367,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       />
     </Slide>
   );
-	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, "upgrade")} onUnlockPack={messages?.length && math ? unlockPackForCurrentChat : null} /></Slide>);
+	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, "upgrade")} onBuyPacks={buyPacksWithCredits} /></Slide>);
 	  if (phase === "payment") return withUiLanguage(
 	    <Slide dir={dir} id={sid}>
 	      <div style={{ position:"relative" }}>

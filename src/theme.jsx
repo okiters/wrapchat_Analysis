@@ -249,10 +249,12 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
       {geos}
 
       {/* progress bar */}
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(255,255,255,0.1)', zIndex:5 }}>
-        <div style={{ height:'100%', background:'rgba(255,255,255,0.65)', borderRadius:'0 2px 2px 0',
-          width: `${total > 0 ? Math.round((prog / total) * 100) : 0}%`, transition:'width .4s' }} />
-      </div>
+      {total > 0 && (
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(255,255,255,0.1)', zIndex:5 }}>
+          <div style={{ height:'100%', background:'rgba(255,255,255,0.65)', borderRadius:'0 2px 2px 0',
+            width: `${Math.round((prog / total) * 100)}%`, transition:'width .4s' }} />
+        </div>
+      )}
 
       {/* section pill */}
       {pill && (
