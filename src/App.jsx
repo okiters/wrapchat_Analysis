@@ -6434,7 +6434,7 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false }) {
   const p = palette || PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -6519,9 +6519,11 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
+        {!hideProgressBar && (
         <div data-share-hide style={{ position:"absolute", top:"max(20px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${total>0?Math.round((prog/total)*100):0}%`, transition:"width 0.4s" }} />
         </div>
+        )}
         {!hideChromeButtons && share?.onShare && (
           <button
             data-share-hide
@@ -9753,12 +9755,12 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
 
   return (
     <>
-      <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
+      <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
         <div style={{
           alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
           margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
         }}>
-          <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+          <div style={{ padding:"19px 20px 12px", flexShrink:0 }}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
           <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, padding:"12px 20px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
@@ -12313,9 +12315,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   if (bundleView) {
     if (rows === null) {
       return drawerMode ? (
-        <div style={{ flex:1, display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
+        <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
       ) : (
-        <Shell sec="upload" prog={0} total={0} contentAlign="start">
+        <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
           <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
         </Shell>
       );
@@ -12341,7 +12343,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const nameGroup = nameItems.find(g => g.name === nameView);
     if (!nameGroup || rows === null) {
       const loadEl = <div style={{ flex:1, display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>;
-      return drawerMode ? loadEl : <Shell sec="upload" prog={0} total={0} contentAlign="start">{loadEl}</Shell>;
+      return drawerMode ? loadEl : <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>{loadEl}</Shell>;
     }
     const allNameRows = [];
     nameGroup.items.forEach(item => {
@@ -12356,7 +12358,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         ...(drawerMode ? {} : { margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))" }),
         position:"relative",
       }}>
-        <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+        <div style={{ padding:"19px 20px 12px", flexShrink:0 }}>
           <ScreenHeader back={() => { exitEditing(); setNameView(null); }} titleNode={nameView} />
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
             {totalReports} report{totalReports !== 1 ? "s" : ""}
@@ -12455,12 +12457,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         )}
       </div>
     );
-    return drawerMode ? (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative" }}>
-        {nameDetailContent}
-      </div>
-    ) : (
-      <Shell sec="upload" prog={0} total={0} contentAlign="start">
+    return drawerMode ? nameDetailContent : (
+      <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
         {nameDetailContent}
       </Shell>
     );
@@ -12473,7 +12471,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       position:"relative",
     }}>
       {/* Fixed header */}
-      <div style={{ padding:"16px 20px 12px", flexShrink:0 }}>
+      <div style={{ padding:"19px 20px 12px", flexShrink:0 }}>
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
@@ -12657,7 +12655,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       {mainInnerContent}
     </div>
   ) : (
-    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+    <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
       {mainInnerContent}
     </Shell>
   );
@@ -14274,12 +14272,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         <div style={{
           position:"absolute", top:0, left:0, bottom:0,
           width:"100%",
+          paddingTop:"max(20px, env(safe-area-inset-top, 0px))",
           transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
           transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
           background:DA.bg,
           display:"flex", flexDirection:"column",
           overflow:"hidden",
           boxShadow:"4px 0 32px rgba(0,0,0,0.45)",
+          boxSizing:"border-box",
         }}>
           <MyResults
             drawerMode={true}
