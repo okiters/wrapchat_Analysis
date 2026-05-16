@@ -6442,6 +6442,20 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 
 const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
+const SHELL_SAFE_TOP = "max(20px, env(safe-area-inset-top, 0px))";
+const SHELL_PANE_PADDING = "16px 20px calc(24px + env(safe-area-inset-bottom, 0px))";
+const SHELL_DRAWER_PADDING = `calc(${SHELL_SAFE_TOP} + 6px) 20px calc(24px + env(safe-area-inset-bottom, 0px))`;
+const SCREEN_CONTENT_STYLE = {
+  alignSelf:"stretch",
+  flex:1,
+  display:"flex",
+  flexDirection:"column",
+  minHeight:0,
+};
+const SCREEN_HEADER_BLOCK_STYLE = {
+  flexShrink:0,
+  marginBottom:12,
+};
 
 function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false }) {
   const p = palette || PAL[sec] || PAL.upload;
@@ -6464,7 +6478,10 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
     if (id !== prevIdRef.current) {
       setExitContent({ node: prevContentRef.current, dir });
       prevIdRef.current = id;
-      const t = setTimeout(() => setExitContent(null), SLIDE_MS);
+      const t = setTimeout(() => {
+        setExitContent(null);
+        paneRef.current?.style.removeProperty('--wc-enter-from');
+      }, SLIDE_MS);
       return () => clearTimeout(t);
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -6518,16 +6535,16 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         display: "flex",
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
-        paddingTop: "max(20px, env(safe-area-inset-top, 0px))",
+        paddingTop: SHELL_SAFE_TOP,
       }}>
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:"max(20px, env(safe-area-inset-top, 0px))", background:p.bg, zIndex:4, pointerEvents:"none" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:SHELL_SAFE_TOP, background:p.bg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES ── */}
         <WaveLines accent={p.accent} />
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
         {!hideProgressBar && total > 0 && (
-        <div data-share-hide style={{ position:"absolute", top:"max(20px, env(safe-area-inset-top, 0px))", left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
+        <div data-share-hide style={{ position:"absolute", top:SHELL_SAFE_TOP, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${Math.round((prog/total)*100)}%`, transition:"width 0.4s" }} />
         </div>
         )}
@@ -6540,7 +6557,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             disabled={share.busy}
             style={{
               position:"absolute",
-              top:"calc(14px + max(20px, env(safe-area-inset-top, 0px)))", left:14,
+              top:`calc(14px + ${SHELL_SAFE_TOP})`, left:14,
               minWidth:66, height:30,
               borderRadius:999,
               border:"none",
@@ -6561,7 +6578,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           </button>
         )}
         {feedback?.resultId && feedbackApi?.openFeedback && (
-          <div data-share-hide style={{ position:"absolute", top:"calc(14px + max(20px, env(safe-area-inset-top, 0px)))", right:onClose ? 54 : 14, zIndex:11 }}>
+          <div data-share-hide style={{ position:"absolute", top:`calc(14px + ${SHELL_SAFE_TOP})`, right:onClose ? 54 : 14, zIndex:11 }}>
             <FeedbackButton onClick={() => feedbackApi.openFeedback(feedback)} />
           </div>
         )}
@@ -6574,7 +6591,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             aria-label="Close results"
             style={{
               position: "absolute",
-              top: "calc(14px + max(20px, env(safe-area-inset-top, 0px)))", right: 14,
+              top: `calc(14px + ${SHELL_SAFE_TOP})`, right: 14,
               width: 30, height: 30,
               borderRadius: "50%",
               border: "none",
@@ -6603,8 +6620,8 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           {exitContent && (
             <div data-share-hide className="wc-pane wc-exit-pane" style={{
               position:"absolute", inset:0,
-              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:paneJustify,
-              padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
+              display:"flex", flexDirection:"column", alignItems:"stretch", justifyContent:paneJustify,
+              padding:SHELL_PANE_PADDING, gap:10,
               transform:isFade ? "none" : `translateX(${exitTo})`,
               opacity:isFade ? 0 : 1,
               transition:isFade ? `opacity 180ms ${SLIDE_EASE}` : `transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
@@ -6620,10 +6637,10 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             position: exitContent ? "absolute" : "relative",
             inset: exitContent ? 0 : "auto",
             flex: exitContent ? "none" : 1,
-            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:paneJustify,
+            display:"flex", flexDirection:"column", alignItems:"stretch", justifyContent:paneJustify,
             width:"100%",
             minHeight:0,
-            padding:"16px 20px calc(24px + env(safe-area-inset-bottom, 0px))", gap:10,
+            padding:SHELL_PANE_PADDING, gap:10,
             animation: exitContent ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`) : "none",
             ["--wc-enter-from"]: enterFrom,
             willChange: exitContent ? (isFade ? "opacity, transform" : "transform") : "auto",
@@ -6977,7 +6994,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
 function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null, centerTitle=false }) {
   const t = useT();
   return (
-    <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"start", columnGap:8, flexShrink:0 }}>
+    <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"center", columnGap:8, flexShrink:0 }}>
       {back && (
         <button
           type="button"
@@ -9763,10 +9780,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
   return (
     <>
       <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
-        <div style={{
-          alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
-        }}>
-          <div style={{ flexShrink:0, marginBottom:12 }}>
+        <div style={SCREEN_CONTENT_STYLE}>
+          <div style={SCREEN_HEADER_BLOCK_STYLE}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
           <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, minHeight:0 }}>
@@ -12221,6 +12236,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const onOpen = () => {
       if (editing || isDeleting || isConfirming) return;
       if (pack?.id === "growth" || item.type === "single") onRestoreResult(firstRow);
+      else if (drawerMode) onBack?.(item.bundleId);
       else setBundleView(item.bundleId);
     };
 
@@ -12347,10 +12363,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const totalReports = allNameRows.length;
     const nameDetailContent = (
       <div style={{
-        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+        ...SCREEN_CONTENT_STYLE,
         position:"relative",
       }}>
-        <div style={{ flexShrink:0, marginBottom:12 }}>
+        <div style={SCREEN_HEADER_BLOCK_STYLE}>
           <ScreenHeader back={() => { exitEditing(); setNameView(null); }} titleNode={nameView} />
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
             {totalReports} report{totalReports !== 1 ? "s" : ""}
@@ -12458,11 +12474,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
   const mainInnerContent = (
     <div style={{
-      alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", minHeight:0,
+      ...SCREEN_CONTENT_STYLE,
       position:"relative",
     }}>
       {/* Fixed header */}
-      <div style={{ flexShrink:0, marginBottom:12 }}>
+      <div style={SCREEN_HEADER_BLOCK_STYLE}>
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
@@ -13916,15 +13932,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const closeResults = () => {
     const fromHist = resultsOrigin === "history";
+    const bundleOriginId = fromHist && reportRouteState?.origin === "bundle"
+      ? reportRouteState.bundleId : null;
     setReportRouteState(null);
     setDir("fade");
-    setPhase("upload");
     setSid(s => s + 1);
-    if (fromHist) {
-      setHistoryBundleView(reportRouteState?.origin === "bundle" ? reportRouteState.bundleId : null);
-      setHistoryDrawerOpen(true);
+    if (bundleOriginId) {
+      setHistoryBundleView(bundleOriginId);
+      setHistoryDrawerOpen(false);
+      setPhase("history");
     } else {
+      setPhase("upload");
       setHistoryBundleView(null);
+      if (fromHist) setHistoryDrawerOpen(true);
     }
   };
 
@@ -14323,7 +14343,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         <div style={{
           position:"absolute", top:0, left:0, bottom:0,
           width:"100%",
-          padding:"calc(max(20px, env(safe-area-inset-top, 0px)) + 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+          padding:SHELL_DRAWER_PADDING,
           transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
           transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
           background:DA.bg,
@@ -14335,7 +14355,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           <MyResults
             drawerMode={true}
             initialBundleId={historyBundleView}
-            onBack={() => { setHistoryBundleView(null); setHistoryDrawerOpen(false); }}
+            onBack={(bundleId) => { if (bundleId) { setHistoryBundleView(bundleId); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("history"); setSid(s => s+1); } else { setHistoryBundleView(null); setHistoryDrawerOpen(false); } }}
             onRestoreResult={(row, routeState) => { setHistoryDrawerOpen(false); onRestoreResult(row, routeState); }}
             onSettings={() => { setSettingsReturnTarget("historyDrawer"); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
           />
