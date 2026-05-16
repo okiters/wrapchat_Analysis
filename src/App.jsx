@@ -6524,7 +6524,6 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         height: "100svh",
         margin: "0 auto",
         background: p.bg,
-        transition: `background ${SLIDE_MS}ms ${SLIDE_EASE}`,
         borderRadius: 32,
         overflow: "hidden",
         position: "relative",
