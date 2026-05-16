@@ -5928,6 +5928,27 @@ const PILL_LABEL = {
   trial:"Quick Read",
 };
 
+function getReportLaunchSec(reportType) {
+  if (reportType === "general") return "roast";
+  if (reportType === "trial_report") return "trial";
+  return REPORT_TYPES.find(r => r.id === reportType)?.palette || "upload";
+}
+
+function getReportLaunchBg(reportType) {
+  return (PAL[getReportLaunchSec(reportType)] || PAL.upload).bg;
+}
+
+function prepaintReportLaunchSurface(reportType) {
+  const bg = getReportLaunchBg(reportType);
+  setAppSafeAreaColor(bg);
+  if (typeof document === "undefined") return;
+  const wcRoot = document.querySelector(".wc-root");
+  if (!wcRoot) return;
+  wcRoot.style.background = bg;
+  const coverDiv = wcRoot.firstElementChild;
+  if (coverDiv?.hasAttribute("data-share-hide")) coverDiv.style.background = bg;
+}
+
 
 
 function canShareFiles(files) {
@@ -6468,6 +6489,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
   // Content-only slide animation — chrome (bg, bar, pill, X) stays perfectly still.
   const prevContentRef = useRef(null);
   const prevIdRef      = useRef(id);
+  const rootRef        = useRef(null);
   const paneRef        = useRef(null);
   const [exitContent, setExitContent] = useState(null);
 
@@ -6487,6 +6509,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
+    if (rootRef.current?.closest('[data-share-capture="summary"]')) return;
     setAppSafeAreaColor(p.bg);
   });
 
@@ -6519,7 +6542,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-      <div className="wc-root" data-share-type={shareType} data-share-accent={p.accent} style={{
+      <div ref={rootRef} className="wc-root" data-share-type={shareType} data-share-accent={p.accent} style={{
         width: "min(420px, 100vw)",
         height: "100svh",
         margin: "0 auto",
@@ -9676,7 +9699,7 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   useEffect(() => { const t = setInterval(() => setTick(x => Math.min(x+1, LOADING_STEPS.length-1)), 1800); return () => clearInterval(t); }, []);
   const rtype = REPORT_TYPES.find(r => r.id === reportType);
   const label = rtype?.label || "Analysis";
-  const sec   = rtype?.palette || "upload";
+  const sec   = getReportLaunchSec(reportType);
   const pal   = PAL[sec] || PAL.upload;
   const queue = normalizeSelectedReportTypes(reportTypes);
   const queuePrefix = queue.length > 1 ? `${Math.min(loadingIndex + 1, queue.length)}/${queue.length} · ` : "";
@@ -13376,6 +13399,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDir("fwd");
     setSelectedReportTypes(["trial_report"]);
     setReportType("trial_report");
+    prepaintReportLaunchSurface("trial_report");
     setLoadingReportIndex(0);
     setCurrentResultId(null);
     setAiLoading(true);
@@ -13438,6 +13462,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const restoreGeneratedResult = (type, result, savedId = null) => {
     const displayLang = result ? getStoredResultDisplayLanguage(result) : "en";
     if (!result) return false;
+    prepaintReportLaunchSurface(type);
     setReportType(type);
     setSelectedReportTypes([type]);
     setLoadingReportIndex(0);
@@ -13577,6 +13602,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setUpgradeInfo(null);
     setStep(0);
     setDir("fwd");
+    prepaintReportLaunchSurface(selectedTypes[0]);
     setPhase("loading");
     setSid(s => s+1);
     setAiLoading(true);
@@ -14193,6 +14219,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const nextRouteState = routeState?.origin === "bundle" && routeState.bundleId
       ? { origin: "bundle", bundleId: routeState.bundleId }
       : null;
+    prepaintReportLaunchSurface(row.report_type);
     setMath(row.math_data);
     const displayLang = getStoredResultDisplayLanguage(row.result_data);
     const sourceLang = normalizeUiLangCode(row.result_data?.sourceLanguage || displayLang);
