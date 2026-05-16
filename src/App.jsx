@@ -6513,6 +6513,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         borderRadius: 32,
         overflow: "hidden",
         position: "relative",
+        isolation: "isolate",
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
@@ -9063,7 +9064,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
 
       {/* ── Screen 1: hook ── */}
       {step === 0 && (<>
-        <div style={{ fontSize:34, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Your relationship, in data.")}
         </div>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", textAlign:"center", lineHeight:1.75, width:"100%" }}>
@@ -9077,7 +9078,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
 
       {/* ── Screen 2: export instructions ── */}
       {step === 1 && (<>
-        <div style={{ fontSize:34, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Start with your chat.")}
         </div>
         <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:9 }}>
@@ -9097,7 +9098,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
 
       {/* ── Screen 3: launch ── */}
       {step === 2 && (<>
-        <div style={{ fontSize:34, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Upload. Analyse. See it clearly.")}
         </div>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", textAlign:"center", lineHeight:1.75, width:"100%" }}>
@@ -9120,7 +9121,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
       </>)}
 
       {step === 3 && (<>
-        <div style={{ fontSize:34, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Choose your language")}
         </div>
         <div style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
@@ -9345,7 +9346,7 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
         subtitle="Your chats, unwrapped."
         subtitleMarginBottom={8}
       />
-      <div style={{ fontSize:27, fontWeight:850, color:"#fff", letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
+      <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
         What name should we look for?
       </div>
       <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", textAlign:"center", lineHeight:1.7, width:"100%" }}>
@@ -9381,7 +9382,7 @@ function TooShort({ onBack }) {
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <BrandLockup />
       <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
-        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
           Not enough messages to wrap
         </div>
         <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginTop:10, lineHeight:1.75 }}>
