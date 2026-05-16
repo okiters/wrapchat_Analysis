@@ -6487,8 +6487,6 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
-    document.documentElement.style.transition = `background ${SLIDE_MS}ms ${SLIDE_EASE}`;
-    document.body.style.transition = `background ${SLIDE_MS}ms ${SLIDE_EASE}`;
     setAppSafeAreaColor(p.bg);
   });
 
@@ -6544,7 +6542,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
         {!hideProgressBar && total > 0 && (
-        <div data-share-hide style={{ position:"absolute", top:SHELL_SAFE_TOP, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
           <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${Math.round((prog/total)*100)}%`, transition:"width 0.4s" }} />
         </div>
         )}
@@ -10439,11 +10437,6 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
       <span style={{ display:"block", fontSize:participantLabel.length > 24 ? 23 : 27, lineHeight:1.04, fontWeight:900, letterSpacing:-1, overflowWrap:"anywhere" }}>
         {participantLabel || pack.name}
       </span>
-      {participantLabel && (
-        <span style={{ display:"block", width:"fit-content", maxWidth:"100%", borderRadius:999, padding:"3px 9px", background:`${pack.accent}20`, border:`1px solid ${pack.accent}55`, color:pack.accent, fontSize:10, lineHeight:1.1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-          {pack.name}
-        </span>
-      )}
     </div>
   );
   const daysAgo = (() => {
