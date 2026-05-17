@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
   try {
     await deleteRows("feedback", userId, supabaseUrl, serviceKey);
     await deleteRows("results", userId, supabaseUrl, serviceKey);
+    await deleteRows("report_unlocks", userId, supabaseUrl, serviceKey);
     await deleteRows("credits", userId, supabaseUrl, serviceKey);
 
     const deleteUserRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {

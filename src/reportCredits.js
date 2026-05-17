@@ -234,3 +234,56 @@ export async function deductCreditsAmount(userId, amount) {
   const parsed = Number.parseInt(String(data ?? 0), 10);
   return Number.isInteger(parsed) ? parsed : null;
 }
+
+function packIdsToMap(packIds = []) {
+  return Object.fromEntries(
+    (Array.isArray(packIds) ? packIds : [])
+      .map(id => String(id || "").trim())
+      .filter(Boolean)
+      .map(id => [id, true])
+  );
+}
+
+export async function getUnlockedReportPacks(userId) {
+  if (!userId) return {};
+  const { data, error } = await supabase.rpc("get_report_unlocks", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  return packIdsToMap(data);
+}
+
+export async function unlockReportPacks(userId, packIds = []) {
+  const normalizedPackIds = (Array.isArray(packIds) ? packIds : [packIds])
+    .map(id => String(id || "").trim())
+    .filter(Boolean);
+  if (!userId || !normalizedPackIds.length) {
+    return { balance: null, chargedCredits: 0, unlockedPackIds: {} };
+  }
+
+  const { data, error } = await supabase.rpc("unlock_report_packs", {
+    p_user_id: userId,
+    p_pack_ids: normalizedPackIds,
+  });
+  if (error) throw error;
+
+  const balance = Number.parseInt(String(data?.balance ?? 0), 10);
+  const chargedCredits = Number.parseInt(String(data?.charged_credits ?? 0), 10);
+  return {
+    balance: Number.isInteger(balance) ? balance : null,
+    chargedCredits: Number.isInteger(chargedCredits) ? chargedCredits : 0,
+    unlockedPackIds: packIdsToMap(data?.unlocked_pack_ids),
+  };
+}
+
+export async function simulateCreditPurchase(userId, bundleId) {
+  if (!userId || !bundleId) return null;
+  const { data, error } = await supabase.rpc("simulate_credit_purchase", {
+    p_user_id: userId,
+    p_bundle_id: bundleId,
+  });
+  if (error) throw error;
+
+  const parsed = Number.parseInt(String(data ?? 0), 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}

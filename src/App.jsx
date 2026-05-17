@@ -35,6 +35,9 @@ import {
   getPackCreditCost,
   getReportCreditCost,
   getTotalCreditCostBundled,
+  getUnlockedReportPacks,
+  simulateCreditPurchase,
+  unlockReportPacks,
 } from "./reportCredits";
 import {
   buildDebugAnalysisExport,
@@ -7085,6 +7088,11 @@ function PackSwatch({ pack, size = 48, inset = 9 }) {
 function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = false }) {
   if (hide || !Number.isInteger(credits)) return null;
   const useExplicitPackState = activePackIds && typeof activePackIds === "object";
+  const dotPacks = PACK_ORDER.map(id => PACK_DEFS[id]).filter(Boolean);
+  const activeCount = useExplicitPackState
+    ? dotPacks.filter(pack => Boolean(activePackIds[pack.id])).length
+    : dotPacks.filter(pack => Math.floor(credits / pack.cost) > 0).length;
+  const filledFromIndex = Math.max(dotPacks.length - activeCount, 0);
   return (
     <div style={{
       display:"flex", alignItems:"center", gap:6,
@@ -7094,13 +7102,12 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
       padding:"5px 7px 5px 10px",
     }}>
       <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-        {PACK_ORDER.map(id => {
-          const pack = PACK_DEFS[id];
-          const active = useExplicitPackState ? Boolean(activePackIds[id]) : Math.floor(credits / pack.cost) > 0;
+        {dotPacks.map((pack, index) => {
+          const active = index >= filledFromIndex;
           return (
             <div
-              key={id}
-              title={`${pack.name}${active ? "" : " — none"}`}
+              key={pack.id}
+              title={active ? "Owned read" : "Locked read"}
               style={{
                 width:8, height:8, borderRadius:"50%",
                 background:active ? pack.accent : "rgba(255,255,255,0.16)",
@@ -8111,10 +8118,10 @@ const REPORT_LABELS_EXP = {
 };
 
 
-function TrialFinale({ back, credits = null, userId = null, onPaymentComingSoon }) {
+function TrialFinale({ back, credits = null, userId = null, onPaymentComingSoon, onPurchaseCredits = null }) {
   return (
     <ShareResultsContext.Provider value={null}>
-      <PaymentScreen preselect="vibe" credits={credits} userId={userId} onBack={back} onPaymentComingSoon={onPaymentComingSoon} />
+      <PaymentScreen preselect="vibe" credits={credits} userId={userId} onBack={back} onPaymentComingSoon={onPaymentComingSoon} onPurchaseCredits={onPurchaseCredits} />
     </ShareResultsContext.Provider>
   );
 }
@@ -10238,7 +10245,7 @@ function PackSelect({
   );
 }
 
-function PaymentScreen({ preselect = null, credits = null, userId = null, onBack, onPaymentComingSoon }) {
+function PaymentScreen({ preselect = null, credits = null, userId = null, onBack, onPaymentComingSoon, onPurchaseCredits = null }) {
   const getSuggestedBundleId = () => {
     const packCost = getPackCreditCost(preselect);
     const balance = Number.isInteger(credits) ? credits : 0;
@@ -10249,6 +10256,8 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
     return "plus";
   };
   const [selectedBundleId, setSelectedBundleId] = useState(getSuggestedBundleId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     setSelectedBundleId(getSuggestedBundleId());
@@ -10257,8 +10266,10 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
   const selectedBundle = getCreditBundleById(selectedBundleId) || CREDIT_BUNDLES[1];
   const analysesLeft = estimateAnalysesLeft(credits);
 
-  const pay = (bundle = selectedBundle) => {
+  const pay = async (bundle = selectedBundle) => {
     if (!bundle) return;
+    setBusy(true);
+    setError("");
     console.log("Payment coming soon", {
       creditBundleId: bundle.id,
       credits: bundle.credits,
@@ -10266,7 +10277,18 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
       priceLabel: bundle.priceLabel,
       userId: userId || null,
     });
-    onPaymentComingSoon?.();
+    try {
+      if (onPurchaseCredits) {
+        await onPurchaseCredits(bundle);
+      } else {
+        onPaymentComingSoon?.();
+      }
+    } catch (purchaseError) {
+      console.error("Credit purchase simulation failed", purchaseError);
+      setError("Couldn't add credits right now. Try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -10281,6 +10303,11 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
           <ScreenHeader back={onBack} title="Add Credits" />
         </div>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.42)", lineHeight:1.5, marginBottom:18 }}>Add credits once. Use them whenever you want.</div>
+        {error && (
+          <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", marginBottom:12 }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 14px", marginBottom:14 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14 }}>
@@ -10357,10 +10384,11 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
         <button
           type="button"
           onClick={() => pay(selectedBundle)}
+          disabled={busy}
           className="wc-btn"
-          style={{ width:"100%", padding:17, borderRadius:999, border:"none", fontSize:16, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:"pointer", marginBottom:12, background:"#C4AAFF", color:"#100630" }}
+          style={{ width:"100%", padding:17, borderRadius:999, border:"none", fontSize:16, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:busy ? "wait" : "pointer", marginBottom:12, background:"#C4AAFF", color:"#100630", opacity:busy ? 0.72 : 1 }}
         >
-          Add {selectedBundle?.credits || 0} credits
+          {busy ? "Adding..." : `Add ${selectedBundle?.credits || 0} credits`}
         </button>
 
         <div style={{ textAlign:"center", fontSize:12, color:"rgba(255,255,255,0.20)", lineHeight:1.6 }}>
@@ -12765,6 +12793,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setCredits(null);
       setQuickReadAvailable(false);
       setUserRole("user");
+      setUnlockedPackIds({});
       setUploadInfo("");
       return undefined;
     }
@@ -12773,24 +12802,30 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setCredits(null);
       setQuickReadAvailable(false);
       setUserRole("user");
+      setUnlockedPackIds({});
       setUploadInfo("");
       return undefined;
     }
 
     (async () => {
       try {
-        const { balance, role, quickReadAvailable: hasQuickRead } = await getUserProfile();
+        const [{ balance, role, quickReadAvailable: hasQuickRead }, packUnlocks] = await Promise.all([
+          getUserProfile(),
+          getUnlockedReportPacks(authedUser.id),
+        ]);
         if (cancelled) return;
         setCredits(balance);
         setQuickReadAvailable(hasQuickRead);
         setUserRole(role);
+        setUnlockedPackIds(packUnlocks);
         if (typeof balance === "number" && balance > 0) setUploadInfo("");
       } catch (error) {
         if (cancelled) return;
-        console.error("Credits load failed", error);
+        console.error("Credits or unlocks load failed", error);
         setCredits(null);
         setQuickReadAvailable(false);
         setUserRole("user");
+        setUnlockedPackIds({});
       }
     })();
 
@@ -13063,6 +13098,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         const profile = await getUserProfile();
         setQuickReadAvailable(profile.quickReadAvailable);
         setUserRole(profile.role);
+        if (authedUser?.id) {
+          setUnlockedPackIds(await getUnlockedReportPacks(authedUser.id));
+        }
       } catch (error) {
         console.error("Initial credits setup failed", error);
       }
@@ -13108,7 +13146,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setReportRouteState(null);
     setHistoryBundleView(null);
     setSessionCompletedBundles({});
-    setUnlockedPackIds({});
     setPaymentPreselect(null);
     setPaymentBackPhase("select");
     setPaymentToast("");
@@ -13164,11 +13201,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
-  const buyPacksWithCredits = async (packs, creditCost) => {
+  const buyPacksWithCredits = async (packs) => {
     const selectedPacks = (Array.isArray(packs) ? packs : []).filter(pack => pack?.id && Array.isArray(pack.reports));
     if (!selectedPacks.length) return;
-    const amount = parseCreditBalance(creditCost);
-    if (amount == null || amount <= 0) return;
+    const lockedPacks = selectedPacks.filter(pack => !unlockedPackIds?.[pack.id]);
+    if (!lockedPacks.length) {
+      setAnalysisError("");
+      setUpgradeInfo(null);
+      setDir("bk");
+      setPhase(upgradeInfo?.backPhase || (messages?.length && math ? "select" : "upload"));
+      setSid(s => s + 1);
+      return;
+    }
+    const amount = lockedPacks.reduce((sum, pack) => sum + pack.cost, 0);
 
     let availableCredits = credits;
     try {
@@ -13187,18 +13232,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     }
 
     try {
-      const nextBalance = await deductCreditsAmount(authedUser?.id, amount);
-      setCredits(nextBalance);
+      const unlockState = await unlockReportPacks(authedUser?.id, lockedPacks.map(pack => pack.id));
+      setCredits(unlockState.balance);
+      setUnlockedPackIds(unlockState.unlockedPackIds);
     } catch (error) {
       console.error("Pack unlock credit deduction failed", error);
       setAnalysisError("Couldn't unlock these reads right now. Try again.");
       return;
     }
 
-    setUnlockedPackIds(prev => ({
-      ...prev,
-      ...Object.fromEntries(selectedPacks.map(pack => [pack.id, true])),
-    }));
     setAnalysisError("");
     setUploadInfo("");
     setUpgradeInfo(null);
@@ -13219,6 +13261,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const showPaymentComingSoon = () => {
     setPaymentToast("Payment coming soon");
+    window.setTimeout(() => setPaymentToast(""), 1800);
+  };
+
+  const purchaseCredits = async (bundle) => {
+    if (!bundle?.id || !authedUser?.id) return;
+    const nextBalance = await simulateCreditPurchase(authedUser.id, bundle.id);
+    setCredits(nextBalance);
+    setPaymentToast(`${bundle.credits} credits added`);
     window.setTimeout(() => setPaymentToast(""), 1800);
   };
 
@@ -13486,12 +13536,21 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const selectedTypes = normalizeSelectedReportTypes(Array.isArray(types) ? types : [types]).filter(type => type && type !== QUICK_READ_TRIAL_CONFIG.reportId);
     if (authedIsAdmin || isOpenMode(mode) || !selectedTypes.length) return;
     try {
+      const completedPack = packForReports(selectedTypes) || (selectedTypes.length === 1 && selectedTypes[0] === "growth" ? PACK_DEFS.growth : null);
+      if (completedPack) {
+        const unlockState = await unlockReportPacks(authedUser?.id, [completedPack.id]);
+        setCredits(unlockState.balance);
+        setUnlockedPackIds(unlockState.unlockedPackIds);
+        return;
+      }
+
       const parsedOverride = parseCreditBalance(amountOverride);
       const amount = parsedOverride != null ? parsedOverride : getTotalCreditCostBundled(selectedTypes);
       const nextBalance = await deductCreditsAmount(authedUser?.id, amount);
       setCredits(nextBalance);
     } catch (error) {
       console.error("Credit deduction failed", error);
+      throw error;
     }
   };
 
@@ -13661,13 +13720,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     }
 
     if (!skipCreditDeduction) {
-      await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode, runCreditCost);
+      try {
+        await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode, runCreditCost);
+      } catch {
+        failBackToSelection("Couldn't persist your unlock. No credits were used. Please try again.");
+        return;
+      }
     }
-    if (consumePackIds.length) {
-      setUnlockedPackIds(prev => ({
-        ...prev,
-        ...Object.fromEntries(consumePackIds.map(id => [id, false])),
-      }));
+    if (consumePackIds.length && authedUser?.id) {
+      try {
+        setUnlockedPackIds(await getUnlockedReportPacks(authedUser.id));
+      } catch (error) {
+        console.error("Unlock refresh failed", error);
+      }
     }
     if (isQuickReadRun && !authedIsAdmin && !isOpenMode(activeAccessMode)) {
       try {
@@ -14411,6 +14476,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 	          userId={authedUser?.id || null}
 	          onBack={closePayment}
 	          onPaymentComingSoon={showPaymentComingSoon}
+	          onPurchaseCredits={purchaseCredits}
 	        />
 	        {paymentToast && (
 	          <div style={{ position:"fixed", left:"50%", bottom:32, transform:"translateX(-50%)", zIndex:220, background:"rgba(20,20,28,0.96)", border:"1px solid rgba(255,255,255,0.14)", color:"#fff", padding:"11px 20px", borderRadius:999, fontSize:13, fontWeight:800, letterSpacing:"0.01em", boxShadow:"0 8px 32px rgba(0,0,0,0.4)", whiteSpace:"nowrap" }}>
@@ -14471,6 +14537,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         credits={credits}
         userId={authedUser?.id || null}
         onPaymentComingSoon={showPaymentComingSoon}
+        onPurchaseCredits={purchaseCredits}
       />
     );
   }

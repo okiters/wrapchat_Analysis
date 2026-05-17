@@ -8,6 +8,32 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v3.0 — Persistent report unlocks + iOS safe-area polish
+**Files:** `src/App.jsx`, `src/reportCredits.js`, `supabase/migrations/20260517120000_persistent_report_unlocks.sql`, `supabase/functions/delete-account/index.ts`
+
+### Persistent report unlocks — new table and RPCs
+Pack unlocks are now stored in Supabase instead of only kept in local React state. New `public.report_unlocks` table (`user_id`, `pack_id`, `credits_spent`, `source`, `unlocked_at`; unique on `user_id × pack_id`). RLS enabled; users can only read their own rows. Four new RPCs: `get_report_unlocks(p_user_id)` — returns owned pack ids as a text array; `unlock_report_packs(p_user_id, p_pack_ids)` — atomically deducts credits and inserts unlock rows for any not-yet-owned packs, returning updated balance and full unlock list; `simulate_credit_purchase(p_user_id, p_bundle_id)` — adds credits from a named bundle (starter/plus/all_access) as a placeholder for real payment; `admin_add_credits(p_user_id, p_amount)` — admin-only direct credit adjustment. Helper `report_pack_credit_cost(pack_id)` encodes pack costs server-side. All functions are `security definer` with locked `search_path`.
+
+### Frontend unlock integration
+New exports in `reportCredits.js`: `getUnlockedReportPacks`, `unlockReportPacks`, `simulateCreditPurchase`. `getUnlockedReportPacks` and `getUserProfile` now fetched in parallel via `Promise.all` on login, so the first render already knows which packs the user owns. `buyPacksWithCredits` replaced: it now calls `unlockReportPacks` (Supabase RPC) which deducts credits and persists unlocks server-side, then writes both `credits` and `unlockedPackIds` state from the response. On successful analysis completion, `unlockReportPacks` is also called for the completed pack so the unlock is recorded even if the user paid credits in a prior session. `unlockedPackIds` state is cleared on new chat upload and on logout. `PaymentScreen` and `TrialFinale` receive an `onPurchaseCredits` prop; when provided, the pay button calls `purchaseCredits` which invokes `simulateCreditPurchase` and updates balance + shows a brief toast notification.
+
+### Account deletion cleanup
+`supabase/functions/delete-account/index.ts` now deletes rows from `report_unlocks` before deleting the `credits` row, matching the cascade order. Ensures no orphaned unlock records remain for deleted users.
+
+### AnalysisDotsCounter — explicit pack state support
+`AnalysisDotsCounter` refactored to build `dotPacks` from `PACK_ORDER` so ordering is consistent. When `useExplicitPackState` is true, active dots are driven by `activePackIds` map (owned packs); when false, dots still fall back to the `Math.floor(credits / cost)` heuristic for backward compatibility.
+
+### iOS safe-area — transition and color flash fixes
+Removed `document.documentElement.style.transition` and `document.body.style.transition` assignments from Shell's `useLayoutEffect`. These were causing the safe-area background to animate through an intermediate maroon color (midpoint of `#1C0E5A` and `#B83A10`) when transitioning between sections. Removed `transition: background 480ms` from `wc-root` for the same reason — all background layers now snap in sync. Progress bar repositioned from `top: SHELL_SAFE_TOP` to `top: 0` so it sits at the very top of the screen behind the notch.
+
+### First-card maroon flash fix — General Wrapped
+General Wrapped's loading screen uses `sec="general"` (dark indigo `#1C0E5A`) while the first result card uses `sec="roast"` (orange `#B83A10`). During React's commit phase the DOM briefly holds neither color, producing a maroon blend visible on iOS. Fixed by pre-painting the wc-root, its safe-area cover div, and html/body/root backgrounds to the first card's color synchronously inside `restoreGeneratedResult` (and `onRestoreResult` for history restores), before any React state updates are batched. All other report types were unaffected because their loading palette already matched their first card.
+
+### PackResultsBuffer — header label removed
+Removed the "VIBE PACK" (pack name) label pill from the PackResultsBuffer header. The title now aligns vertically with the back button without the extra label above it.
+
+---
+
 ## v2.9 — Quick Read entitlement, pack-based credit pricing, multi-chat upload, iOS polish
 **Files:** `src/App.jsx`, `src/reportCredits.js`, `src/accessMode.js`, `src/trialReport.js`, `src/theme.jsx`, `supabase/migrations/20260514120000_quick_read_entitlement.sql`
 

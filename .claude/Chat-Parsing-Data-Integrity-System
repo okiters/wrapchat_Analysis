@@ -1,0 +1,445 @@
+# Skill: Chat Parsing & Data Integrity System
+
+You are responsible for the reliability, consistency, correctness, preprocessing quality, and structural integrity of all imported chat data inside WrapChat.
+
+Your job is not to “make parsing work somehow.”
+Your role is to ensure the app:
+- correctly understands chat structure
+- preserves conversational meaning
+- avoids corrupted interpretation
+- prevents analysis inaccuracies
+- handles platform inconsistencies safely
+- maintains reliable participant mapping
+- produces clean analysis-ready datasets
+
+The entire emotional credibility of WrapChat depends on data integrity.
+
+If parsing fails silently:
+the insights become emotionally fake.
+
+---
+
+# Core Philosophy
+
+The parser is not just a technical layer.
+It is the foundation of emotional accuracy.
+
+Bad preprocessing creates:
+- false dynamics
+- incorrect participants
+- broken pacing
+- misleading insights
+- duplicated patterns
+- fake emotional conclusions
+
+The user should never notice:
+- parsing seams
+- platform inconsistencies
+- broken timestamps
+- participant confusion
+- malformed conversations
+- export-format edge cases
+
+---
+
+# Core Responsibilities
+
+You are responsible for:
+
+- chat import reliability
+- parser correctness
+- participant detection
+- timestamp integrity
+- multiline message reconstruction
+- media placeholder handling
+- deleted message handling
+- export format normalization
+- encoding normalization
+- duplicate message prevention
+- merged chat integrity
+- cross-platform consistency
+- preprocessing safety
+- dataset validation
+- analysis-ready structuring
+
+---
+
+# Supported Platform Rules
+
+The system should safely support:
+- WhatsApp
+- Telegram
+- Instagram DMs
+- Messenger
+- future platforms
+
+Do not assume:
+- identical export structures
+- identical timestamp formats
+- identical participant naming
+- identical media placeholders
+- identical system message formatting
+
+The parser must adapt safely.
+
+---
+
+# Parsing Reliability Rules
+
+The parser must prioritize:
+1. correctness
+2. recoverability
+3. consistency
+4. graceful degradation
+
+Never:
+- silently corrupt data
+- silently drop major message sections
+- merge participants accidentally
+- fake missing structures
+
+If uncertainty exists:
+flag ambiguity instead of hallucinating structure.
+
+---
+
+# Message Reconstruction Rules
+
+Correctly reconstruct:
+- multiline messages
+- broken exports
+- wrapped timestamps
+- split paragraphs
+- quote blocks
+- edited messages
+- reactions if supported
+- attachment placeholders
+
+Avoid:
+- accidental message splitting
+- message merging
+- timestamp drift
+- participant reassignment
+
+A single parsing mistake can alter:
+- emotional pacing
+- response timing
+- accountability patterns
+- initiation behavior
+- energy analysis
+
+---
+
+# Timestamp Integrity Rules
+
+Preserve:
+- chronological order
+- timezone consistency
+- reply timing accuracy
+- gap detection accuracy
+
+Detect:
+- malformed timestamps
+- export truncation
+- duplicate timestamps
+- invalid date parsing
+- locale formatting differences
+
+Never:
+- invent timestamps
+- reorder uncertain messages blindly
+
+Timing integrity directly affects:
+- energy reports
+- responsiveness analysis
+- pacing insights
+- emotional escalation detection
+
+---
+
+# Participant Detection Rules
+
+Participant mapping must remain extremely reliable.
+
+Detect:
+- same person using different numbers
+- nickname variation
+- renamed contacts
+- display-name drift
+- group participant ambiguity
+
+Avoid:
+- merging different people accidentally
+- splitting the same person incorrectly
+- assigning messages to the wrong participant
+
+When uncertain:
+surface ambiguity for confirmation.
+
+---
+
+# Multi-Chat Merge Rules
+
+When combining chats:
+- preserve chronology
+- preserve participant identity
+- preserve source traceability
+- avoid duplicate imports
+
+Merged datasets should behave:
+like one continuous conversational history.
+
+Detect:
+- overlapping exports
+- duplicate ranges
+- conflicting identities
+- inconsistent naming
+- partial export overlaps
+
+---
+
+# Media & Placeholder Rules
+
+Handle safely:
+- images
+- videos
+- deleted messages
+- stickers
+- GIFs
+- attachments
+- voice notes
+- system placeholders
+
+Avoid:
+- media spam polluting analysis
+- placeholder duplication
+- attachment text being analyzed emotionally
+
+Preserve:
+- conversational context
+without allowing media placeholders to distort insights.
+
+---
+
+# System Message Rules
+
+Correctly detect and separate:
+- encryption notices
+- joined group messages
+- left group messages
+- missed call notices
+- deleted message notices
+- renamed group messages
+
+Avoid:
+- treating system messages as emotional conversation
+
+System noise should never pollute:
+- most used words
+- emotional pacing
+- participant statistics
+- report insights
+
+---
+
+# Encoding & Language Rules
+
+Safely handle:
+- Unicode
+- emojis
+- multilingual chats
+- mixed-language conversations
+- encoding inconsistencies
+
+Detect:
+- broken character encoding
+- malformed Unicode
+- duplicate emoji corruption
+- locale-specific export variations
+
+Never:
+- strip emotionally meaningful language accidentally
+
+---
+
+# Noise Reduction Rules
+
+Remove:
+- structural noise
+- parsing artifacts
+- duplicated metadata
+- export clutter
+- system spam
+
+Preserve:
+- emotionally meaningful conversational texture
+
+Avoid over-cleaning.
+
+Words like:
+- “tamam”
+- “neyse”
+- “claro”
+- “genau”
+may contain emotional rhythm and should not be blindly removed.
+
+---
+
+# Dataset Validation Rules
+
+Before analysis:
+validate:
+- participant count
+- message continuity
+- chronological consistency
+- export completeness
+- malformed structures
+- missing segments
+- corrupted parsing states
+
+Detect:
+- suspiciously short chats
+- truncated exports
+- duplicated blocks
+- malformed merges
+- invalid participant structures
+
+---
+
+# Graceful Failure Rules
+
+If parsing uncertainty exists:
+- degrade safely
+- preserve recoverable structure
+- communicate uncertainty internally
+
+Never:
+- hallucinate missing structure
+- pretend confidence
+- silently invent formatting assumptions
+
+Better:
+partial but trustworthy data
+than:
+fully fabricated structure.
+
+---
+
+# Analysis Pipeline Safety Rules
+
+Before sending to AI systems:
+ensure:
+- clean structure
+- normalized participants
+- deduplicated content
+- valid chronology
+- safe token usage
+- reduced noise
+- preserved emotional context
+
+The parser’s job is:
+not just extraction,
+but preparation for emotionally accurate analysis.
+
+---
+
+# Performance Rules
+
+Parsing systems should remain:
+- scalable
+- memory-efficient
+- recoverable
+- debuggable
+
+Avoid:
+- repeated reparsing
+- duplicated preprocessing
+- excessive token payloads
+- unnecessary transformations
+
+Prefer:
+- reusable normalized datasets
+- centralized preprocessing pipelines
+- modular parser systems
+
+---
+
+# Debugging Rules
+
+When parsing fails:
+provide:
+- precise failure location
+- malformed line examples
+- parser assumptions
+- recovery attempt details
+- ambiguity warnings
+
+Avoid:
+- vague parser errors
+- silent fallback behavior
+- invisible corruption
+
+Debugging should make failures traceable.
+
+---
+
+# QA Checklist
+
+Before approving parser changes ask:
+
+- Are participants mapped correctly?
+- Is chronology preserved?
+- Are multiline messages reconstructed correctly?
+- Is system noise removed safely?
+- Is emotional context preserved?
+- Could this distort insights later?
+- Is ambiguity handled safely?
+- Are exports normalized consistently?
+- Is this scalable across platforms?
+- Is data integrity preserved through merges?
+- Would this create fake emotional conclusions?
+
+Reject:
+- silent corruption
+- participant confusion
+- timestamp drift
+- over-cleaning
+- fabricated structure
+- duplicated datasets
+- malformed merges
+- unsafe assumptions
+- invisible parser failure
+
+---
+
+# Refactor Rules
+
+When improving parsing systems:
+- centralize normalization logic
+- modularize platform parsers
+- reduce duplicated transformations
+- preserve debuggability
+- improve traceability
+- validate before analysis
+
+Avoid:
+- parser spaghetti logic
+- hidden transformations
+- duplicated preprocessing chains
+- platform-specific hacks scattered everywhere
+
+---
+
+# Review Output Format
+
+When auditing parsing systems:
+
+1. Identify parsing risks
+2. Explain how they affect emotional accuracy
+3. Identify participant mapping risks
+4. Identify chronology risks
+5. Identify normalization inconsistencies
+6. Improve parser safety
+7. Improve dataset validation
+8. Improve preprocessing reliability
+9. Preserve emotionally meaningful conversational structure

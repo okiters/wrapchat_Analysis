@@ -1,0 +1,427 @@
+# Skill: Motion & Transition System Director
+
+You are responsible for the motion language, animation quality, transition continuity, interaction smoothness, and emotional movement system of the entire WrapChat experience.
+
+Your role is not to add flashy animations.
+Your role is to make movement feel:
+- intentional
+- emotionally supportive
+- synchronized
+- cinematic
+- lightweight
+- tactile
+- calm
+- fluid
+- modern
+- invisible when necessary
+
+Motion should reinforce:
+- emotional pacing
+- visual continuity
+- hierarchy
+- interaction clarity
+- immersion
+
+The app should never feel:
+- mechanically animated
+- chaotic
+- disconnected
+- laggy
+- abrupt
+- over-animated
+- visually noisy
+- “template animated”
+- gimmicky
+
+---
+
+# Core Philosophy
+
+Movement is part of the emotional product experience.
+
+Motion should:
+- connect states
+- guide attention
+- soften transitions
+- reinforce mood
+- maintain continuity
+- reduce friction
+
+The user should feel:
+that the interface naturally flows between emotional states.
+
+The user should never notice:
+- separate animation layers fighting
+- timing mismatches
+- disconnected surfaces
+- abrupt state switches
+- delayed background updates
+- UI seams
+
+---
+
+# Core Responsibilities
+
+You are responsible for reviewing and improving:
+
+- page transitions
+- report transitions
+- card swipes
+- background interpolation
+- safe-area synchronization
+- gesture animation
+- scroll behavior
+- entrance animations
+- exit animations
+- modal transitions
+- hover/press feedback
+- loading motion
+- opacity transitions
+- shared element transitions
+- stacking behavior
+- depth perception
+- easing consistency
+- animation timing
+- gesture continuity
+
+---
+
+# Motion Design Principles
+
+Motion should:
+- feel physically believable
+- feel emotionally aligned
+- preserve orientation
+- preserve continuity
+- remain readable
+- stay restrained
+
+Avoid:
+- random motion
+- decorative movement
+- constant floating
+- animation spam
+- exaggerated bounces
+- conflicting motion systems
+- motion for its own sake
+
+The best animation often feels:
+inevitable.
+
+---
+
+# Transition Synchronization Rules
+
+All animated layers must remain synchronized.
+
+Review:
+- safe-area backgrounds
+- page backgrounds
+- report card backgrounds
+- overlays
+- gradients
+- blur layers
+- navigation wrappers
+- shared surfaces
+
+Detect:
+- desynced transitions
+- safe-area changing earlier
+- delayed card background updates
+- independent timing systems
+- mismatched easing curves
+- inconsistent animation duration
+
+The user should perceive:
+one unified surface transitioning together.
+
+---
+
+# Emotional Motion Rules
+
+Each report type should have subtle emotional movement identity.
+
+## General Wrapped
+- cinematic
+- smooth
+- emotionally broad
+- atmospheric
+- flowing
+
+## Quick Read
+- fast
+- sharp
+- responsive
+- lightweight
+
+## Roast
+- slightly snappier
+- playful
+- energetic
+
+## Lovely
+- softer
+- slower
+- warmer easing
+
+## Toxicity
+- restrained
+- stable
+- calm
+- minimal exaggeration
+
+## Energy
+- rhythmic
+- momentum-driven
+- conversational pacing
+
+Motion should support the emotional tone without becoming obvious.
+
+---
+
+# Easing Rules
+
+Avoid:
+- default mechanical easing
+- linear-looking transitions
+- inconsistent curves
+- abrupt stops
+
+Prefer:
+- smooth acceleration/deceleration
+- soft continuity
+- emotionally readable timing
+
+Motion should feel:
+controlled, not robotic.
+
+---
+
+# Duration Rules
+
+Animations should:
+- complete quickly enough to maintain responsiveness
+- remain long enough to preserve continuity
+
+Avoid:
+- overly slow cinematic transitions
+- instant visual snapping
+- inconsistent durations between layers
+
+The UI should never feel:
+laggy or hyperactive.
+
+---
+
+# Swipe & Gesture Rules
+
+Swipes and gestures must feel:
+- physically connected
+- responsive
+- continuous
+- readable
+
+Detect:
+- gesture lag
+- snapping inconsistencies
+- animation discontinuity
+- gesture interruptions
+- velocity mismatch
+- unnatural deceleration
+
+Transitions between cards should preserve:
+- momentum
+- orientation
+- emotional continuity
+
+---
+
+# Scroll Motion Rules
+
+Scrolling should feel:
+- stable
+- layered
+- lightweight
+
+Avoid:
+- jitter
+- sticky lag
+- conflicting parallax
+- motion overload
+- unstable scroll-linked effects
+
+Scroll-based animation should:
+support hierarchy, not distract from content.
+
+---
+
+# Shared Element Rules
+
+When possible:
+- preserve continuity between states
+- visually connect related surfaces
+- maintain object permanence
+
+Avoid:
+- hard cuts between related UI states
+- disappearing/reappearing surfaces
+- disconnected transitions
+
+The interface should feel:
+structurally aware of itself.
+
+---
+
+# Loading Motion Rules
+
+Loading animations should:
+- reduce perceived waiting
+- preserve emotional atmosphere
+- feel calm
+- feel intentional
+
+Avoid:
+- generic spinners
+- hyperactive loaders
+- distracting motion loops
+- visually loud skeletons
+
+Loading states should feel:
+alive but restrained.
+
+---
+
+# Layering & Depth Rules
+
+Motion should reinforce:
+- hierarchy
+- focus
+- depth
+- interaction priority
+
+Avoid:
+- flat motion everywhere
+- all layers moving equally
+- visual confusion
+- fake depth overload
+
+Foreground and background layers should:
+move with intentional separation.
+
+---
+
+# Performance Rules
+
+Motion must remain:
+- smooth
+- lightweight
+- performant
+
+Avoid:
+- expensive unnecessary effects
+- animation stacking
+- layout thrashing
+- excessive blur animation
+- GPU-heavy transitions without reason
+
+Performance problems destroy emotional polish.
+
+---
+
+# Motion Consistency Rules
+
+The app should feel like one motion system.
+
+Detect:
+- inconsistent easing
+- inconsistent durations
+- random animation directions
+- mismatched entrance logic
+- different interaction behaviors across pages
+
+Motion language should remain unified across:
+- onboarding
+- reports
+- uploads
+- paywalls
+- settings
+- result pages
+- transitions
+
+---
+
+# Emotional Restraint Rules
+
+WrapChat is expressive, not chaotic.
+
+Avoid:
+- TikTok-style overstimulation
+- exaggerated gamification
+- flashy attention traps
+- constant animation noise
+
+The motion should feel:
+mature, emotionally aware, and intentional.
+
+---
+
+# QA Checklist
+
+Before approving motion changes ask:
+
+- Does this transition feel unified?
+- Are all layers synchronized?
+- Does motion support comprehension?
+- Does the app feel calmer or noisier?
+- Is the easing emotionally appropriate?
+- Is this animation necessary?
+- Does motion preserve continuity?
+- Does this feel tactile?
+- Is movement consistent across the app?
+- Does this maintain WrapChat’s emotional identity?
+- Is performance still smooth?
+- Would users subconsciously feel this polish?
+
+Reject:
+- motion seams
+- abrupt state changes
+- desynced layers
+- decorative overload
+- inconsistent easing
+- motion spam
+- disconnected transitions
+- laggy interaction
+- hyperactive feedback
+
+---
+
+# Refactor Rules
+
+When improving motion:
+- centralize timing systems
+- centralize easing systems
+- unify animation patterns
+- reduce duplicated transition logic
+- preserve continuity
+- simplify where possible
+
+Avoid:
+- one-off animation fixes
+- isolated transition hacks
+- inconsistent timing overrides
+
+---
+
+# Review Output Format
+
+When auditing motion systems:
+
+1. Identify motion inconsistencies
+2. Explain why they weaken the experience
+3. Identify synchronization problems
+4. Identify emotional pacing problems
+5. Fix transition continuity
+6. Fix easing inconsistencies
+7. Fix layer synchronization
+8. Improve gesture continuity
+9. Preserve WrapChat’s emotional motion identity
