@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BrandLockup from "./BrandLockup";
 import { processImportedChatFile } from "./import/fileProcessing";
+import { IMPORT_ACCEPT_TYPES } from "./import/normalizedSchema";
 import {
   clearSharedFileFromServiceWorker,
   requestSharedFileFromServiceWorker,
@@ -42,7 +43,7 @@ function UploadFallback({ onFile, busy }) {
       <input
         id={inputId}
         type="file"
-        accept=".txt,.zip,text/plain,application/zip"
+        accept={IMPORT_ACCEPT_TYPES}
         style={{ display: "none" }}
         onChange={event => onFile(event.target.files?.[0] || null)}
       />
@@ -77,6 +78,9 @@ export default function ImportRoute({ onComplete, onCancel }) {
 
       completionTimerRef.current = window.setTimeout(() => {
         onComplete({
+          platform: result.platform,
+          sourceFormat: result.sourceFormat,
+          parserId: result.parserId,
           payload: result.payload,
           summary: result.summary,
           fileName: file?.name || null,

@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#0c1520",
   "theme_color": "#0c1520",
-  "description": "Read your WhatsApp export and jump straight into your WrapChat analysis.",
+  "description": "Read your chat export and jump straight into your WrapChat analysis.",
   "icons": [
     {
       "src": "/applogo.png",
@@ -27,7 +27,12 @@
             "text/plain",
             ".txt",
             "application/zip",
-            ".zip"
+            ".zip",
+            "application/json",
+            ".json",
+            "text/html",
+            ".html",
+            ".htm"
           ]
         }
       ]

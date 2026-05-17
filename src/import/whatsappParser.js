@@ -1,4 +1,4 @@
-export const MIN_MESSAGES = 50;
+import { MIN_MESSAGES } from "./normalizedSchema";
 
 const INVISIBLE_CHAR_RE = /[\u200e\u200f\u202a-\u202e\ufeff\u2066-\u2069]/g;
 const LINE_BREAK_RE = /\r\n?/g;

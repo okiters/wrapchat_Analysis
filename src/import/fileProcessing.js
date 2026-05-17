@@ -1,30 +1,14 @@
 import JSZip from "jszip";
-import { parseWhatsAppExport, toAnalysisMessages } from "./whatsappParser";
-
-const MAX_IMPORT_BYTES = 50 * 1024 * 1024;
-
-function isZipFile(file) {
-  return /\.zip$/i.test(file?.name || "") || file?.type === "application/zip" || file?.type === "application/x-zip-compressed";
-}
-
-function isTextFile(file) {
-  return /\.txt$/i.test(file?.name || "") || file?.type === "text/plain";
-}
-
-function scoreZipEntry(entry) {
-  const name = entry.name.toLowerCase();
-  let score = entry._data?.uncompressedSize || 0;
-  if (name.includes("whatsapp chat")) score += 1_000_000;
-  if (!name.includes("/")) score += 100_000;
-  if (name.startsWith("__macosx/")) score -= 1_000_000;
-  return score;
-}
-
-function pickBestTextEntry(zip) {
-  return Object.values(zip.files)
-    .filter(entry => !entry.dir && /\.txt$/i.test(entry.name) && !entry.name.startsWith("__MACOSX/"))
-    .sort((a, b) => scoreZipEntry(b) - scoreZipEntry(a))[0] || null;
-}
+import {
+  detectImportFormat,
+  isHtmlFile,
+  isJsonFile,
+  isTextFile,
+  isZipFile,
+  MAX_IMPORT_BYTES,
+  pickBestImportEntry,
+} from "./importDetector";
+import { getImportAdapter } from "./adapters";
 
 function formatParticipantLabel(participants) {
   const names = Array.isArray(participants) ? participants.filter(Boolean) : [];
@@ -51,19 +35,36 @@ function buildSummary(parsed) {
   };
 }
 
-async function extractChatText(file) {
-  if (isTextFile(file)) return file.text();
+async function extractImportText(file) {
+  if (isTextFile(file) || isJsonFile(file) || isHtmlFile(file)) {
+    return {
+      text: await file.text(),
+      fileName: file?.name || null,
+      file: {
+        name: file?.name || "",
+        type: file?.type || "",
+      },
+    };
+  }
 
   if (isZipFile(file)) {
     const zip = await JSZip.loadAsync(await file.arrayBuffer());
-    const textEntry = pickBestTextEntry(zip);
-    if (!textEntry) {
-      throw new Error("We couldn't find the chat text inside that export. Try exporting again, or export without media.");
+    const entry = pickBestImportEntry(zip);
+    if (!entry) {
+      throw new Error("We couldn't find a supported chat file inside that export. Try exporting again, or export without media.");
     }
-    return textEntry.async("string");
+    const name = entry.name || file?.name || "";
+    return {
+      text: await entry.async("string"),
+      fileName: name,
+      file: {
+        name,
+        type: /\.json$/i.test(name) ? "application/json" : /\.(html|htm)$/i.test(name) ? "text/html" : "text/plain",
+      },
+    };
   }
 
-  throw new Error("Please share a chat export as a .txt or .zip file.");
+  throw new Error("Please share a chat export as a supported .txt, .zip, .json, or .html file.");
 }
 
 export async function processImportedChatFile(file, { onStatus } = {}) {
@@ -76,15 +77,31 @@ export async function processImportedChatFile(file, { onStatus } = {}) {
 
   let rawText = "";
   try {
-    rawText = await extractChatText(file);
+    const extracted = await extractImportText(file);
+    rawText = extracted.text;
     onStatus?.({ key: "reading", message: "Reading messages..." });
 
-    const parsed = parseWhatsAppExport(rawText);
+    const detected = detectImportFormat({ file: extracted.file, text: rawText });
+    const adapter = getImportAdapter(detected);
+    if (!adapter) {
+      if (detected.sourceFormat === "json") {
+        throw new Error("We detected a JSON export, but this format is not supported yet. Please import a supported WhatsApp .txt export for now.");
+      }
+      if (detected.sourceFormat === "html") {
+        throw new Error("We detected an HTML export, but this format is not supported yet. Please import a supported WhatsApp .txt export for now.");
+      }
+      throw new Error("We couldn't recognize that chat export format. Please import a supported WhatsApp .txt export for now.");
+    }
+
+    const parsed = adapter.parse(rawText, {
+      fileName: extracted.fileName || file?.name || null,
+      detected,
+    });
     if (!parsed.formatDetected || !parsed.messages.length) {
       throw new Error("We couldn't read that chat. Try exporting the chat again, or export without media.");
     }
 
-    const analysisMessages = toAnalysisMessages(parsed);
+    const analysisMessages = parsed.messages;
     const summary = buildSummary(parsed);
     onStatus?.({
       key: "found",
@@ -95,15 +112,22 @@ export async function processImportedChatFile(file, { onStatus } = {}) {
       parsed,
       analysisMessages,
       tooShort: parsed.tooShort,
+      platform: parsed.platform,
+      sourceFormat: parsed.sourceFormat,
+      parserId: parsed.parserId,
       summary,
       payload: {
+        platform: parsed.platform,
+        sourceFormat: parsed.sourceFormat,
+        parserId: parsed.parserId,
+        metadata: parsed.metadata,
         messages: analysisMessages,
         tooShort: parsed.tooShort,
       },
     };
   } catch (error) {
     const message = String(error?.message || "");
-    if (/corrupt|unsupported|zip/i.test(message)) {
+    if (/corrupt|unsupported/i.test(message)) {
       throw new Error("We couldn't open that export cleanly. Try exporting the chat again without media.");
     }
     throw error;

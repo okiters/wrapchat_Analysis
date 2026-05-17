@@ -116,3 +116,47 @@ test("detects participant mismatch across one-to-one combined chats", () => {
   assert.equal(mismatch.rows.length, 2);
   assert.deepEqual(mismatch.rows.map(row => row.otherName), ["Asli", "Mert"]);
 });
+
+test("blocks mixed platform or export format combinations", () => {
+  const whatsappChat = {
+    fileName: "whatsapp.txt",
+    platform: "whatsapp",
+    sourceFormat: "txt",
+    parserId: "whatsapp:text",
+    payload: { messages: [msg("Ozge", "hi", "2024-01-01T10:00:00Z")] },
+  };
+  const telegramChat = {
+    fileName: "telegram.json",
+    platform: "telegram",
+    sourceFormat: "json",
+    parserId: "telegram:json",
+    payload: { messages: [msg("Ozge", "hi", "2024-01-01T10:00:00Z")] },
+  };
+
+  assert.throws(
+    () => buildCombinedDataset([whatsappChat, telegramChat]),
+    /different platforms or export formats/,
+  );
+});
+
+test("allows same platform and export format combinations", () => {
+  const left = {
+    fileName: "left.txt",
+    platform: "whatsapp",
+    sourceFormat: "txt",
+    parserId: "whatsapp:text",
+    payload: { messages: [msg("Ozge", "hi", "2024-01-01T10:00:00Z")] },
+  };
+  const right = {
+    fileName: "right.txt",
+    platform: "whatsapp",
+    sourceFormat: "txt",
+    parserId: "whatsapp:text",
+    payload: { messages: [msg("Asli", "hey", "2024-01-01T10:01:00Z")] },
+  };
+
+  const dataset = buildCombinedDataset([left, right]);
+  assert.equal(dataset.messages.length, 2);
+  assert.equal(dataset.sourceChats[0].platform, "whatsapp");
+  assert.equal(dataset.sourceChats[0].sourceFormat, "txt");
+});

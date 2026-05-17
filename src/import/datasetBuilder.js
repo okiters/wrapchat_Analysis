@@ -1,4 +1,5 @@
 import { detectPossibleDuplicateContacts, normalizeDisplayName } from "../utils/identityMerge.js";
+import { getParsedChatImportKind, validateImportCompatibility } from "./normalizedSchema.js";
 
 const DATASET_VERSION = 1;
 
@@ -25,6 +26,13 @@ function normalizeMessage(message, fallbackSourceId, index) {
     sourceChatId: message.sourceChatId || fallbackSourceId,
     sourceMessageIndex: Number.isInteger(message.sourceMessageIndex) ? message.sourceMessageIndex : index,
     participantId: message.participantId || null,
+    senderId: message.senderId || null,
+    senderUsername: message.senderUsername || null,
+    senderDisplayName: message.senderDisplayName || name,
+    platform: message.platform || null,
+    type: message.type || "text",
+    mediaKind: message.mediaKind || null,
+    raw: message.raw || null,
     name,
     body,
     date,
@@ -62,6 +70,7 @@ function getParsedSummary(parsedChat) {
 
 function createSourceChat(parsedChat, sourceChatId, index, messages) {
   const summary = getParsedSummary(parsedChat);
+  const importKind = getParsedChatImportKind(parsedChat);
   const participants = Array.isArray(summary?.participants)
     ? summary.participants
     : [...new Set(messages.map(message => message.name))];
@@ -70,6 +79,10 @@ function createSourceChat(parsedChat, sourceChatId, index, messages) {
     id: sourceChatId,
     index,
     fileName: parsedChat?.fileName || parsedChat?.importFileName || null,
+    platform: importKind.platform,
+    sourceFormat: importKind.sourceFormat,
+    parserId: importKind.parserId,
+    compatibilityKey: importKind.compatibilityKey,
     participantNames: participants,
     participantLabel: summary?.participantLabel || participants.join(", "),
     messageCount: messages.length,
@@ -210,6 +223,7 @@ export function buildCombinedDataset(parsedChats) {
   if (!chats.length) {
     throw new Error("Choose at least one chat export.");
   }
+  validateImportCompatibility(chats);
 
   const sourceChats = [];
   const allMessages = [];
@@ -239,6 +253,13 @@ export function toAnalysisMessagesFromDataset(dataset) {
   return (dataset?.messages || []).map(message => ({
     participantId: message.participantId,
     sourceChatId: message.sourceChatId,
+    sourceMessageIndex: message.sourceMessageIndex,
+    senderId: message.senderId,
+    senderUsername: message.senderUsername,
+    senderDisplayName: message.senderDisplayName,
+    platform: message.platform,
+    type: message.type,
+    mediaKind: message.mediaKind,
     name: message.name,
     body: message.body,
     date: asDate(message.date),

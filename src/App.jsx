@@ -4,6 +4,7 @@ import { DA, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon, ForwardIcon, 
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
+import { IMPORT_ACCEPT_TYPES, MIN_MESSAGES } from "./import/normalizedSchema";
 import {
   buildCombinedDataset,
   buildDatasetFromParsedChat,
@@ -11,7 +12,6 @@ import {
   toAnalysisMessagesFromDataset,
 } from "./import/datasetBuilder";
 import { applyApprovedMerges, normalizeDisplayName } from "./utils/identityMerge";
-import { MIN_MESSAGES } from "./import/whatsappParser";
 import BrandLockup, { wrapchatLogoTransparent } from "./BrandLockup";
 import AiDebugPanel from "../analysis-test/AiDebugPanel.jsx";
 import {
@@ -62,6 +62,9 @@ import otherIcon from "../assets/other.svg";
 import cardShareIcon from "../assets/card-share.svg";
 import sumShareIcon from "../assets/sum-share.svg";
 import coinIcon from "../assets/wrpcht-coin.svg";
+import bundle1Icon from "../assets/bundle1.svg";
+import bundle2Icon from "../assets/bundle2.svg";
+import bundle3Icon from "../assets/bundle3.svg";
 import { buildTrialPrompt, deriveTrialReport } from "./trialReport";
 
 // Provided by App during the results phase; Shell reads it to show the close button.
@@ -5915,7 +5918,7 @@ const PAL = {
   stats:    { bg:"#083870", inner:"#0E5AAA", text:"#fff", accent:"#6AB4F0" },
   ai:       { bg:"#1A3060", inner:"#2A4A90", text:"#fff", accent:"#8AACF0" },
   finale:   { bg:"#5E1228", inner:"#8A1C3C", text:"#fff", accent:"#F08EBF" },
-  upload:   { bg:"#2A1969", inner:"#3D2090", text:"#fff", accent:"#A08AF0" },
+  upload:   { bg:"#1f184e", inner:"#2b2065", text:"#fff", accent:"#7f5bb0" },
   general:  { bg:"#1C0E5A", inner:"#361A96", text:"#fff", accent:"#9B72FF" },
   toxicity: { bg:"#3A0808", inner:"#8A1A1A", text:"#fff", accent:"#FF3C40" },
   lovelang: { bg:"#3D1A2E", inner:"#8B3A5A", text:"#fff", accent:"#FF82B8" },
@@ -6230,6 +6233,12 @@ const REPORT_TYPES = [
   { id:"trial_report", label:"Quick Read",             desc:"A quick onboarding gift — vibe, communication pattern, and one key insight.",             palette:"trial"    },
 ];
 
+// Pack color palette — 3 shades per type:
+//   shade1 (darkest base/card bg), shade2 (mid selected bg), shade3 (vivid accent)
+// vibe:   #1a0e40 / #3d2480 / #7f5bb0  — Purple
+// rf:     #220814 / #5a1228 / #bc2343  — Red
+// full:   #1e1200 / #6e4a00 / #cf970c  — Yellow
+// growth: #0a2210 / #1e6428 / #48bc3e  — Green
 const PACK_DEFS = Object.freeze({
   vibe: Object.freeze({
     id: "vibe",
@@ -6240,15 +6249,17 @@ const PACK_DEFS = Object.freeze({
     reports: Object.freeze(["general", "lovelang", "energy"]),
     tags: Object.freeze(["General Wrapped", "Love Language", "Energy"]),
     cost: REPORT_PACKS.vibe.cost,
-    bg: "#2A1460",
-    cardBg: "#1E0E48",
-    listBg: "#2A1460",
-    accent: "#C4AAFF",
-    listAccent: "#C4AAFF",
-    fg: "#100630",
-    inner: "#1E0E48",
-    paymentSelectedBg: "#2A1460",
-    paymentSelectedBorder: "rgba(196,170,255,0.62)",
+    bg: "#261658",
+    cardBg: "#1a0e40",
+    listBg: "#3d2480",
+    accent: "#a070d0",
+    listAccent: "#a070d0",
+    fg: "#f0e8ff",
+    inner: "#1a0e40",
+    paymentSelectedBg: "#3d2480",
+    paymentSelectedBorder: "rgba(127,91,176,0.70)",
+    paymentMutedBg: "#2b1960",
+    paymentMutedBorder: "rgba(127,91,176,0.35)",
   }),
   rf: Object.freeze({
     id: "rf",
@@ -6258,15 +6269,17 @@ const PACK_DEFS = Object.freeze({
     reports: Object.freeze(["toxicity", "accounta"]),
     tags: Object.freeze(["Toxicity", "Accountability"]),
     cost: REPORT_PACKS.rf.cost,
-    bg: "#420C28",
-    cardBg: "#32081E",
-    listBg: "#420C28",
-    accent: "#BE2050",
-    listAccent: "#BE2050",
+    bg: "#3e0c20",
+    cardBg: "#220814",
+    listBg: "#5a1228",
+    accent: "#e04060",
+    listAccent: "#e04060",
     fg: "#fff",
-    inner: "#32081E",
-    paymentSelectedBg: "#420C28",
-    paymentSelectedBorder: "rgba(190,32,80,0.58)",
+    inner: "#220814",
+    paymentSelectedBg: "#5a1228",
+    paymentSelectedBorder: "rgba(188,35,67,0.70)",
+    paymentMutedBg: "#3c0d1e",
+    paymentMutedBorder: "rgba(188,35,67,0.35)",
   }),
   full: Object.freeze({
     id: "full",
@@ -6276,15 +6289,17 @@ const PACK_DEFS = Object.freeze({
     reports: Object.freeze(["general", "lovelang", "energy", "toxicity", "accounta", "growth"]),
     tags: Object.freeze(["Vibe Pack", "Red Flags", "Growth"]),
     cost: REPORT_PACKS.full.cost,
-    bg: "#382208",
-    cardBg: "#281808",
-    listBg: "#382208",
-    accent: "#C8962A",
-    listAccent: "#C8962A",
-    fg: "#1a0e00",
-    inner: "#281808",
-    paymentSelectedBg: "#382208",
-    paymentSelectedBorder: "rgba(200,150,42,0.58)",
+    bg: "#3e2800",
+    cardBg: "#1e1200",
+    listBg: "#6e4a00",
+    accent: "#e8a820",
+    listAccent: "#e8a820",
+    fg: "#160c00",
+    inner: "#1e1200",
+    paymentSelectedBg: "#6e4a00",
+    paymentSelectedBorder: "rgba(207,151,12,0.70)",
+    paymentMutedBg: "#462e00",
+    paymentMutedBorder: "rgba(207,151,12,0.35)",
   }),
   growth: Object.freeze({
     id: "growth",
@@ -6294,15 +6309,17 @@ const PACK_DEFS = Object.freeze({
     reports: Object.freeze(["growth"]),
     tags: Object.freeze(["Growth"]),
     cost: REPORT_PACKS.growth.cost,
-    bg: "#0E3A1E",
-    cardBg: "#0A2C16",
-    listBg: "#0E3A1E",
-    accent: "#3DC87A",
-    listAccent: "#3DC87A",
-    fg: "#062e26",
-    inner: "#0A2C16",
-    paymentSelectedBg: "#0E3A1E",
-    paymentSelectedBorder: "rgba(61,200,122,0.55)",
+    bg: "#0e3018",
+    cardBg: "#0a2210",
+    listBg: "#1e6428",
+    accent: "#5ed454",
+    listAccent: "#5ed454",
+    fg: "#062010",
+    inner: "#0a2210",
+    paymentSelectedBg: "#1e6428",
+    paymentSelectedBorder: "rgba(72,188,62,0.70)",
+    paymentMutedBg: "#14431c",
+    paymentMutedBorder: "rgba(72,188,62,0.33)",
   }),
 });
 
@@ -6310,10 +6327,10 @@ const PACK_ORDER = REPORT_PACK_ORDER;
 
 // CSS filters to shift the coin SVG (base hue ~271° purple) to each pack's accent color.
 const PACK_COIN_FILTER = Object.freeze({
-  vibe:   "hue-rotate(-13deg) brightness(1.15) saturate(1.3)",
-  rf:     "hue-rotate(71deg) brightness(0.70) saturate(1.3)",
-  full:   "hue-rotate(130deg) brightness(0.72) saturate(1.05)",
-  growth: "hue-rotate(235deg) brightness(0.75) saturate(1.0)",
+  vibe:   "hue-rotate(-20deg) brightness(1.1) saturate(1.2)",  // purple #a070d0
+  rf:     "hue-rotate(68deg) brightness(0.72) saturate(1.5)",  // red #e04060
+  full:   "hue-rotate(136deg) brightness(0.80) saturate(1.2)", // amber #e8a820
+  growth: "hue-rotate(228deg) brightness(0.80) saturate(1.1)", // green #5ed454
 });
 
 const REPORT_BUFFER_STYLE = Object.freeze({
@@ -6481,7 +6498,7 @@ const SCREEN_HEADER_BLOCK_STYLE = {
   marginBottom:12,
 };
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false, forceWaves=false }) {
   const p = palette || PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -6561,8 +6578,8 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         paddingTop: SHELL_SAFE_TOP,
       }}>
         <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:SHELL_SAFE_TOP, background:p.bg, zIndex:4, pointerEvents:"none" }} />
-        {/* ── WAVE LINES ── */}
-        <WaveLines accent={p.accent} />
+        {/* ── WAVE LINES — result screens + explicitly flagged screens only ── */}
+        {(forceWaves || sec !== "upload") && <WaveLines accent={p.accent} />}
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
@@ -7074,6 +7091,8 @@ function SwatchIcon({ inner, accent, size = 48, inset = 9, style = {} }) {
   );
 }
 
+const CREDIT_BUNDLE_ICON = { starter: bundle1Icon, plus: bundle2Icon, all_access: bundle3Icon };
+
 function PackSwatch({ pack, size = 48, inset = 9 }) {
   return (
     <SwatchIcon
@@ -7096,8 +7115,8 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
   return (
     <div style={{
       display:"flex", alignItems:"center", gap:6,
-      background:"rgba(255,255,255,0.07)",
-      border:"1px solid rgba(255,255,255,0.12)",
+      background:"rgba(127,91,176,0.18)",
+      border:"1px solid rgba(127,91,176,0.32)",
       borderRadius:999,
       padding:"5px 7px 5px 10px",
     }}>
@@ -7128,9 +7147,9 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
           background:"rgba(255,255,255,0.10)",
           border:"1px solid rgba(255,255,255,0.16)",
           display:"flex", alignItems:"center", justifyContent:"center",
-          color:"rgba(255,255,255,0.65)",
-          fontSize:14, fontWeight:400, lineHeight:1,
-          padding:0, flexShrink:0, cursor:"pointer",
+          color:"rgba(255,255,255,0.82)",
+          fontSize:14, fontWeight:700, lineHeight:1,
+          padding:"0 0 2px 0", flexShrink:0, cursor:"pointer",
         }}
       >
         +
@@ -8061,7 +8080,7 @@ function PricingCostOverview({ accent = DA.teal, compact = false }) {
   const t = useT();
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
-      <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 14px" }}>
+      <div style={{ width:"100%", background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"12px 14px" }}>
         <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:accent, marginBottom:8 }}>{t("Bundles")}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:7 }}>
           {PACK_ORDER.map(id => {
@@ -8079,7 +8098,7 @@ function PricingCostOverview({ accent = DA.teal, compact = false }) {
       </div>
 
       {!compact && (
-        <div style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 14px" }}>
+        <div style={{ width:"100%", background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"12px 14px" }}>
           <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:accent, marginBottom:8 }}>{t("Credit rules")}</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:6 }}>
             {["Credits never expire.", "One-time purchases only.", "No subscriptions."].map(line => (
@@ -8703,11 +8722,15 @@ function RelationshipSelect({
     setExtraError("");
     try {
       const result = await processImportedChatFile(file);
-      setExtraChats(prev => [...prev, {
+      const nextChat = {
+        platform: result.platform,
+        sourceFormat: result.sourceFormat,
+        parserId: result.parserId,
         payload: result.payload,
         summary: result.summary,
         fileName: file.name || null,
-      }]);
+      };
+      setExtraChats(prev => [...prev, nextChat]);
       setExtraOpen(true);
     } catch (err) {
       setExtraError(String(err?.message || "Couldn't open that file. Try exporting again."));
@@ -8742,8 +8765,8 @@ function RelationshipSelect({
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
           padding:"20px 10px 16px",
           borderRadius:20,
-          background: "rgba(255,255,255,0.05)",
-          border: active ? `1.5px solid ${opt.accent}` : "1px solid rgba(255,255,255,0.10)",
+          background: active ? `${opt.accent}14` : "rgba(127,91,176,0.08)",
+          border: active ? `1.5px solid ${opt.accent}` : "1px solid rgba(127,91,176,0.20)",
           color:"#fff", cursor:"pointer", transition:"all 0.18s",
           minHeight:100,
         }}
@@ -8796,8 +8819,8 @@ function RelationshipSelect({
       <div style={{
         width:"100%",
         borderRadius:20,
-        border: extraOpen ? "1px solid rgba(160,138,240,0.25)" : "1px solid rgba(255,255,255,0.08)",
-        background: extraOpen ? "rgba(160,138,240,0.06)" : "rgba(255,255,255,0.02)",
+        border: extraOpen ? "1px solid rgba(127,91,176,0.35)" : "1px solid rgba(127,91,176,0.18)",
+        background: extraOpen ? "rgba(127,91,176,0.10)" : "rgba(127,91,176,0.05)",
         overflow:"hidden",
         transition:"border-color 0.2s, background 0.2s",
       }}>
@@ -8815,8 +8838,8 @@ function RelationshipSelect({
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {extraChats.length > 0 ? (
               <div style={{
-                fontSize:11, fontWeight:800, background:"rgba(160,138,240,0.25)",
-                color:"#A08AF0", borderRadius:999, padding:"2px 8px", flexShrink:0,
+                fontSize:11, fontWeight:800, background:"rgba(127,91,176,0.28)",
+                color:"#c090e8", borderRadius:999, padding:"2px 8px", flexShrink:0,
               }}>
                 {extraChats.length + 1} chats added
               </div>
@@ -8847,7 +8870,7 @@ function RelationshipSelect({
                   We&apos;ll combine them before analysis.
                 </div>
                 {extraChats.map((chat, i) => (
-                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(255,255,255,0.05)", borderRadius:10, padding:"7px 11px" }}>
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(127,91,176,0.12)", borderRadius:10, padding:"7px 11px" }}>
                     <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                       {chat.fileName || `Chat ${i + 2}`}
                     </div>
@@ -8887,7 +8910,7 @@ function RelationshipSelect({
             <input
               id={extraInputId}
               type="file"
-              accept=".txt,.zip,text/plain,application/zip"
+              accept={IMPORT_ACCEPT_TYPES}
               style={{ display:"none" }}
               onClick={e => { e.target.value = ""; }}
               onChange={e => handleExtraFile(e.target.files?.[0] || null)}
@@ -9127,7 +9150,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
         </div>
         <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:9 }}>
           {EXPORT_STEPS.map((label, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"13px 16px" }}>
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:18, padding:"13px 16px" }}>
               <div style={{ width:28, height:28, borderRadius:"50%", background:PAL.upload.inner, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800, color:"#fff", flexShrink:0 }}>
                 {i + 1}
               </div>
@@ -9168,7 +9191,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
         <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Choose your language")}
         </div>
-        <div style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+        <div style={{ width:"100%", background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", lineHeight:1.6 }}>
             {t("Auto selection will recognize the language from your chats.")}
           </div>
@@ -9328,7 +9351,7 @@ function TermsFlow({ onAccepted, onLogout }) {
       </PrimaryButton>
 
       <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
-        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, color:"rgba(255,255,255,0.42)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>Log out</button>}
+        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:999, color:"rgba(200,170,240,0.70)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>Log out</button>}
       </div>
     </Shell>
   );
@@ -9425,7 +9448,7 @@ function TooShort({ onBack }) {
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <BrandLockup />
-      <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
+      <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
           Not enough messages to wrap
         </div>
@@ -9452,7 +9475,7 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <ScreenHeader back={onBack} title="Review contacts" />
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:14 }}>
-        <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+        <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
           <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
             We found possible duplicate contacts.
           </div>
@@ -9464,8 +9487,8 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
           const active = approvedIds.includes(suggestion.id);
           return (
             <div key={suggestion.id} style={{
-              background:"rgba(255,255,255,0.06)",
-              border:`1px solid ${active ? PAL.upload.accent : "rgba(255,255,255,0.10)"}`,
+              background:"rgba(127,91,176,0.10)",
+              border:`1px solid ${active ? PAL.upload.accent : "rgba(127,91,176,0.22)"}`,
               borderRadius:20,
               padding:16,
               display:"flex",
@@ -9512,7 +9535,7 @@ function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <ScreenHeader back={onBack} title="Review chats" />
-      <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+      <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
         <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
           These chats may be from different people.
         </div>
@@ -9522,7 +9545,7 @@ function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
       </div>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
         {(mismatch?.rows || []).map(row => (
-          <div key={row.chatId} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"14px 16px" }}>
+          <div key={row.chatId} style={{ background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"14px 16px" }}>
             <div style={{ fontSize:11, color:PAL.upload.accent, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.08em" }}>
               {row.label}
             </div>
@@ -9541,7 +9564,7 @@ function AdminLocked({ onBack }) {
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
       <ScreenHeader back={onBack} title="Admin access only" />
-      <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
+      <div style={{ background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.7 }}>
           This panel is only visible to the configured admin email.
         </div>
@@ -9594,6 +9617,9 @@ function Upload({
       const file = files[0];
       const result = await processImportedChatFile(file);
       onParsed({
+        platform: result.platform,
+        sourceFormat: result.sourceFormat,
+        parserId: result.parserId,
         payload: result.payload,
         summary: result.summary,
         fileName: file.name || null,
@@ -9606,12 +9632,12 @@ function Upload({
   const showOpenPill = isOpenMode(accessMode) && !hideCredits;
 
   return (
-    <Shell sec="upload" prog={0} total={0} scrollable={false}>
+    <Shell sec="upload" prog={0} total={0} scrollable={false} forceWaves>
       {/* ── Absolute overlays (never participate in flex layout) ── */}
       {onHistory && (
         <div style={{ position:"absolute", top:16, left:16, zIndex:5 }}>
           <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
-            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(127,91,176,0.20)", border:"1px solid rgba(127,91,176,0.38)", color:"rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
             <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <line x1="1" y1="1.5" x2="15" y2="1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -9664,11 +9690,11 @@ function Upload({
         >
           <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : t("Upload your chat")}</div>
         </label>
-        <input id={uploadInputId} type="file" accept=".txt,.zip,text/plain,application/zip" style={{ display:"none" }} onChange={e => handle(e.target.files)} />
+        <input id={uploadInputId} type="file" accept={IMPORT_ACCEPT_TYPES} style={{ display:"none" }} onChange={e => handle(e.target.files)} />
         {isTrialPending && (
           <div style={{
-            fontSize:13, fontWeight:700, color:"rgba(160,120,240,0.95)",
-            background:"rgba(160,120,240,0.10)", border:"1px solid rgba(160,120,240,0.25)",
+            fontSize:13, fontWeight:700, color:"rgba(200,170,255,0.95)",
+            background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.35)",
             borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6,
           }}>
             {t("You have 1 free Quick Read included. Upload a chat to get started.")}
@@ -9678,7 +9704,7 @@ function Upload({
         {displayInfo && (
           <div style={{
             fontSize:13, color:"rgba(255,255,255,0.82)", textAlign:"center",
-            background:"rgba(74,30,160,0.22)", border:"1px solid rgba(160,138,240,0.22)",
+            background:"rgba(127,91,176,0.22)", border:"1px solid rgba(127,91,176,0.38)",
             padding:"11px 16px", borderRadius:16, width:"100%", lineHeight:1.6,
           }}>
             {displayInfo}
@@ -9687,7 +9713,7 @@ function Upload({
         <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
         {showAdminEntry && (
           <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%" }}>
-            <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+            <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.30)", borderRadius:999, color:"rgba(200,170,240,0.90)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
               Admin
             </button>
           </div>
@@ -9814,8 +9840,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
           <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, minHeight:0 }}>
             <div style={{
               width:"100%",
-              background:"rgba(255,255,255,0.06)",
-              border:"1px solid rgba(255,255,255,0.10)",
+              background:"rgba(127,91,176,0.12)",
+              border:"1px solid rgba(127,91,176,0.24)",
               borderRadius:18,
               padding:"15px 16px",
               display:"flex",
@@ -9884,8 +9910,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
             </div>
             <div style={{
               width:"100%",
-              background:"rgba(255,255,255,0.06)",
-              border:"1px solid rgba(255,255,255,0.10)",
+              background:"rgba(127,91,176,0.12)",
+              border:"1px solid rgba(127,91,176,0.24)",
               borderRadius:18,
               padding:"15px 16px",
               display:"flex",
@@ -9970,8 +9996,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   justifyContent:"space-between",
                   gap:14,
                   textAlign:"left",
-                  background:"rgba(255,255,255,0.05)",
-                  border:"1px solid rgba(255,255,255,0.10)",
+                  background:"rgba(127,91,176,0.10)",
+                  border:"1px solid rgba(127,91,176,0.22)",
                   borderRadius:18,
                   padding:"15px 16px",
                   color:"#fff",
@@ -10175,8 +10201,8 @@ function PackSelect({
                   overflow:"hidden",
                   cursor:"pointer",
                   transition:"transform 0.18s cubic-bezier(0.2,0,0.1,1)",
-                  background:owned ? pack.bg : `${pack.accent}0C`,
-                  border:`1.5px solid ${owned ? `${pack.accent}55` : `${pack.accent}32`}`,
+                  background:owned ? pack.bg : `${pack.accent}12`,
+                  border:`1.5px solid ${owned ? `${pack.accent}70` : `${pack.accent}45`}`,
                   opacity:owned ? 1 : 0.86,
                 }}
               >
@@ -10190,7 +10216,7 @@ function PackSelect({
                       </div>
                     </div>
                   </div>
-                  <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                  <div style={{ width:24, height:24, borderRadius:"50%", background:`${pack.accent}18`, display:"flex", alignItems:"center", justifyContent:"center", color:`${pack.accent}CC`, fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
                     ▾
                   </div>
                 </div>
@@ -10202,7 +10228,7 @@ function PackSelect({
                       </div>
                       <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
                         {pack.tags.map(tag => (
-                          <span key={tag} style={{ background:"rgba(255,255,255,0.08)", borderRadius:999, padding:"4px 11px", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.55)" }}>{tag}</span>
+                          <span key={tag} style={{ background:`${pack.accent}18`, borderRadius:999, padding:"4px 11px", fontSize:11, fontWeight:600, color:`${pack.accent}CC` }}>{tag}</span>
                         ))}
                       </div>
                       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -10309,14 +10335,11 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
           </div>
         )}
 
-        <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 14px", marginBottom:14 }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:9, minWidth:0 }}>
-              <span style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.38)", whiteSpace:"nowrap" }}>Your balance</span>
-              <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, lineHeight:1, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>{Number.isInteger(credits) ? credits : "—"}</span>
-              <span style={{ fontSize:12, fontWeight:800, color:"rgba(255,255,255,0.34)" }}>credits</span>
-            </div>
-            <div style={{ fontSize:12, fontWeight:800, color:"rgba(255,255,255,0.44)", whiteSpace:"nowrap" }}>≈ up to {analysesLeft} reads</div>
+        <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.28)", borderRadius:18, padding:"12px 14px", marginBottom:14 }}>
+          <div style={{ display:"flex", alignItems:"baseline", justifyContent:"center", gap:9 }}>
+            <span style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.38)", whiteSpace:"nowrap" }}>Your balance</span>
+            <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, lineHeight:1, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>{Number.isInteger(credits) ? credits : "—"}</span>
+            <span style={{ fontSize:12, fontWeight:800, color:"rgba(255,255,255,0.34)" }}>credits</span>
           </div>
         </div>
 
@@ -10335,38 +10358,38 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
                   padding:"14px 16px",
                   display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
                   cursor:"pointer",
-                  border:`1.5px solid ${active ? "rgba(196,170,255,0.62)" : "rgba(255,255,255,0.07)"}`,
-                  background:active ? "rgba(74,30,160,0.26)" : "rgba(255,255,255,0.04)",
+                  border:`1.5px solid ${active ? "rgba(127,91,176,0.70)" : "rgba(127,91,176,0.22)"}`,
+                  background:active ? "rgba(127,91,176,0.22)" : "rgba(127,91,176,0.07)",
                   color:"#fff",
                   textAlign:"left",
                 }}
               >
                 <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
-                  <div style={{ width:42, height:42, borderRadius:14, background:bundle.recommended ? "rgba(196,170,255,0.24)" : "rgba(255,255,255,0.08)", border:`1px solid ${bundle.recommended ? "rgba(196,170,255,0.42)" : "rgba(255,255,255,0.12)"}`, display:"flex", alignItems:"center", justifyContent:"center", color:bundle.recommended ? "#C4AAFF" : "rgba(255,255,255,0.66)", fontWeight:900 }}>
-                    {bundle.credits}
+                  <div style={{ width:42, height:42, borderRadius:14, background:bundle.recommended ? "rgba(127,91,176,0.32)" : "rgba(127,91,176,0.14)", border:`1px solid ${bundle.recommended ? "rgba(127,91,176,0.60)" : "rgba(127,91,176,0.28)"}`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                    <img src={CREDIT_BUNDLE_ICON[bundle.id]} alt={bundle.label} style={{ width:"92%", height:"92%", objectFit:"contain" }} />
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:3, minWidth:0 }}>
                     <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:"#fff", letterSpacing:"-0.01em", display:"flex", alignItems:"center", gap:5 }}>
                       <span>{bundle.label}</span>
-                      {bundle.recommended && <SolidStarIcon size={12} color="#C4AAFF" />}
+                      {bundle.recommended && <SolidStarIcon size={12} color="#c090e8" />}
                       {bundle.recommended && (
-                        <span style={{ border:"1px solid rgba(196,170,255,0.38)", background:"rgba(196,170,255,0.13)", color:"#C4AAFF", borderRadius:999, padding:"2px 7px", fontSize:9, lineHeight:1.1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+                        <span style={{ border:"1px solid rgba(127,91,176,0.55)", background:"rgba(127,91,176,0.20)", color:"#c090e8", borderRadius:999, padding:"2px 7px", fontSize:9, lineHeight:1.1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase" }}>
                           Popular
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize:12, fontWeight:700, color:active ? "rgba(196,170,255,0.78)" : "rgba(255,255,255,0.38)", lineHeight:1.35, whiteSpace:"normal" }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:active ? "rgba(176,141,224,0.90)" : "rgba(176,141,224,0.48)", lineHeight:1.35, whiteSpace:"normal" }}>
                       {bundle.credits} credits
                     </div>
                   </div>
                 </div>
-                <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:bundle.recommended ? "#C4AAFF" : "rgba(255,255,255,0.74)", flexShrink:0 }}>{bundle.priceLabel}</div>
+                <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:bundle.recommended ? "#c090e8" : "rgba(255,255,255,0.80)", flexShrink:0 }}>{bundle.priceLabel}</div>
               </button>
             );
           })}
         </div>
 
-        <div style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, padding:"16px 18px", marginBottom:14 }}>
+        <div style={{ background:"rgba(127,91,176,0.08)", border:"1px solid rgba(127,91,176,0.20)", borderRadius:18, padding:"16px 18px", marginBottom:14 }}>
           <div style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.32)", marginBottom:10 }}>What can I do with credits?</div>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
             {PACK_ORDER.map(id => {
@@ -10386,7 +10409,7 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
           onClick={() => pay(selectedBundle)}
           disabled={busy}
           className="wc-btn"
-          style={{ width:"100%", padding:17, borderRadius:999, border:"none", fontSize:16, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:busy ? "wait" : "pointer", marginBottom:12, background:"#C4AAFF", color:"#100630", opacity:busy ? 0.72 : 1 }}
+          style={{ width:"100%", padding:17, borderRadius:999, border:"none", fontSize:16, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:busy ? "wait" : "pointer", marginBottom:12, background:"#9d70d4", color:"#f0e8ff", opacity:busy ? 0.72 : 1 }}
         >
           {busy ? "Adding..." : `Add ${selectedBundle?.credits || 0} credits`}
         </button>
@@ -10579,10 +10602,10 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
   const canBuySelectedPacks = typeof onBuyPacks === "function";
   const canUnlockSelection = Boolean(hasEnoughCredits && selectedPacks.length && canBuySelectedPacks && !buying);
   const packDescriptionText = (id) => (
-    id === "vibe" ? "See the connection style, affection, and energy underneath the chat." :
-    id === "rf" ? "Spot tension, accountability gaps, and moments worth noticing." :
-    id === "full" ? "Get the complete relationship read in one full pass." :
-    "Track how the chat has changed from early days to now."
+    id === "vibe" ? "Connection style, affection, and energy." :
+    id === "rf" ? "Tension patterns and accountability gaps." :
+    id === "full" ? "All reports, one full relationship read at once." :
+    "How the chat changed from start to now."
   );
 
   const changeQty = (id, delta) => {
@@ -10610,8 +10633,8 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             height:34,
             boxSizing:"border-box",
             display:"flex", alignItems:"center", gap:6,
-            background:"rgba(255,255,255,0.07)",
-            border:"1px solid rgba(255,255,255,0.12)",
+            background:"rgba(127,91,176,0.16)",
+            border:"1px solid rgba(127,91,176,0.32)",
             borderRadius:999,
             padding:"5px 7px 5px 10px",
           }}>
@@ -10632,9 +10655,9 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                     background:"rgba(255,255,255,0.10)",
                     border:"1px solid rgba(255,255,255,0.16)",
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    color:"rgba(255,255,255,0.65)",
-                    fontSize:14, fontWeight:400, lineHeight:1,
-                    padding:0, flexShrink:0, cursor:"pointer",
+                    color:"rgba(255,255,255,0.82)",
+                    fontSize:14, fontWeight:700, lineHeight:1,
+                    padding:"0 0 2px 0", flexShrink:0, cursor:"pointer",
                   }}
                 >
                   +
@@ -10648,7 +10671,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
 
       {canUnlockWithCredits ? (
         <>
-          <Sub mt={2}>{isPayments ? t("Choose the reads you want to unlock. Leftover credits stay in your account.") : t("Choose the reads you want to unlock with your available credits.")}</Sub>
+          <Sub mt={2}>{isPayments ? t("Pick reads to unlock — leftover credits stay.") : t("Choose the reads you want to unlock with your available credits.")}</Sub>
 
           <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
             {PACK_ORDER.map(id => {
@@ -10661,8 +10684,8 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                   className="wc-btn"
                   style={{
                     display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
-                    background:active ? pack.paymentSelectedBg : `${pack.accent}0C`,
-                    border:`1.5px solid ${active ? pack.paymentSelectedBorder : `${pack.accent}45`}`,
+                    background:active ? pack.paymentSelectedBg : pack.paymentMutedBg,
+                    border:`1.5px solid ${active ? pack.paymentSelectedBorder : pack.paymentMutedBorder}`,
                     borderRadius:18,
                     padding:"12px 14px",
                     color:"#fff",
@@ -10679,10 +10702,6 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                         fontSize:11,
                         color:active ? `${pack.accent}B3` : "rgba(255,255,255,0.46)",
                         lineHeight:1.35,
-                        display:"-webkit-box",
-                        WebkitLineClamp:2,
-                        WebkitBoxOrient:"vertical",
-                        overflow:"hidden",
                       }}>
                         {packDescriptionText(id)}
                       </div>
@@ -10708,7 +10727,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                           onClick={(event) => { event.stopPropagation(); changeQty(id, -1); }}
                           className="wc-btn"
                           aria-label={`Remove ${pack.name}`}
-                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.72)", display:"flex", alignItems:"center", justifyContent:"center", padding:0, fontSize:15, fontWeight:800, cursor:"pointer" }}
+                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.82)", display:"flex", alignItems:"center", justifyContent:"center", padding:"0 0 2px 0", fontSize:15, fontWeight:800, cursor:"pointer" }}
                         >
                           -
                         </button>
@@ -10718,7 +10737,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                           onClick={(event) => { event.stopPropagation(); changeQty(id, 1); }}
                           className="wc-btn"
                           aria-label={`Add ${pack.name}`}
-                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:pack.fg, display:"flex", alignItems:"center", justifyContent:"center", padding:0, fontSize:15, fontWeight:900, cursor:"pointer" }}
+                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:"rgba(255,255,255,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:"0 0 2px 0", fontSize:15, fontWeight:900, cursor:"pointer" }}
                         >
                           +
                         </button>
@@ -10730,7 +10749,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             })}
           </div>
 
-          <div style={{ width:"100%", background:"rgba(255,255,255,0.045)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:18, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
+          <div style={{ width:"100%", background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
             {selectedIds.length ? selectedIds.map(id => {
               const pack = PACK_DEFS[id];
               const qty = selected[id] || 0;
@@ -10771,7 +10790,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
               onClick={() => isPayments ? onOpenPayment(selectedSingleId) : null}
               disabled={!isPayments}
               className="wc-btn"
-              style={{ width:"100%", padding:14, borderRadius:999, background:isPayments ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)", border:"1.5px solid rgba(255,255,255,0.12)", color:isPayments ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.34)", fontSize:14, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:isPayments ? "pointer" : "default", textAlign:"center" }}
+              style={{ width:"100%", padding:14, borderRadius:999, background:isPayments ? "rgba(127,91,176,0.14)" : "rgba(127,91,176,0.06)", border:`1.5px solid ${isPayments ? "rgba(127,91,176,0.35)" : "rgba(127,91,176,0.16)"}`, color:isPayments ? "rgba(200,170,240,0.88)" : "rgba(200,170,240,0.35)", fontSize:14, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:isPayments ? "pointer" : "default", textAlign:"center" }}
             >
               {isPayments ? "Add Credits" : "Ask admin for more credits"}
             </button>
@@ -12272,7 +12291,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     const key = item.type === "bundle" ? item.bundleId : firstRow.id;
     const packOrReportName = pack?.name || rt?.label || firstRow.report_type;
     const participantName = rowNames(firstRow);
-    const subline = pack ? packReportLabels(pack, itemRows) : (rt?.label || firstRow.report_type);
+    const subline = item.type === "bundle" && pack?.reports?.length > 1
+      ? packReportLabels(pack, itemRows)
+      : null;
     const dateLabel = formatDate(item.created_at);
     const isDeleting = item.type === "bundle" ? deletingBundle === item.bundleId : deletingId === firstRow.id;
     const isConfirming = item.type === "bundle" ? confirmBundle === item.bundleId : confirmId === firstRow.id;
@@ -12319,9 +12340,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             <div style={{ fontSize:13, fontWeight:800, letterSpacing:-0.15, color:"rgba(255,255,255,0.86)", lineHeight:1.18, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {participantName}
             </div>
-            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.40)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {subline}
-            </div>
+            {subline && (
+              <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.40)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {subline}
+              </div>
+            )}
           </div>
         </div>
         <div style={{
@@ -12495,8 +12518,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             aria-label={editing ? "Done editing" : "Edit results"}
             style={{ position:"absolute", bottom:"calc(20px + env(safe-area-inset-bottom, 0px))", right:20,
               width:48, height:48, borderRadius:"50%",
-              background: editing ? PAL.upload.accent : "rgba(255,255,255,0.12)",
-              border:"1px solid rgba(255,255,255,0.20)",
+              background: editing ? PAL.upload.accent : "rgba(127,91,176,0.22)",
+              border:`1px solid ${editing ? PAL.upload.accent : "rgba(127,91,176,0.38)"}`,
               color: editing ? PAL.upload.bg : "#fff",
               display:"flex", alignItems:"center", justifyContent:"center",
               boxShadow:"0 4px 20px rgba(0,0,0,0.35)", cursor:"pointer", zIndex:10 }}>
@@ -12527,7 +12550,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           title="My Results"
           action={onSettings ? (
             <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
-              style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:999, color:"rgba(255,255,255,0.75)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+              style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.32)", borderRadius:999, color:"rgba(200,170,240,0.85)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
               <GearIcon />
             </button>
           ) : null}
@@ -12535,7 +12558,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         {rows?.length > 0 && (
           <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", flexShrink:0 }}>Sort as</div>
-            <div style={{ flex:1, display:"flex", background:"rgba(255,255,255,0.07)", borderRadius:999, padding:3, gap:2 }}>
+            <div style={{ flex:1, display:"flex", background:"rgba(127,91,176,0.12)", borderRadius:999, padding:3, gap:2 }}>
               {[["reports", "Results"], ["names", "Names"]].map(([mode, label]) => (
                 <button key={mode} type="button" onClick={() => { exitEditing(); changeViewMode(mode); }} className="wc-btn"
                   style={{ flex:1, borderRadius:999, padding:"6px 0", fontSize:12, fontWeight:700, border:"none",
@@ -12562,8 +12585,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               right:20,
               width:48, height:48,
               borderRadius:"50%",
-              background: editing ? PAL.upload.accent : "rgba(255,255,255,0.12)",
-              border:"1px solid rgba(255,255,255,0.20)",
+              background: editing ? PAL.upload.accent : "rgba(127,91,176,0.22)",
+              border:`1px solid ${editing ? PAL.upload.accent : "rgba(127,91,176,0.38)"}`,
               color: editing ? PAL.upload.bg : "#fff",
               display:"flex", alignItems:"center", justifyContent:"center",
               boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
@@ -12580,7 +12603,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
         {viewMode === "reports" && (
         <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-          padding:"4px 0 0",
+          padding:`4px 0 calc(80px + env(safe-area-inset-bottom, 0px))`,
           display:"flex", flexDirection:"column", gap:10 }}>
           {rows === null && !err && (
             <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
@@ -12598,7 +12621,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         )}
         {viewMode === "names" && (
           <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-            padding:"4px 0 0",
+            padding:`4px 0 calc(80px + env(safe-area-inset-bottom, 0px))`,
             display:"flex", flexDirection:"column", gap:10 }}>
             {rows === null && !err && (
               <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
@@ -13827,7 +13850,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       continueWithDataset(dataset, { skipRelationship: true });
     } catch (error) {
       console.error("Combined dataset preparation failed", error);
-      setUploadError(String(error?.message || "Couldn't combine the chats. Try exporting again."));
+      setAnalysisError(String(error?.message || "Couldn't combine the chats. Try exporting again."));
       setDir("fade");
       setPhase("relationship");
       setSid(s => s + 1);

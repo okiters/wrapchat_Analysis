@@ -14,7 +14,7 @@ import React, { useEffect, useLayoutEffect, useRef } from 'react';
 // ── Base tokens ────────────────────────────────────────────────────────────
 // Used for non-result screens (auth, upload, nav chrome) and as fallbacks.
 export const DA = {
-  bg:     '#2A1969',
+  bg:     '#1f184e',
   text:   '#fff',
   muted:  'rgba(255,255,255,0.6)',
   faint:  'rgba(255,255,255,0.3)',
@@ -23,9 +23,19 @@ export const DA = {
   lime:   '#C2DC3A',
   blue:   '#6AAFD4',
   orange: '#E07040',
-  purple: '#9B8FD8',
+  purple: '#7f5bb0',
   dp:     "'Nunito',sans-serif",        // display — headings
   bp:     "'Nunito Sans',sans-serif",   // body — labels, body copy
+};
+
+// ── Vivid pack palette ─────────────────────────────────────────────────────
+// 3 shades per report type / pack, from darkest base to vivid accent.
+// shade1 = deep bg base, shade2 = mid fill, shade3 = vivid accent
+export const PACK_PAL = {
+  vibe:   { shade1:'#1a0e40', shade2:'#3d2480', shade3:'#7f5bb0' },   // Purple / Vibe
+  rf:     { shade1:'#220814', shade2:'#5a1228', shade3:'#bc2343' },   // Red / Red Flags
+  full:   { shade1:'#1e1200', shade2:'#6e4a00', shade3:'#cf970c' },   // Yellow / Full Read
+  growth: { shade1:'#0a2210', shade2:'#1e6428', shade3:'#48bc3e' },   // Green / Growth
 };
 
 export function setAppSafeAreaColor(color = DA.bg) {
@@ -52,7 +62,7 @@ export const PAL = {
   funny:    { bg:'#4A6A04', inner:'#6E9A08', accent:'#C8F06A' },
   stats:    { bg:'#083870', inner:'#0E5AAA', accent:'#6AB4F0' },
   ai:       { bg:'#1A3060', inner:'#2A4A90', accent:'#8AACF0' },
-  upload:   { bg:'#2A1969', inner:'#3D2090', accent:'#A08AF0' },
+  upload:   { bg:'#1f184e', inner:'#2b2065', accent:'#7f5bb0' },
   general:  { bg:'#1C0E5A', inner:'#361A96', accent:'#9B72FF' },
   toxicity: { bg:'#3A0808', inner:'#8A1A1A', accent:'#FF3C40' },
   lovelang: { bg:'#3D1A2E', inner:'#8B3A5A', accent:'#FF82B8' },
