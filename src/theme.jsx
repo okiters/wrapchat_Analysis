@@ -249,7 +249,7 @@ export function WaveLines({ accent, intro = false }) {
               width:'100%',
               height:'100%',
               opacity:intro ? 0 : 1,
-              animation:intro ? `wcWaveLayerIn 620ms ${120 + i * 110}ms cubic-bezier(0.22, 1, 0.36, 1) both` : 'none',
+              animation:intro ? `wcWaveLayerIn 620ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both` : 'none',
               willChange:intro ? 'opacity' : 'auto',
             }}
           >
