@@ -258,7 +258,7 @@ export function WaveLines({ accent }) {
 // onBack  → renders ← Back button (top-left)
 // onClose → renders × button (top-right)
 // geos  → pass <><Geo .../><Geo .../></> for that screen's background shapes
-export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, children }) {
+export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, children, contentAlign='center' }) {
   const pill      = PILL_LABEL[sec];
   const pillColor = PILL_COLOR[sec] || DA.teal;
   const shellBg   = bg || DA.bg;
@@ -321,8 +321,8 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
 
       {/* scrollable content */}
       <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column',
-        alignItems:'center', justifyContent:'center', gap:20,
-        padding:'max(58px, calc(20px + env(safe-area-inset-top, 0px))) 24px calc(40px + env(safe-area-inset-bottom, 0px))',
+        alignItems:'center', justifyContent: contentAlign === 'top' ? 'flex-start' : 'center', gap:20,
+        padding:`${contentAlign === 'top' ? 'calc(max(20px, env(safe-area-inset-top, 0px)) + 49px)' : 'max(58px, calc(20px + env(safe-area-inset-top, 0px)))'} 24px calc(40px + env(safe-area-inset-bottom, 0px))`,
         overflowY:'auto', flex:1 }}>
         {children}
       </div>

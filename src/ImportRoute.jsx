@@ -127,7 +127,7 @@ export default function ImportRoute({ onComplete, onCancel }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100svh", background: DA.bg }}>
-      <Shell sec="upload" bg={pal.bg}>
+      <Shell sec="upload" bg={pal.bg} contentAlign="top">
         <BrandLockup
           titleSize={42}
           titleLetterSpacing={-2.4}

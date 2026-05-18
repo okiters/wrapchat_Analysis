@@ -7149,7 +7149,7 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
           display:"flex", alignItems:"center", justifyContent:"center",
           color:"rgba(255,255,255,0.82)",
           fontSize:14, fontWeight:700, lineHeight:1,
-          padding:"0 0 2px 0", flexShrink:0, cursor:"pointer",
+          padding:0, flexShrink:0, cursor:"pointer",
         }}
       >
         +
@@ -9655,8 +9655,8 @@ function Upload({
         {HOMEPAGE_VERSION_LABEL}
       </div>
 
-      {/* ── Logo — pinned to 42% from top, never displaced by other elements ── */}
-      <div style={{ position:"absolute", top:"32%", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
+      {/* ── Logo — pinned to match auth, never displaced by other elements ── */}
+      <div style={{ position:"absolute", top:"calc(33% + 4px)", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
         <BrandLockup
           logoSrc={wrapchatLogoTransparent}
           logoSize={72}
@@ -9679,7 +9679,7 @@ function Upload({
       </div>
 
       {/* ── Action zone — snapped just below tagline, independent of logo ── */}
-      <div style={{ position:"absolute", top:"calc(32% + 105px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
+      <div style={{ position:"absolute", top:"calc(33% + 109px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
         <label
           htmlFor={uploadInputId}
           onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files); }}
@@ -10520,7 +10520,7 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
   })();
 
   return (
-    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, bg:pack.bg, inner:pack.cardBg || pack.inner, accent:pack.accent }}>
+    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, accent:pack.accent }}>
       <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px calc(96px + env(safe-area-inset-bottom, 0px))", minHeight:0, overflowY:"auto", overscrollBehavior:"contain" }}>
         <div style={{ marginBottom:18 }}>
           <ScreenHeader back={onClose} titleNode={titleNode} />
@@ -10538,7 +10538,7 @@ function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
                 type="button"
                 onClick={() => onOpenReport(row)}
                 className="wc-btn"
-                style={{ borderRadius:24, padding:20, cursor:"pointer", position:"relative", overflow:"hidden", display:"flex", flexDirection:"column", background:style.bg, border:`1.5px solid ${style.border}`, color:"#fff", textAlign:"left" }}
+                style={{ borderRadius:24, padding:20, cursor:"pointer", position:"relative", overflow:"hidden", display:"flex", flexDirection:"column", flexShrink:0, background:style.bg, border:`1.5px solid ${style.border}`, color:"#fff", textAlign:"left" }}
               >
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
@@ -10657,7 +10657,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                     display:"flex", alignItems:"center", justifyContent:"center",
                     color:"rgba(255,255,255,0.82)",
                     fontSize:14, fontWeight:700, lineHeight:1,
-                    padding:"0 0 2px 0", flexShrink:0, cursor:"pointer",
+                    padding:0, flexShrink:0, cursor:"pointer",
                   }}
                 >
                   +
@@ -10684,13 +10684,14 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                   className="wc-btn"
                   style={{
                     display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
-                    background:active ? pack.paymentSelectedBg : pack.paymentMutedBg,
-                    border:`1.5px solid ${active ? pack.paymentSelectedBorder : pack.paymentMutedBorder}`,
-                    borderRadius:18,
+                    background:active ? pack.paymentSelectedBorder : `${pack.accent}12`,
+                    border:active ? "1.5px solid transparent" : `1.5px solid ${pack.accent}45`,
+                    borderRadius:active ? 18 : 22,
                     padding:"12px 14px",
                     color:"#fff",
                     textAlign:"left",
                     cursor:"pointer",
+                    opacity:active ? 1 : 0.86,
                   }}
                   onClick={() => !active && changeQty(id, 1)}
                 >
@@ -10700,7 +10701,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                       <div style={{ fontSize:14, fontWeight:900, color:"#fff" }}>{pack.name}</div>
                       <div style={{
                         fontSize:11,
-                        color:active ? `${pack.accent}B3` : "rgba(255,255,255,0.46)",
+                        color:active ? pack.accent : "rgba(255,255,255,0.46)",
                         lineHeight:1.35,
                       }}>
                         {packDescriptionText(id)}
@@ -10716,9 +10717,9 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                         type="button"
                         onClick={(event) => { event.stopPropagation(); changeQty(id, 1); }}
                         className="wc-btn"
-                        style={{ border:"none", background:"transparent", padding:"8px 0", fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:900, color:pack.accent, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}
+                        style={{ border:"none", background:"transparent", padding:"8px 0", fontFamily:"'Nunito',sans-serif", fontSize:14, lineHeight:1, fontWeight:900, color:pack.accent, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}
                       >
-                        <img src={coinIcon} alt="" style={{ width:14, height:14, filter:PACK_COIN_FILTER[id] }} />{pack.cost}
+                        <img src={coinIcon} alt="" style={{ width:16, height:16, filter:PACK_COIN_FILTER[id] }} />{pack.cost}
                       </button>
                     ) : (
                       <div style={{ display:"flex", alignItems:"center", gap:5, border:`1px solid ${pack.accent}66`, background:"rgba(0,0,0,0.14)", borderRadius:999, padding:3 }}>
@@ -10737,7 +10738,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
                           onClick={(event) => { event.stopPropagation(); changeQty(id, 1); }}
                           className="wc-btn"
                           aria-label={`Add ${pack.name}`}
-                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:"rgba(255,255,255,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:"0 0 2px 0", fontSize:15, fontWeight:900, cursor:"pointer" }}
+                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:"rgba(255,255,255,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:0, fontSize:15, fontWeight:900, cursor:"pointer" }}
                         >
                           +
                         </button>
@@ -10756,7 +10757,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
               return (
                 <div key={id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
                   <div style={{ fontSize:13, color:`${pack.accent}CC`, fontWeight:800 }}>{pack.name}{qty > 1 ? ` x${qty}` : ""}</div>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.66)", fontWeight:800, display:"flex", alignItems:"center", gap:4 }}><img src={coinIcon} alt="" style={{ width:13, height:13, filter:PACK_COIN_FILTER[id] }} />{pack.cost * qty}</div>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.66)", fontWeight:800, display:"flex", alignItems:"center", gap:4 }}><img src={coinIcon} alt="" style={{ width:13, height:13 }} />{pack.cost * qty}</div>
                 </div>
               );
             }) : (
@@ -10765,11 +10766,11 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             <div style={{ height:1, background:"rgba(255,255,255,0.07)", margin:"2px 0" }} />
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
               <div style={{ fontSize:14, fontWeight:900, color:"#fff" }}>Total</div>
-              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:24, fontWeight:900, color:selectedPacks.length ? selectedAccent : "#fff", display:"flex", alignItems:"center", gap:6 }}><img src={coinIcon} alt="" style={{ width:20, height:20, filter:selectedSingleId ? PACK_COIN_FILTER[selectedSingleId] : undefined }} />{selectedCreditTotal}</div>
+              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:24, fontWeight:900, color:selectedPacks.length ? selectedAccent : "#fff", display:"flex", alignItems:"center", gap:6 }}><img src={coinIcon} alt="" style={{ width:20, height:20 }} />{selectedCreditTotal}</div>
             </div>
             {remainingAfterSelection != null && (
               <div style={{ fontSize:12, color:remainingAfterSelection >= 0 ? "rgba(255,255,255,0.44)" : "rgba(255,176,144,0.86)", textAlign:"right", fontWeight:800, display:"flex", alignItems:"center", justifyContent:"flex-end", gap:4 }}>
-                <img src={coinIcon} alt="" style={{ width:12, height:12, filter:selectedSingleId ? PACK_COIN_FILTER[selectedSingleId] : undefined }} />
+                <img src={coinIcon} alt="" style={{ width:12, height:12 }} />
                 {remainingAfterSelection >= 0 ? `${remainingAfterSelection} left after unlock` : `${Math.abs(remainingAfterSelection)} more needed`}
               </div>
             )}
@@ -12193,7 +12194,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   // Bundle palette — visually distinct from per-report-type colors
   const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
   // Name palette — for participant name cards in Names view
-  const NAME_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
+  const NAME_PAL = { bg:"#160F38", inner:"rgba(185,154,242,0.38)", accent:"#B99AF2" };
+  const RESULTS_CARD_BG = "rgba(127,91,176,0.22)";
 
   // ── Compute display items (singles + bundles) ──
   const displayItems = (() => {
@@ -12257,27 +12259,6 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
     return [...new Set(types)].map(reportLabelFor).join(" · ");
   };
 
-  const BundleMiniSwatch = ({ pack }) => {
-    const gridByPack = {
-      vibe: ["general", "lovelang", "energy", "general"],
-      rf: ["toxicity", "accounta", null, null],
-      full: ["general", "lovelang", "toxicity", "growth"],
-    };
-    if (pack?.id === "growth") return <PackSwatch pack={pack} />;
-    const grid = gridByPack[pack?.id] || (pack?.reports || []).slice(0, 4);
-    return (
-      <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box", borderRadius:13, background:`${pack.accent}20`, border:`1.5px solid ${pack.accent}55` }}>
-        {[0, 1, 2, 3].map(i => {
-          const type = grid[i];
-          if (!type) return <div key={i} style={{ borderRadius:4, background:`${pack.accent}18`, border:`1px solid ${pack.accent}30` }} />;
-          const meta = reportTypeMeta(type);
-          const rpal = PAL[meta.palette] || PAL.upload;
-          return <div key={i} style={{ borderRadius:4, background:rpal.inner || rpal.bg, border:`1px solid ${rpal.accent}99` }} />;
-        })}
-      </div>
-    );
-  };
-
   const renderPackResultCard = (item) => {
     const itemRows = item.type === "bundle" ? item.rows : [item.row];
     const firstRow = itemRows[0];
@@ -12286,8 +12267,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       : (firstRow?.report_type === "growth" ? PACK_DEFS.growth : null);
     const rt = firstRow ? REPORT_TYPES.find(r => r.id === firstRow.report_type) : null;
     const fallbackPal = PAL[rt?.palette] || PAL.upload;
-    const cardBg = pack?.listBg || pack?.cardBg || fallbackPal.bg;
     const cardAccent = pack?.listAccent || pack?.accent || fallbackPal.accent;
+    const cardBg = RESULTS_CARD_BG;
     const key = item.type === "bundle" ? item.bundleId : firstRow.id;
     const packOrReportName = pack?.name || rt?.label || firstRow.report_type;
     const participantName = rowNames(firstRow);
@@ -12309,8 +12290,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         onClick={onOpen}
         style={{
           display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-          background:cardBg, border:`1.5px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${cardAccent}55`}`,
-          borderRadius:20, padding:"16px 18px",
+          background:cardBg, border:isConfirming ? "1.5px solid rgba(220,50,50,0.55)" : "1.5px solid transparent",
+          borderRadius:18, padding:"16px 18px",
           color:"#fff", width:"100%", position:"relative",
           textAlign:"left", transition:"border-color 0.18s",
           cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
@@ -12324,16 +12305,18 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           pointerEvents:"none",
         }}>
           {pack ? (
-            <BundleMiniSwatch pack={pack} />
+            <PackSwatch pack={pack} />
           ) : (
             <SwatchIcon inner={fallbackPal.inner} accent={fallbackPal.accent} />
           )}
           <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:4 }}>
-            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:12, minWidth:0 }}>
-              <div style={{ fontSize:15, fontWeight:900, letterSpacing:-0.25, color:"#fff", lineHeight:1.15, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"flex-start", gap:8, minWidth:0 }}>
+              <div style={{ fontSize:15, fontWeight:900, letterSpacing:-0.25, color:"#fff", lineHeight:1.15, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0, flex:"0 1 auto" }}>
                 {packOrReportName}
               </div>
-              <div style={{ fontSize:11, fontWeight:800, color:"rgba(255,255,255,0.50)", flexShrink:0 }}>
+              <div style={{
+                fontSize:11, fontWeight:800, color:"rgba(255,255,255,0.50)", flexShrink:0,
+              }}>
                 {dateLabel}
               </div>
             </div>
@@ -12341,17 +12324,17 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               {participantName}
             </div>
             {subline && (
-              <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.40)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              <div style={{ fontSize:12, fontWeight:600, color:cardAccent, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                 {subline}
               </div>
             )}
           </div>
         </div>
         <div style={{
-          fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
-          overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
+          width:24, fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+          textAlign:"center",
           opacity: editing || isDeleting || isConfirming ? 0 : 1,
-          transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+          transition:"opacity 0.2s ease",
           pointerEvents:"none",
         }}>›</div>
         <button type="button" onClick={(e) => { e.stopPropagation(); item.type === "bundle" ? setConfirmBundle(item.bundleId) : setConfirmId(firstRow.id); }} className="wc-btn"
@@ -12438,52 +12421,66 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             {totalReports} report{totalReports !== 1 ? "s" : ""}
           </div>
         </div>
-        <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
+        <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", overscrollBehavior:"contain", minHeight:0,
+          padding:`0 0 calc(80px + env(safe-area-inset-bottom, 0px))`,
           display:"flex", flexDirection:"column", gap:10 }}>
           {err && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>}
           {allNameRows.map(row => {
-              const rt  = REPORT_TYPES.find(r => r.id === row.report_type);
-              const pal = PAL[rt?.palette] || PAL.upload;
-              const stat = headline(row);
+              const rt = reportTypeMeta(row.report_type);
+              const pal = PAL[rt.palette] || PAL.upload;
+              const style = REPORT_BUFFER_STYLE[row.report_type] || REPORT_BUFFER_STYLE.general;
+              const preview = resultPreviewFields(row);
               const isDeleting   = deletingId === row.id;
               const isConfirming = confirmId   === row.id;
-              const swatchEl = makeSwatchEl(pal);
-              const textEl = (
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
-                    {rt?.label || row.report_type} · {formatDate(row.created_at)}
-                  </div>
-                  {stat !== "—" && <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:2 }}>{stat}</div>}
-                </div>
-              );
               return (
                 <div key={row.id}
                   onClick={() => { if (!editing && !isDeleting && !isConfirming) onRestoreResult(row); }}
                   style={{
-                    display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                    background:pal.bg, border:`1.5px solid ${isConfirming ? "rgba(220,50,50,0.55)" : `${pal.accent}55`}`,
-                    borderRadius:20, padding:"16px 18px",
-                    color:"#fff", width:"100%", position:"relative",
-                    textAlign:"left", transition:"border-color 0.18s",
+                    borderRadius:24, padding:20, position:"relative", overflow:"hidden",
+                    display:"flex", flexDirection:"column", flexShrink:0, boxSizing:"border-box",
+                    background:style.bg,
+                    border:isConfirming ? "1.5px solid rgba(220,50,50,0.55)" : `1.5px solid ${style.border}`,
+                    color:"#fff", width:"100%", textAlign:"left", transition:"border-color 0.18s",
                     cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
                   }}
                 >
                   <div style={{
-                    display:"flex", alignItems:"center", gap:16, flex:1, minWidth:0,
+                    display:"flex", flexDirection:"column",
                     opacity: isDeleting || isConfirming ? 0.3 : 1,
                     transform:"translateX(0)",
                     transition:"opacity 0.22s",
                     pointerEvents:"none",
                   }}>
-                    {swatchEl}{textEl}
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+                        <SwatchIcon inner={pal.inner} accent={pal.accent} />
+                        <div style={{ display:"flex", flexDirection:"column", gap:4, minWidth:0 }}>
+                          <div style={{ borderRadius:999, padding:"3px 10px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", width:"fit-content", background:style.pillBg, color:pal.accent, border:`1px solid ${style.pillBorder}` }}>
+                            {rt.label}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{
+                        width:28, height:28, borderRadius:"50%", flexShrink:0,
+                        background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.12)",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        color:"rgba(255,255,255,0.40)", fontSize:14, marginTop:2,
+                        opacity: editing || isDeleting || isConfirming ? 0 : 1,
+                        transition:"opacity 0.2s ease",
+                      }}>›</div>
+                    </div>
+                    <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:14 }} />
+                    <div style={{ display:"flex", alignItems:"stretch", gap:12 }}>
+                      <div style={{ display:"flex", flexDirection:"column", flexShrink:0, minWidth:52 }}>
+                        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, letterSpacing:"-0.03em", lineHeight:1, color:pal.accent }}>{preview.stat}</div>
+                        <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.32)", letterSpacing:"0.06em", textTransform:"uppercase", marginTop:3 }}>{preview.label}</div>
+                      </div>
+                      <div style={{ width:1, background:"rgba(255,255,255,0.08)", alignSelf:"stretch" }} />
+                      <div style={{ fontSize:13, fontWeight:500, fontStyle:"italic", color:"rgba(255,255,255,0.65)", lineHeight:1.55, flex:1 }}>
+                        "{cleanQuote(preview.insight, 120)}"
+                      </div>
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
-                    overflow:"hidden", maxWidth: editing || isDeleting || isConfirming ? "0px" : "24px",
-                    opacity: editing || isDeleting || isConfirming ? 0 : 1,
-                    transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
-                    pointerEvents:"none",
-                  }}>›</div>
                   <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(row.id); }} className="wc-btn"
                     style={{ position:"absolute", top:10, right:10, width:28, height:28, borderRadius:"50%",
                       background:"rgba(200,40,40,0.85)", border:"1.5px solid rgba(255,100,100,0.5)",
@@ -12556,7 +12553,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         />
         {rows?.length > 0 && (
           <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", flexShrink:0 }}>Sort as</div>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", flexShrink:0 }}>Sort by</div>
             <div style={{ flex:1, display:"flex", background:"rgba(127,91,176,0.12)", borderRadius:999, padding:3, gap:2 }}>
               {[["reports", "Results"], ["names", "Names"]].map(([mode, label]) => (
                 <button key={mode} type="button" onClick={() => { exitEditing(); changeViewMode(mode); }} className="wc-btn"
@@ -12640,18 +12637,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 else item.rows.forEach(r => allGroupRows.push(r));
               });
               const totalReports = allGroupRows.length;
-              const uniqueTypes = [...new Set(allGroupRows.map(r => r.report_type))];
-              const swatchPals = uniqueTypes.slice(0, 4).map(rt =>
-                PAL[REPORT_TYPES.find(r => r.id === rt)?.palette] || PAL.upload
-              );
               const isConfirmingName = confirmNameId === group.name;
               const isDeletingName   = deletingName   === group.name;
               const nameSwatchEl = (
-                <div style={{ width:48, height:48, flexShrink:0, display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:9, boxSizing:"border-box" }}>
-                  {[0,1,2,3].map(i => (
-                    <div key={i} style={{ borderRadius:4, background:"#2E1A70", border:"1px solid rgba(160,138,240,0.6)" }} />
-                  ))}
-                </div>
+                <SwatchIcon inner={NAME_PAL.inner} accent={NAME_PAL.accent} />
               );
               const nameTextEl = (
                 <div style={{ flex:1, minWidth:0 }}>
@@ -12668,8 +12657,8 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   onClick={() => { if (!editing && !isDeletingName && !isConfirmingName) setNameView(group.name); }}
                   style={{
                     display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
-                    background:NAME_PAL.bg, border:`1.5px solid ${isConfirmingName ? "rgba(220,50,50,0.55)" : `${NAME_PAL.accent}55`}`,
-                    borderRadius:20, padding:"16px 18px",
+                    background:RESULTS_CARD_BG, border:isConfirmingName ? "1.5px solid rgba(220,50,50,0.55)" : "1.5px solid transparent",
+                    borderRadius:18, padding:"16px 18px",
                     color:"#fff", width:"100%", position:"relative",
                     textAlign:"left", transition:"border-color 0.18s",
                     cursor: editing || isDeletingName || isConfirmingName ? "default" : "pointer",
@@ -12685,10 +12674,10 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                     {nameSwatchEl}{nameTextEl}
                   </div>
                   <div style={{
-                    fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
-                    overflow:"hidden", maxWidth: editing || isDeletingName || isConfirmingName ? "0px" : "24px",
+                    width:24, fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                    textAlign:"center",
                     opacity: editing || isDeletingName || isConfirmingName ? 0 : 1,
-                    transition:"max-width 0.24s cubic-bezier(.2,0,.1,1), opacity 0.2s",
+                    transition:"opacity 0.2s ease",
                     pointerEvents:"none",
                   }}>›</div>
                   <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmNameId(group.name); }} className="wc-btn"
