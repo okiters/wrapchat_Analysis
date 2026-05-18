@@ -354,7 +354,6 @@ const UI_TRANSLATIONS = {
     "How you connect": "Nasıl bağlanıyorsunuz",
     "Two reads from the AI.": "Yapay zekadan iki yorum.",
     "The vibe": "Sohbet havası",
-    "My Results": "Sonuçlarım",
     "Upgrade": "Yükselt",
     "Top 10 most used words": "En çok kullanılan 10 kelime",
     "Signature phrases": "İmza cümleler",
@@ -4626,12 +4625,18 @@ function tryParseJsonText(value) {
 
 function userFacingAnalysisError(error) {
   const message = String(error?.message || "").trim();
+  const debug = error?.debug && typeof error.debug === "object" ? error.debug : null;
+  const providerDetail = String(debug?.provider_error_message || debug?.provider_error_type || "").trim();
+  const combined = [message, providerDetail].filter(Boolean).join("\n");
   if (!message) return "The AI analysis didn't come through. Please try again.";
   if (message.includes("timed out")) return "The AI took too long to answer. Please try again.";
-  if (/parse_failed/i.test(message)) return "The AI returned malformed JSON. Check the console for the raw preview and try again.";
-  if (/invalid_response_shape|output_limit_reached/i.test(message)) return "The AI answer was cut off before it finished. Please try again.";
-  if (/ANTHROPIC_API_KEY secret not set/i.test(message)) return "The AI server isn't configured correctly yet.";
-  if (/Analysis failed/i.test(message) || /Edge function error 502/i.test(message)) return "The AI provider failed to return a usable answer. Please try again.";
+  if (/parse_failed/i.test(combined)) return "The AI returned malformed JSON. Check the console for the raw preview and try again.";
+  if (/invalid_response_shape|output_limit_reached/i.test(combined)) return "The AI answer was cut off before it finished. Please try again.";
+  if (/ANTHROPIC_API_KEY secret not set/i.test(combined)) return "The AI server isn't configured correctly yet.";
+  if (/credit|billing|quota|balance/i.test(combined)) return "The AI provider needs billing or credit attention before this can run.";
+  if (/rate_limit|overloaded|too many requests/i.test(combined)) return "The AI service is busy right now. Please try again in a minute.";
+  if (/model|not_found|invalid_request/i.test(combined)) return "The AI model configuration needs attention. Please try again after the server is updated.";
+  if (/Analysis failed/i.test(combined) || /Edge function error 502/i.test(combined)) return "The AI provider failed to return a usable answer. Please try again.";
   if (/AI returned an empty analysis/i.test(message)) return "The AI answered, but the result was empty. Please try again.";
   if (/Missing required fields/i.test(message)) return "The analysis request was incomplete. Please try again.";
   if (/failed to fetch|networkerror|load failed/i.test(message.toLowerCase())) return "The app couldn't reach the AI server. Check your connection and try again.";
@@ -7078,10 +7083,10 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
     </div>
   );
 }
-function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null, centerTitle=false }) {
+function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null, centerTitle=false, topOffset=20 }) {
   const t = useT();
   return (
-    <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"center", columnGap:8, flexShrink:0 }}>
+    <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"center", columnGap:8, flexShrink:0, marginTop:topOffset }}>
       {back && (
         <button
           type="button"
@@ -8843,12 +8848,13 @@ function RelationshipSelect({
   return (
     <Shell sec="upload" prog={1} total={3} contentAlign="start">
       <FadeScale key={animKey}>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:18, paddingBottom:"calc(22px + env(safe-area-inset-bottom, 0px))" }}>
       <ScreenHeader back={onBack} title="Set up this chat" centerTitle />
 
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
 
       {/* ── Section A: relationship ── */}
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12 }}>
         <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
           Who is this with?
         </div>
@@ -8861,7 +8867,7 @@ function RelationshipSelect({
       </div>
 
       {/* ── Section B: extra chats — collapsible ── */}
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, marginTop:8 }}>
         <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
           Have more chats with this person?
         </div>
@@ -8998,9 +9004,11 @@ function RelationshipSelect({
         disabled={!sel}
         color={sel ? PAL.upload.accent : "rgba(255,255,255,0.12)"}
         textColor={sel ? DA.bg : "rgba(255,255,255,0.35)"}
+        style={{ marginTop:4, minHeight:58, flexShrink:0 }}
       >
         <span style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>{t("Continue")}<ForwardIcon size={13} /></span>
       </PrimaryButton>
+      </div>
       </FadeScale>
     </Shell>
   );
@@ -11177,7 +11185,7 @@ function AuthUploadFrame({
       </div>
 
       {/* ── Single flex column: logo is static, content animates below it ── */}
-      <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", paddingTop:"calc(33% - 78px)", paddingLeft:24, paddingRight:24, boxSizing:"border-box", zIndex:1, overflow:"hidden" }}>
+      <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", paddingTop:"calc(33% - 28px)", paddingLeft:24, paddingRight:24, boxSizing:"border-box", zIndex:1, overflow:"hidden" }}>
         {/* Logo section — identical in both phases, never inside FadeScale */}
         <div style={{ width:"100%", display:"flex", flexDirection:"column", alignItems:"center", paddingTop:130 }}>
           <BrandLockup
@@ -11685,7 +11693,7 @@ function AdminFeedbackTab() {
   const deleteFeedbackRow = async (id) => {
     if (!id) return;
     setDeletingId(id);
-    setConfirmTarget(null);
+    setConfirmId(null);
     try {
       const { data, error } = await supabase.rpc("admin_delete_feedback", {
         p_feedback_id: String(id),
@@ -12927,7 +12935,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         position:"relative",
       }}>
         <div style={SCREEN_HEADER_BLOCK_STYLE}>
-          <ScreenHeader back={() => { exitEditing(); setNameView(null); }} titleNode={nameView} />
+          <ScreenHeader back={() => { exitEditing(); setNameView(null); }} titleNode={nameView} topOffset={0} />
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
             {totalReports} report{totalReports !== 1 ? "s" : ""}
           </div>
@@ -13055,6 +13063,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
+          topOffset={0}
           action={onSettings ? (
             <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
               style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.32)", borderRadius:999, color:"rgba(200,170,240,0.85)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
@@ -14265,6 +14274,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     const bundleId = selectedTypes.length > 1 ? crypto.randomUUID() : null;
     const successfulRuns = [];
     const failedTypes = [];
+    let firstAnalysisError = null;
 
     for (let index = 0; index < selectedTypes.length; index += 1) {
       const type = selectedTypes[index];
@@ -14301,6 +14311,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         successfulRuns.push({ type, result, savedId: saved?.id || null });
       } catch (error) {
         console.error(`Analysis failed for report "${type}" [lang=${contentLang}]`, error);
+        if (!firstAnalysisError) firstAnalysisError = error;
         failedTypes.push(type);
       }
     }
@@ -14310,7 +14321,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCredits(optimisticCreditStart);
         cacheUserCredits(authedUser?.id, optimisticCreditStart);
       }
-      failBackToSelection(failedTypes.length ? userFacingAnalysisError(new Error("Batch analysis failed.")) : "The AI analysis didn't return a usable result. Please try again.");
+      failBackToSelection(failedTypes.length ? userFacingAnalysisError(firstAnalysisError || new Error("Batch analysis failed.")) : "The AI analysis didn't return a usable result. Please try again.");
       return;
     }
 

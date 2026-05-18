@@ -1,0 +1,8 @@
+{
+  "appId": "com.wrapchat.app",
+  "appName": "WrapChat",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

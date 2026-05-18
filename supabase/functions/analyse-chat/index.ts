@@ -3,9 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MAX_PROVIDER_TOKENS = 2600;
 const TRUNCATION_RETRY_TOKENS = 2600;
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
+const FALLBACK_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 
 const ALLOWED_ORIGINS = new Set([
   "https://wrapchat.vercel.app",
+  "capacitor://localhost",
+  "ionic://localhost",
   "http://localhost:4173",
   "http://127.0.0.1:4173",
   "http://localhost:5173",
@@ -199,7 +203,7 @@ function didLikelyHitOutputLimit(data: unknown, raw: string): boolean {
   return withoutFence.startsWith("{") && !withoutFence.endsWith("}");
 }
 
-async function callAnthropic(apiKey: string, system: string, userContent: string, max_tokens: number) {
+async function callAnthropic(apiKey: string, system: string, userContent: string, max_tokens: number, model: string) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -208,7 +212,7 @@ async function callAnthropic(apiKey: string, system: string, userContent: string
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens,
       system,
       messages: [{ role: "user", content: userContent }],
@@ -216,6 +220,39 @@ async function callAnthropic(apiKey: string, system: string, userContent: string
   });
 
   return res;
+}
+
+function parseProviderError(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    if (isRecord(parsed)) {
+      const error = isRecord(parsed.error) ? parsed.error : {};
+      return {
+        provider_error_type: typeof error.type === "string" ? error.type : null,
+        provider_error_message: typeof error.message === "string" ? error.message.slice(0, 500) : raw.slice(0, 500),
+      };
+    }
+  } catch {
+    // Fall through to a plain-text preview.
+  }
+
+  return {
+    provider_error_type: null,
+    provider_error_message: raw.slice(0, 500),
+  };
+}
+
+function shouldRetryWithFallbackModel(status: number, providerError: Record<string, unknown>) {
+  if (status !== 400 && status !== 404) return false;
+  const message = String(providerError.provider_error_message || "").toLowerCase();
+  const type = String(providerError.provider_error_type || "").toLowerCase();
+  return (
+    type.includes("not_found") ||
+    type.includes("invalid_request") ||
+    message.includes("model") ||
+    message.includes("not found") ||
+    message.includes("does not exist")
+  );
 }
 
 // @ts-ignore: unused in debug mode — restore call sites before production
@@ -239,7 +276,7 @@ ${rawOutput}
 
 Rewrite that output into valid JSON that exactly follows the original schema and uses the exact English key names from the original instructions. Preserve the existing free-text content wherever possible.`;
 
-  const repairRes = await callAnthropic(apiKey, repairSystem, repairUser, Math.max(maxTokens, 2600));
+  const repairRes = await callAnthropic(apiKey, repairSystem, repairUser, Math.max(maxTokens, 2600), Deno.env.get("ANTHROPIC_MODEL") || DEFAULT_ANTHROPIC_MODEL);
   if (!repairRes.ok) {
     await repairRes.text();
     throw new Error("Schema repair failed");
@@ -269,7 +306,7 @@ ${rawOutput}
 
 Rewrite that output into valid JSON that follows the original instructions exactly.`;
 
-  const repairRes = await callAnthropic(apiKey, repairSystem, repairUser, Math.max(maxTokens, 1800));
+  const repairRes = await callAnthropic(apiKey, repairSystem, repairUser, Math.max(maxTokens, 1800), Deno.env.get("ANTHROPIC_MODEL") || DEFAULT_ANTHROPIC_MODEL);
   if (!repairRes.ok) {
     await repairRes.text();
     throw new Error("JSON repair failed");
@@ -329,22 +366,46 @@ serve(async (req) => {
       );
     }
 
-    console.log("[analyse-chat] calling provider");
+    const primaryModel = Deno.env.get("ANTHROPIC_MODEL") || DEFAULT_ANTHROPIC_MODEL;
+    console.log("[analyse-chat] calling provider", { model: primaryModel });
     let effectiveSystem = system;
     let effectiveMaxTokens = safeMaxTokens;
-    let res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens);
+    let effectiveModel = primaryModel;
+    let res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel);
     console.log("[analyse-chat] provider status:", res.status);
 
     if (!res.ok) {
       const text = await res.text();
-      console.error("[analyse-chat] provider error:", text);
-      return new Response(
-        JSON.stringify({ error: "Analysis failed. Please try again." }),
-        { status: 502, headers: { ...CORS, "Content-Type": "application/json" } }
-      );
+      let providerError = parseProviderError(text);
+      console.error("[analyse-chat] provider error:", { model: effectiveModel, status: res.status, ...providerError });
+
+      if (effectiveModel !== FALLBACK_ANTHROPIC_MODEL && shouldRetryWithFallbackModel(res.status, providerError)) {
+        effectiveModel = FALLBACK_ANTHROPIC_MODEL;
+        console.warn("[analyse-chat] retrying provider with fallback model", { model: effectiveModel });
+        res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel);
+        console.log("[analyse-chat] fallback provider status:", res.status);
+        if (!res.ok) {
+          const fallbackText = await res.text();
+          providerError = parseProviderError(fallbackText);
+          console.error("[analyse-chat] fallback provider error:", { model: effectiveModel, status: res.status, ...providerError });
+        }
+      }
+
+      if (!res.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "Analysis failed. Please try again.",
+            provider_status: res.status,
+            provider_model: effectiveModel,
+            ...providerError,
+          }),
+          { status: 502, headers: { ...CORS, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     let data = await res.json();
+    console.log("[analyse-chat] provider model used:", effectiveModel);
     console.log("[analyse-chat] raw response:", JSON.stringify(data).slice(0, 400));
     console.log("[analyse-chat] content blocks:", JSON.stringify((data.content || []).map((b: Record<string, unknown>) => ({ type: b.type, textLen: typeof b.text === "string" ? b.text.length : null }))));
 
@@ -369,7 +430,7 @@ serve(async (req) => {
       const retryTokens = Math.min(TRUNCATION_RETRY_TOKENS, Math.max(effectiveMaxTokens + 1200, Math.round(effectiveMaxTokens * 1.5)));
       effectiveSystem = `${system}\n\nRETRY OVERRIDE: The previous attempt hit the output limit. Keep every free-text field concise and single-sentence where possible so the full JSON completes. Preserve the exact schema and concrete evidence.`;
       console.warn("[analyse-chat] output_limit_reached: retrying with higher token budget", { from: effectiveMaxTokens, to: retryTokens });
-      const retryRes = await callAnthropic(apiKey, effectiveSystem, userContent, retryTokens);
+      const retryRes = await callAnthropic(apiKey, effectiveSystem, userContent, retryTokens, effectiveModel);
       console.log("[analyse-chat] retry provider status:", retryRes.status);
       if (retryRes.ok) {
         const retryData = await retryRes.json();

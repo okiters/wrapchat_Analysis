@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = new Set([
   "https://wrapchat.vercel.app",
+  "capacitor://localhost",
+  "ionic://localhost",
   "http://localhost:4173",
   "http://127.0.0.1:4173",
   "http://localhost:5173",

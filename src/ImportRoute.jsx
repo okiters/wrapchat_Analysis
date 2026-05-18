@@ -3,7 +3,9 @@ import BrandLockup from "./BrandLockup";
 import { processImportedChatFile } from "./import/fileProcessing";
 import { IMPORT_ACCEPT_TYPES } from "./import/normalizedSchema";
 import {
+  clearSharedFileFromNative,
   clearSharedFileFromServiceWorker,
+  requestSharedFileFromNative,
   requestSharedFileFromServiceWorker,
   subscribeToShareTargetEvents,
 } from "./import/shareTargetClient";
@@ -75,6 +77,7 @@ export default function ImportRoute({ onComplete, onCancel }) {
       setStatusText(`Found ${result.summary.messageCount.toLocaleString()} messages with ${result.summary.participantLabel}.`);
       setBusy(false);
       if (source === "shared") await clearSharedFileFromServiceWorker();
+      if (source === "native") clearSharedFileFromNative();
 
       completionTimerRef.current = window.setTimeout(() => {
         onComplete({
@@ -88,6 +91,7 @@ export default function ImportRoute({ onComplete, onCancel }) {
       }, 900);
     } catch (processingError) {
       if (source === "shared") await clearSharedFileFromServiceWorker();
+      if (source === "native") clearSharedFileFromNative();
       setError(String(processingError?.message || "We couldn't open that chat."));
       setBusy(false);
       startedRef.current = false;
@@ -99,6 +103,13 @@ export default function ImportRoute({ onComplete, onCancel }) {
     let active = true;
 
     const tryPendingShare = async () => {
+      const nativeFile = await requestSharedFileFromNative();
+      if (!active) return;
+      if (nativeFile) {
+        processFile(nativeFile, "native");
+        return;
+      }
+
       const sharedFile = await requestSharedFileFromServiceWorker();
       if (!active) return;
       if (sharedFile) {
@@ -115,6 +126,8 @@ export default function ImportRoute({ onComplete, onCancel }) {
       if (event?.type === "WRAPCHAT_SHARE_READY" && !startedRef.current) {
         const sharedFile = await requestSharedFileFromServiceWorker();
         if (sharedFile) processFile(sharedFile, "shared");
+      } else if (event?.source === "native" && event.file && !startedRef.current) {
+        processFile(event.file, "native");
       }
     });
 
