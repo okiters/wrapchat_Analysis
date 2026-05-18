@@ -6485,7 +6485,7 @@ const SLIDE_MS   = 480;
 const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 const SHELL_SAFE_TOP = "max(20px, env(safe-area-inset-top, 0px))";
 const SHELL_PANE_PADDING = "16px 20px calc(24px + env(safe-area-inset-bottom, 0px))";
-const SHELL_DRAWER_PADDING = `calc(${SHELL_SAFE_TOP} + 6px) 20px calc(24px + env(safe-area-inset-bottom, 0px))`;
+const SHELL_DRAWER_PADDING = `calc(${SHELL_SAFE_TOP} + 6px) 20px 0`;
 const SCREEN_CONTENT_STYLE = {
   alignSelf:"stretch",
   flex:1,
@@ -12439,7 +12439,6 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           </div>
         </div>
         <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-          padding:"4px 0 0",
           display:"flex", flexDirection:"column", gap:10 }}>
           {err && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>}
           {allNameRows.map(row => {
@@ -14456,7 +14455,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           background:DA.bg,
           display:"flex", flexDirection:"column",
           overflow:"hidden",
-          boxShadow:"4px 0 32px rgba(0,0,0,0.45)",
           boxSizing:"border-box",
         }}>
           <MyResults
