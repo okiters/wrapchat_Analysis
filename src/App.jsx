@@ -85,7 +85,7 @@ const ShareResultsContext = createContext(null);
 const FeedbackContext = createContext(null);
 
 // Provided by Slide; Shell reads it to animate only its content area.
-const SlideContext = createContext({ dir: "fwd", id: 0 });
+const SlideContext = createContext({ dir: "fwd", id: 0, animateIn: false });
 
 // Provided by Shell so inner components (AICard etc.) can auto-adopt the section palette.
 const SectionPaletteContext = createContext(null);
@@ -6514,11 +6514,12 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
   const feedbackApi = useContext(FeedbackContext);
-  const { dir, id } = useContext(SlideContext);
+  const { dir, id, animateIn } = useContext(SlideContext);
   const t = useT();
 
   // Content-only slide animation — chrome (bg, bar, pill, X) stays perfectly still.
   const prevContentRef = useRef(null);
+  const [isEntering, setIsEntering] = useState(() => Boolean(animateIn));
   const prevIdRef      = useRef(id);
   const rootRef        = useRef(null);
   const paneRef        = useRef(null);
@@ -6538,6 +6539,12 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
       return () => clearTimeout(t);
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useLayoutEffect(() => {
+    if (!animateIn) return;
+    const t = setTimeout(() => setIsEntering(false), SLIDE_MS + 50);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     if (rootRef.current?.closest('[data-share-capture="summary"]')) return;
@@ -6572,6 +6579,33 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes wcFadeScaleIn {
+          from { opacity: 0; transform: scale(0.93); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes wcStaggerItemIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes wcAuthFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes wcAuthFadeOut {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+        @keyframes wcWaveLayerIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .wc-fade-scale { animation-name: wcFadeIn !important; animation-duration: 150ms !important; }
+          .wc-stagger-item { animation-name: wcFadeIn !important; animation-duration: 150ms !important; }
+          .wc-auth-fade { animation-duration: 120ms !important; animation-delay: 0ms !important; }
+          .wc-segmented-indicator { transition-duration: 0.01ms !important; }
+          .wc-wave-layer { animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
+        }
       `}</style>
       <div ref={rootRef} className="wc-root" data-share-type={shareType} data-share-accent={p.accent} style={{
         width: "min(420px, 100vw)",
@@ -6590,7 +6624,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
       }}>
         <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:SHELL_SAFE_TOP, background:p.bg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES — result screens + explicitly flagged screens only ── */}
-        {(forceWaves || sec !== "upload") && <WaveLines accent={p.accent} />}
+        {(forceWaves || sec !== "upload") && <WaveLines accent={p.accent} intro={forceWaves && sec === "upload"} />}
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
@@ -6692,7 +6726,9 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             width:"100%",
             minHeight:0,
             padding:SHELL_PANE_PADDING, gap:10,
-            animation: exitContent ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`) : "none",
+            animation: exitContent
+              ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`)
+              : isEntering ? `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both` : "none",
             ["--wc-enter-from"]: enterFrom,
             willChange: exitContent ? (isFade ? "opacity, transform" : "transform") : "auto",
             overflowY:scrollable ? "auto" : "hidden",
@@ -7088,7 +7124,7 @@ function SwatchIcon({ inner, accent, size = 48, inset = 9, style = {} }) {
       <div style={{
         position:"absolute", inset:0,
         borderRadius:Math.round(size * 0.27),
-        background:`${accent}20`,
+        background: "rgba(0,0,0,0.14)",
         border:`1.5px solid ${accent}55`,
       }} />
       <div style={{
@@ -8701,6 +8737,7 @@ function postAuthPhaseForUser(user) {
 // RELATIONSHIP SELECT SCREEN
 // ─────────────────────────────────────────────────────────────────
 function RelationshipSelect({
+  animKey,
   onSelect,
   onBack,
   error = "",
@@ -8805,6 +8842,7 @@ function RelationshipSelect({
 
   return (
     <Shell sec="upload" prog={1} total={3} contentAlign="start">
+      <FadeScale key={animKey}>
       <ScreenHeader back={onBack} title="Set up this chat" centerTitle />
 
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
@@ -8963,6 +9001,7 @@ function RelationshipSelect({
       >
         <span style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>{t("Continue")}<ForwardIcon size={13} /></span>
       </PrimaryButton>
+      </FadeScale>
     </Shell>
   );
 }
@@ -9047,19 +9086,12 @@ function Auth() {
       />
 
       {/* Tab toggle */}
-      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:999, padding:4, width:"100%", gap:4 }}>
-        {[["login","Log in"],["signup","Sign up"]].map(([t,label]) => (
-          <button key={t} onClick={() => switchTab(t)}
-            style={{
-              flex:1, border:"none", borderRadius:999, padding:"10px 0",
-              fontSize:14, fontWeight:700, cursor:"pointer", transition:"all 0.2s",
-              background: tab === t ? "rgba(255,255,255,0.18)" : "transparent",
-              color: tab === t ? "#fff" : "rgba(255,255,255,0.38)",
-              letterSpacing: 0.2,
-            }}
-          >{label}</button>
-        ))}
-      </div>
+      <SlidingSegmentedTabs
+        items={[{ id:"login", label:"Log in" }, { id:"signup", label:"Sign up" }]}
+        value={tab}
+        onChange={switchTab}
+        ariaLabel="Authentication tabs"
+      />
 
       {/* Inputs */}
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
@@ -9286,16 +9318,6 @@ function TermsFlow({ onAccepted, onLogout }) {
     }
   };
 
-  const tabBtn = (tab, isRead) => ({
-    flex:1, border:"none", borderRadius:999, padding:"10px 6px",
-    fontSize:13, fontWeight:700, cursor:"pointer", transition:"all 0.2s",
-    background: activeTab === tab ? "rgba(255,255,255,0.18)" : "transparent",
-    color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.38)",
-    letterSpacing:0.1,
-    display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-    opacity: isRead && activeTab !== tab ? 0.7 : 1,
-  });
-
   const scrollBox = {
     height:"40vh", overflowY:"auto",
     background:"rgba(0,0,0,0.22)", borderRadius:20,
@@ -9320,14 +9342,15 @@ function TermsFlow({ onAccepted, onLogout }) {
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:999, padding:4, width:"100%", gap:4 }}>
-        <button onClick={() => setActiveTab("tos")} style={tabBtn("tos", tosRead)}>
-          Terms of Service {checkMark(tosRead)}
-        </button>
-        <button onClick={() => setActiveTab("privacy")} style={tabBtn("privacy", privacyRead)}>
-          Privacy Policy {checkMark(privacyRead)}
-        </button>
-      </div>
+      <SlidingSegmentedTabs
+        items={[
+          { id:"tos", label:"Terms of Service", suffix:checkMark(tosRead) },
+          { id:"privacy", label:"Privacy Policy", suffix:checkMark(privacyRead) },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Legal document tabs"
+      />
 
       {/* Scrollable document bodies — both mounted so scroll position is preserved */}
       <div
@@ -9610,12 +9633,13 @@ function Upload({
   const displayErr = err || uploadError;
 
   const isPaymentsMode = !hideCredits && accessMode === "payments";
+  const hasUnlockedReads = Object.values(unlockedPackIds || {}).some(Boolean);
   const isTrialPending  = isPaymentsMode && quickReadAvailable;
-  const isTrialUsed     = isPaymentsMode && !quickReadAvailable && credits === 0;
+  const hasNoPaymentReads = isPaymentsMode && !quickReadAvailable && !hasUnlockedReads;
 
   const displayInfo = uploadInfo
-    || (isTrialUsed ? t("No reads left. Unlock more insights.") : "")
-    || (!hideCredits && !isPaymentsMode && credits === 0 ? OUT_OF_CREDITS_MESSAGE : "");
+    || (hasNoPaymentReads ? t("No reads left. Unlock more insights.") : "")
+    || (!hideCredits && !isPaymentsMode && credits === 0 && !hasUnlockedReads ? OUT_OF_CREDITS_MESSAGE : "");
 
   const showCreditPill = !hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
 
@@ -9779,6 +9803,25 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
   const autoLanguage = uiLangPref === "auto";
   const cleanProfileName = String(profileName || "").replace(/\s+/g, " ").trim();
   const canSaveProfileName = cleanProfileName.length >= 2 && !profileBusy;
+  const languageSelectStyle = {
+    width:"100%",
+    height:42,
+    backgroundColor:"rgba(0,0,0,0.22)",
+    backgroundImage:`url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 5.25L7 8.75L10.5 5.25' stroke='rgba(255,255,255,0.68)' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat:"no-repeat",
+    backgroundPosition:"right 18px center",
+    backgroundSize:"14px 14px",
+    borderRadius:14,
+    color:"#fff",
+    fontSize:14,
+    fontWeight:700,
+    padding:"0 46px 0 12px",
+    outline:"none",
+    fontFamily:"inherit",
+    appearance:"none",
+    WebkitAppearance:"none",
+    MozAppearance:"none",
+  };
 
   useEffect(() => {
     let alive = true;
@@ -9941,17 +9984,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   onChange={e => updateUiLangPref(e.target.value)}
                   aria-label="App language"
                   style={{
-                    width:"100%",
-                    height:42,
-                    background:"rgba(0,0,0,0.22)",
+                    ...languageSelectStyle,
                     border:`1px solid ${autoLanguage ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.28)"}`,
-                    borderRadius:14,
-                    color:"#fff",
-                    fontSize:14,
-                    fontWeight:700,
-                    padding:"0 12px",
-                    outline:"none",
-                    fontFamily:"inherit",
                   }}
                 >
                   <option value="auto">{t("Auto-detect")}</option>
@@ -9974,17 +10008,9 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                 onChange={e => onReportLangChange(e.target.value)}
                 aria-label={t("Report language")}
                 style={{
+                  ...languageSelectStyle,
                   minWidth:0,
-                  height:42,
-                  background:"rgba(0,0,0,0.22)",
                   border:"1px solid rgba(255,255,255,0.18)",
-                  borderRadius:14,
-                  color:"#fff",
-                  fontSize:14,
-                  fontWeight:700,
-                  padding:"0 12px",
-                  outline:"none",
-                  fontFamily:"inherit",
                 }}
               >
                 <option value="auto">{t("Auto-detect")}</option>
@@ -10157,6 +10183,7 @@ const DEBUG_RELATIONSHIP_OPTIONS = [
 ];
 
 function PackSelect({
+  animKey,
   math,
   onRunPack,
   onBack,
@@ -10182,6 +10209,7 @@ function PackSelect({
         padding:"16px 20px 56px",
         minHeight:0,
       }}>
+        <FadeScale key={animKey}>
         <div style={{ marginBottom:14 }}>
           <ScreenHeader back={onBack} title="Pick your read" centerTitle />
         </div>
@@ -10276,6 +10304,7 @@ function PackSelect({
             );
           })}
         </div>
+        </FadeScale>
 
       </div>
     </Shell>
@@ -10825,11 +10854,176 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
 // Slide is now a thin context provider only.
 // Shell consumes SlideContext and animates its content area internally,
 // keeping the chrome (background, progress bar, pill, close button) perfectly still.
-function Slide({ children, dir, id }) {
+function Slide({ children, dir, id, animateIn = false }) {
   return (
-    <SlideContext.Provider value={{ dir, id }}>
+    <SlideContext.Provider value={{ dir, id, animateIn }}>
       {children}
     </SlideContext.Provider>
+  );
+}
+
+// Entry-only wrapper: fades in + scales from 0.93→1 (320ms ease-out).
+// Use key={someId} on the parent to re-trigger on data changes.
+function FadeScale({ children }) {
+  return (
+    <div className="wc-fade-scale" style={{ animation: "wcFadeScaleIn 320ms ease-out both", willChange: "opacity, transform", width: "100%" }}>
+      {children}
+    </div>
+  );
+}
+
+// Wraps a list of children and staggers each item in (55ms apart, 280ms ease-out).
+// Pass key={listKey} on <StaggerList> to re-trigger when the list changes.
+function StaggerList({ children }) {
+  const items = Array.isArray(children) ? children : (children ? [children] : []);
+  return items.map((child, i) =>
+    child ? (
+      <div key={child?.key ?? i} className="wc-stagger-item" style={{ animation: `wcStaggerItemIn 280ms ${i * 55}ms ease-out both`, willChange: "opacity, transform" }}>
+        {child}
+      </div>
+    ) : null
+  );
+}
+
+function SlidingSegmentedTabs({
+  items,
+  value,
+  onChange,
+  ariaLabel,
+  compact = false,
+  background = "rgba(0,0,0,0.25)",
+  activeBackground = "rgba(255,255,255,0.18)",
+  inactiveColor = "rgba(255,255,255,0.38)",
+  activeColor = "#fff",
+  padding = 4,
+}) {
+  const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  const activeIndex = Math.max(0, safeItems.findIndex(item => item.id === value));
+  const count = Math.max(1, safeItems.length);
+
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      style={{
+        position:"relative",
+        display:"grid",
+        gridTemplateColumns:`repeat(${count}, minmax(0, 1fr))`,
+        background,
+        borderRadius:999,
+        padding,
+        width:"calc(100% - 8px)",
+        margin:"0 0 0 auto",
+        overflow:"hidden",
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className="wc-segmented-indicator"
+        style={{
+          position:"absolute",
+          top:padding,
+          bottom:padding,
+          left:padding,
+          width:`calc((100% - ${padding * 2}px) / ${count})`,
+          borderRadius:999,
+          background:activeBackground,
+          transform:`translateX(${activeIndex * 100}%)`,
+          transition:`transform 240ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          willChange:"transform",
+        }}
+      />
+      {safeItems.map(item => {
+        const active = value === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange?.(item.id)}
+            className="wc-btn"
+            style={{
+              position:"relative",
+              zIndex:1,
+              minWidth:0,
+              border:"none",
+              borderRadius:999,
+              padding:compact ? "6px 0" : "10px 6px",
+              fontSize:compact ? 12 : 14,
+              fontWeight:700,
+              cursor:"pointer",
+              background:"transparent",
+              color:active ? activeColor : inactiveColor,
+              letterSpacing:compact ? 0 : 0.1,
+              transition:"color 180ms ease, opacity 180ms ease",
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              gap:5,
+            }}
+          >
+            {item.label}
+            {item.suffix}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AuthPhaseFade({ phase, children }) {
+  const previousPhaseRef = useRef(phase);
+  const previousChildrenRef = useRef(children);
+  const [exiting, setExiting] = useState(null);
+
+  useLayoutEffect(() => {
+    if (phase === previousPhaseRef.current) return;
+
+    setExiting({
+      phase: previousPhaseRef.current,
+      children: previousChildrenRef.current,
+    });
+    previousPhaseRef.current = phase;
+    previousChildrenRef.current = children;
+
+    const t = setTimeout(() => setExiting(null), 220);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  useLayoutEffect(() => {
+    previousChildrenRef.current = children;
+  }, [children]);
+
+  return (
+    <div style={{ position:"relative", width:"100%" }}>
+      {exiting && (
+        <div
+          key={`exit-${exiting.phase}`}
+          className="wc-auth-fade"
+          style={{
+            position:"absolute",
+            inset:0,
+            width:"100%",
+            animation:"wcAuthFadeOut 180ms ease-out both",
+            pointerEvents:"none",
+          }}
+        >
+          {exiting.children}
+        </div>
+      )}
+      <div
+        key={`enter-${phase}`}
+        className="wc-auth-fade"
+        style={{
+          width:"100%",
+          animation:"wcAuthFadeIn 220ms 90ms ease-out both",
+          pointerEvents: exiting ? "none" : "auto",
+        }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -10837,6 +11031,245 @@ function Slide({ children, dir, id }) {
 // CREDITS
 // ─────────────────────────────────────────────────────────────────
 const OUT_OF_CREDITS_MESSAGE = "You've used all your credits. More coming soon — stay tuned.";
+
+// ─────────────────────────────────────────────────────────────────
+// AUTH + UPLOAD FRAME
+// Single component for both "auth" and "upload" phases.
+// BrandLockup is rendered in a persistent absolutely-positioned layer
+// that never participates in auth phase transitions, so it stays
+// completely still when the user signs in and the phase changes
+// from "auth" to "upload".
+// ─────────────────────────────────────────────────────────────────
+function AuthUploadFrame({
+  phase,
+  onParsed,
+  onHistory,
+  onAdmin,
+  canAdmin,
+  uploadError = "",
+  uploadInfo = "",
+  credits = null,
+  quickReadAvailable = false,
+  hideCredits = false,
+  unlockedPackIds = {},
+  accessMode = DEFAULT_ACCESS_MODE,
+  onClearError,
+  onUpgrade,
+  onPayment,
+}) {
+  const t = useT();
+
+  // ── Auth state ──────────────────────────────────────────────────
+  const [authTab,      setAuthTab]      = useState("login");
+  const [authEmail,    setAuthEmail]    = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authErr,      setAuthErr]      = useState("");
+  const [authInfo,     setAuthInfo]     = useState("");
+  const [authBusy,     setAuthBusy]     = useState(false);
+
+  const switchAuthTab = (newTab) => { setAuthTab(newTab); setAuthErr(""); setAuthInfo(""); };
+
+  const authSubmit = async () => {
+    if (!authEmail || !authPassword) { setAuthErr("Please fill in both fields."); return; }
+    setAuthBusy(true); setAuthErr(""); setAuthInfo("");
+    try {
+      if (authTab === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+        if (error) setAuthErr(normalizeAuthError(error, "login"));
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: authEmail, password: authPassword,
+          options: { emailRedirectTo: `${window.location.origin}/auth/confirmed` },
+        });
+        if (error) {
+          setAuthErr(normalizeAuthError(error, "signup"));
+        } else if (data?.user?.identities?.length === 0) {
+          setAuthErr("This email is already registered. Log in instead.");
+        } else {
+          setAuthInfo("Check your email to confirm your account, then log in.");
+        }
+      }
+    } catch { setAuthErr("Something went wrong. Please try again."); }
+    setAuthBusy(false);
+  };
+
+  // Reset auth form whenever we return to the auth phase
+  useEffect(() => {
+    if (phase === "auth") {
+      setAuthTab("login"); setAuthEmail(""); setAuthPassword(""); setAuthErr(""); setAuthInfo(""); setAuthBusy(false);
+    }
+  }, [phase]);
+
+  // ── Upload state ────────────────────────────────────────────────
+  const [uploadLocalErr, setUploadLocalErr] = useState("");
+  const [uploadBusy,     setUploadBusy]     = useState(false);
+  const uploadInputId = "wrapchat-upload-input";
+  const showAdminEntry = Boolean(onAdmin) && canAdmin;
+  const displayUploadErr = uploadLocalErr || uploadError;
+  const isPaymentsMode = !hideCredits && accessMode === "payments";
+  const hasUnlockedReads = Object.values(unlockedPackIds || {}).some(Boolean);
+  const isTrialPending = isPaymentsMode && quickReadAvailable;
+  const hasNoPaymentReads = isPaymentsMode && !quickReadAvailable && !hasUnlockedReads;
+  const displayInfo    = uploadInfo
+    || (hasNoPaymentReads ? t("No reads left. Unlock more insights.") : "")
+    || (!hideCredits && !isPaymentsMode && credits === 0 && !hasUnlockedReads ? OUT_OF_CREDITS_MESSAGE : "");
+  const showCreditPill = !hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
+  const showOpenPill   = isOpenMode(accessMode) && !hideCredits;
+
+  const handleUpload = async fileList => {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+    onClearError?.();
+    setUploadBusy(true); setUploadLocalErr("");
+    try {
+      const file = files[0];
+      const result = await processImportedChatFile(file);
+      onParsed({
+        platform: result.platform,
+        sourceFormat: result.sourceFormat,
+        parserId: result.parserId,
+        payload: result.payload,
+        summary: result.summary,
+        fileName: file.name || null,
+      });
+    } catch (error) {
+      setUploadLocalErr(String(error?.message || "Couldn't open this file. Please export the chat again and retry."));
+      setUploadBusy(false);
+    }
+  };
+
+  const inputStyle = {
+    width: "100%",
+    background: "rgba(0,0,0,0.25)",
+    border: "1.5px solid rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    padding: "13px 16px",
+    fontSize: 15,
+    color: "#fff",
+    outline: "none",
+    fontFamily: "inherit",
+  };
+
+  return (
+    <Shell sec="upload" prog={0} total={0} scrollable={false} forceWaves={phase === "upload"}>
+      {/* ── Upload-only absolute overlays ── */}
+      {phase === "upload" && onHistory && (
+        <div style={{ position:"absolute", top:16, left:16, zIndex:5, animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
+          <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
+            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(127,91,176,0.20)", border:"1px solid rgba(127,91,176,0.38)", color:"rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+            <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="1" y1="1.5" x2="15" y2="1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              <line x1="1" y1="12.5" x2="15" y2="12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+      )}
+      {phase === "upload" && showCreditPill && (
+        <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:5, display:"flex", alignItems:"center", animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
+          <AnalysisDotsCounter credits={credits} activePackIds={unlockedPackIds} onAdd={onUpgrade || onPayment} hide={hideCredits} />
+        </div>
+      )}
+
+      {/* ── Version label ── */}
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
+        {HOMEPAGE_VERSION_LABEL}
+      </div>
+
+      {/* ── Single flex column: logo is static, content animates below it ── */}
+      <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", paddingTop:"calc(33% - 78px)", paddingLeft:24, paddingRight:24, boxSizing:"border-box", zIndex:1, overflow:"hidden" }}>
+        {/* Logo section — identical in both phases, never inside FadeScale */}
+        <div style={{ width:"100%", display:"flex", flexDirection:"column", alignItems:"center", paddingTop:130 }}>
+          <BrandLockup
+            logoSrc={wrapchatLogoTransparent}
+            logoSize={72}
+            subtitle={t("Your chats, unwrapped.")}
+            subtitleMarginBottom={8}
+          />
+        </div>
+
+        {/* Content section — auth form fades out while upload controls fade in. */}
+        <div style={{ width:"100%", marginTop:14 }}>
+          <AuthPhaseFade phase={phase}>
+            <div style={{ width:"100%", display:"flex", flexDirection:"column", gap: phase === "auth" ? 10 : 12 }}>
+              {phase === "auth" ? (
+                <>
+                  {/* Tab toggle */}
+                  <SlidingSegmentedTabs
+                    items={[{ id:"login", label:"Log in" }, { id:"signup", label:"Sign up" }]}
+                    value={authTab}
+                    onChange={switchAuthTab}
+                    ariaLabel="Authentication tabs"
+                  />
+                  {/* Inputs */}
+                  <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+                    <input
+                      type="email" placeholder="Email" value={authEmail}
+                      onChange={e => setAuthEmail(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && authSubmit()}
+                      style={inputStyle}
+                    />
+                    <input
+                      type="password" placeholder="Password" value={authPassword}
+                      onChange={e => setAuthPassword(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && authSubmit()}
+                      style={inputStyle}
+                    />
+                  </div>
+                  {authErr  && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{authErr}</div>}
+                  {authInfo && <div style={{ fontSize:13, color:"#B0F4C8", background:"rgba(20,160,80,0.15)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{authInfo}</div>}
+                  <PrimaryButton onClick={authSubmit} disabled={authBusy} color={PAL.upload.accent} textColor={PAL.upload.bg}>
+                    {authBusy ? "…" : authTab === "login" ? "Log in" : "Create account"}
+                  </PrimaryButton>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
+                </>
+              ) : (
+                <>
+                  {showOpenPill && (
+                    <div style={{ fontSize:12, fontWeight:700, color:"rgba(176,244,200,0.9)", background:"rgba(20,160,80,0.12)", border:"1px solid rgba(20,160,80,0.28)", borderRadius:999, padding:"7px 18px", textAlign:"center" }}>
+                      Open testing · free reports
+                    </div>
+                  )}
+                  {/* Upload drop zone */}
+                  <label
+                    htmlFor={uploadInputId}
+                    onDrop={e => { e.preventDefault(); handleUpload(e.dataTransfer.files); }}
+                    onDragOver={e => e.preventDefault()}
+                    style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.35)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
+                  >
+                    <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{uploadBusy ? t("Reading your chat…") : t("Upload your chat")}</div>
+                  </label>
+                  <input id={uploadInputId} type="file" accept={IMPORT_ACCEPT_TYPES} style={{ display:"none" }} onChange={e => handleUpload(e.target.files)} />
+                  {isTrialPending && (
+                    <div style={{ fontSize:13, fontWeight:700, color:"rgba(200,170,255,0.95)", background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.35)", borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
+                      {t("You have 1 free Quick Read included. Upload a chat to get started.")}
+                    </div>
+                  )}
+                  {displayUploadErr && <div style={{ fontSize:13, color:"#FFB090", textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayUploadErr}</div>}
+                  {displayInfo && (
+                    <div style={{ fontSize:13, color:"rgba(255,255,255,0.82)", textAlign:"center", background:"rgba(127,91,176,0.22)", border:"1px solid rgba(127,91,176,0.38)", padding:"11px 16px", borderRadius:16, width:"100%", lineHeight:1.6 }}>
+                      {displayInfo}
+                    </div>
+                  )}
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
+                  {showAdminEntry && (
+                    <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%" }}>
+                      <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.30)", borderRadius:999, color:"rgba(200,170,240,0.90)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+                        Admin
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </AuthPhaseFade>
+        </div>
+      </div>
+    </Shell>
+  );
+}
 
 function parseCreditBalance(value) {
   const candidate = (
@@ -11951,31 +12384,12 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
         </div>
       )}
 
-      <div style={{ display:"flex", background:"rgba(0,0,0,0.25)", borderRadius:999, padding:4, width:"100%", gap:4 }}>
-        {tabs.map(item => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className="wc-btn"
-            style={{
-              flex:1,
-              border:"none",
-              borderRadius:999,
-              padding:"10px 0",
-              fontSize:14,
-              fontWeight:700,
-              cursor:"pointer",
-              transition:"all 0.2s",
-              background: tab === item.id ? "rgba(255,255,255,0.18)" : "transparent",
-              color: tab === item.id ? "#fff" : "rgba(255,255,255,0.38)",
-              letterSpacing:0.1,
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <SlidingSegmentedTabs
+        items={tabs}
+        value={tab}
+        onChange={setTab}
+        ariaLabel="Admin tabs"
+      />
 
       {tab === "feedback" && <AdminFeedbackTab />}
       {tab === "users" && <AdminUsersTab accessMode={accessMode} />}
@@ -12594,16 +13008,17 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         {rows?.length > 0 && (
           <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", flexShrink:0 }}>Sort by</div>
-            <div style={{ flex:1, display:"flex", background:"rgba(127,91,176,0.12)", borderRadius:999, padding:3, gap:2 }}>
-              {[["reports", "Results"], ["names", "Names"]].map(([mode, label]) => (
-                <button key={mode} type="button" onClick={() => { exitEditing(); changeViewMode(mode); }} className="wc-btn"
-                  style={{ flex:1, borderRadius:999, padding:"6px 0", fontSize:12, fontWeight:700, border:"none",
-                    background: viewMode === mode ? "rgba(255,255,255,0.18)" : "transparent",
-                    color: viewMode === mode ? "#fff" : "rgba(255,255,255,0.45)",
-                    cursor:"pointer", transition:"all 0.18s" }}>
-                  {label}
-                </button>
-              ))}
+            <div style={{ flex:1 }}>
+              <SlidingSegmentedTabs
+                compact
+                padding={3}
+                items={[{ id:"reports", label:"Results" }, { id:"names", label:"Names" }]}
+                value={viewMode}
+                onChange={(mode) => { exitEditing(); changeViewMode(mode); }}
+                ariaLabel="Sort results by"
+                background="rgba(127,91,176,0.12)"
+                inactiveColor="rgba(255,255,255,0.45)"
+              />
             </div>
           </div>
         )}
@@ -12652,7 +13067,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               No saved results yet.<br/>Run an analysis to see it here.
             </div>
           )}
-          {displayItems.map(item => renderPackResultCard(item))}
+          <StaggerList key={displayItems.length}>
+            {displayItems.map(item => renderPackResultCard(item))}
+          </StaggerList>
         </div>
         )}
         {viewMode === "names" && (
@@ -12670,6 +13087,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 No saved results yet.<br/>Run an analysis to see it here.
               </div>
             )}
+            <StaggerList key={nameItems.length}>
             {nameItems.map(group => {
               const allGroupRows = [];
               group.items.forEach(item => {
@@ -12747,6 +13165,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 </div>
               );
             })}
+            </StaggerList>
           </div>
         )}
       </div>
@@ -13049,8 +13468,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         if (event === "SIGNED_IN" && phaseRef.current === "auth") {
           setStep(0);
           setDir("fwd");
-          setPhase(postAuthPhaseForUser(session.user));
-          setSid(s => s + 1);
+          const nextPhase = postAuthPhaseForUser(session.user);
+          setPhase(nextPhase);
+          // auth→upload stays inside AuthUploadFrame — AuthPhaseFade handles the
+          // content swap internally, so Shell must NOT slide/fade the logo.
+          if (nextPhase !== "upload") setSid(s => s + 1);
         }
       } else if (event === "SIGNED_OUT") {
         setStep(0);
@@ -14465,7 +14887,67 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
-  if (phase === "auth")     return withUiLanguage(<Slide dir={dir} id={sid}><Auth /></Slide>);
+  // auth and upload share AuthUploadFrame so BrandLockup is never inside the
+  // animated region — it persists perfectly still when the phase changes.
+  if (phase === "auth" || phase === "upload") return withUiLanguage(
+    <>
+      <Slide dir={dir} id={sid}>
+        <AuthUploadFrame
+          phase={phase}
+          onParsed={onParsed}
+          onHistory={() => { setHistoryBundleView(null); setHistoryDrawerOpen(true); }}
+          onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }}
+          canAdmin={authedIsAdmin}
+          uploadError={uploadError}
+          uploadInfo={uploadInfo}
+          credits={credits}
+          unlockedPackIds={unlockedPackIds}
+          quickReadAvailable={quickReadAvailable}
+          hideCredits={authedIsAdmin}
+          accessMode={accessMode}
+          onClearError={() => setUploadError("")}
+          onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }}
+          onPayment={() => openPayment(null, "upload")}
+        />
+      </Slide>
+      {/* My Results slide-in drawer — upload phase only */}
+      {phase === "upload" && (
+        <div style={{ position:"fixed", inset:0, zIndex:120, pointerEvents: historyDrawerOpen ? "all" : "none" }}>
+          <div
+            onClick={() => { setHistoryBundleView(null); setHistoryDrawerOpen(false); }}
+            style={{
+              position:"absolute", inset:0,
+              background:"rgba(0,0,0,0.52)",
+              backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)",
+              opacity: historyDrawerOpen ? 1 : 0,
+              transition:"opacity 0.28s ease",
+              pointerEvents: historyDrawerOpen ? "all" : "none",
+            }}
+          />
+          <div style={{
+            position:"absolute", top:0, left:0, bottom:0,
+            width:"100%",
+            padding:SHELL_DRAWER_PADDING,
+            transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
+            transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
+            background:DA.bg,
+            display:"flex", flexDirection:"column",
+            overflow:"hidden",
+            boxSizing:"border-box",
+          }}>
+            <MyResults
+              currentUser={authedUser}
+              drawerMode={true}
+              initialBundleId={historyBundleView}
+              onBack={(bundleId) => { if (bundleId) { setHistoryBundleView(bundleId); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("history"); setSid(s => s+1); } else { setHistoryBundleView(null); setHistoryDrawerOpen(false); } }}
+              onRestoreResult={(row, routeState) => { setHistoryDrawerOpen(false); onRestoreResult(row, routeState); }}
+              onSettings={() => { setSettingsReturnTarget("historyDrawer"); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
   if (phase === "onboarding") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
       <OnboardingFlow step={step} next={next} onOnboarded={onOnboarded} />
@@ -14494,7 +14976,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>)
   );
   if (phase === "settings") return withUiLanguage(
-    <Slide dir={dir} id={sid}>
+    <Slide dir={dir} id={sid} animateIn>
       <SettingsScreen
         onBack={navigateBack}
         onAccountDeleted={handleAccountDeleted}
@@ -14513,66 +14995,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>
   );
   if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults currentUser={authedUser} initialBundleId={historyBundleView} onBack={navigateBack} onRestoreResult={onRestoreResult} onSettings={() => { setSettingsReturnTarget("history"); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} /></Slide>);
-  if (phase === "upload") return withUiLanguage(
-    <>
-      <Slide dir={dir} id={sid}>
-        <Upload
-          onParsed={onParsed}
-          onLogout={logout}
-          onHistory={() => { setHistoryBundleView(null); setHistoryDrawerOpen(true); }}
-          onAdmin={() => { setDir("fwd"); setPhase("admin"); setSid(s => s+1); }}
-          onSettings={() => { setSettingsReturnTarget("upload"); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
-          canAdmin={authedIsAdmin}
-          uploadError={uploadError}
-          uploadInfo={uploadInfo}
-          credits={credits}
-          unlockedPackIds={unlockedPackIds}
-          quickReadAvailable={quickReadAvailable}
-          hideCredits={authedIsAdmin}
-	          accessMode={accessMode}
-	          onClearError={() => setUploadError("")}
-	          onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }}
-	          onPayment={() => openPayment(null, "upload")}
-	        />
-      </Slide>
-      {/* My Results slide-in drawer */}
-      <div style={{ position:"fixed", inset:0, zIndex:120, pointerEvents: historyDrawerOpen ? "all" : "none" }}>
-        {/* Backdrop */}
-        <div
-          onClick={() => { setHistoryBundleView(null); setHistoryDrawerOpen(false); }}
-          style={{
-            position:"absolute", inset:0,
-            background:"rgba(0,0,0,0.52)",
-            backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)",
-            opacity: historyDrawerOpen ? 1 : 0,
-            transition:"opacity 0.28s ease",
-            pointerEvents: historyDrawerOpen ? "all" : "none",
-          }}
-        />
-        {/* Drawer panel */}
-        <div style={{
-          position:"absolute", top:0, left:0, bottom:0,
-          width:"100%",
-          padding:SHELL_DRAWER_PADDING,
-          transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
-          transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
-          background:DA.bg,
-          display:"flex", flexDirection:"column",
-          overflow:"hidden",
-          boxSizing:"border-box",
-        }}>
-          <MyResults
-            currentUser={authedUser}
-            drawerMode={true}
-            initialBundleId={historyBundleView}
-            onBack={(bundleId) => { if (bundleId) { setHistoryBundleView(bundleId); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("history"); setSid(s => s+1); } else { setHistoryBundleView(null); setHistoryDrawerOpen(false); } }}
-            onRestoreResult={(row, routeState) => { setHistoryDrawerOpen(false); onRestoreResult(row, routeState); }}
-            onSettings={() => { setSettingsReturnTarget("historyDrawer"); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
-          />
-        </div>
-      </div>
-    </>
-  );
   if (phase === "tooshort") return withUiLanguage(<Slide dir={dir} id={sid}><TooShort onBack={navigateBack} /></Slide>);
   if (phase === "mergeReview") return withUiLanguage(
     <Slide dir={dir} id={sid}>
@@ -14592,9 +15014,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       />
     </Slide>
   );
-	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid}><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, "upgrade")} onBuyPacks={buyPacksWithCredits} /></Slide>);
+	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid} animateIn><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, "upgrade")} onBuyPacks={buyPacksWithCredits} /></Slide>);
 	  if (phase === "payment") return withUiLanguage(
-	    <Slide dir={dir} id={sid}>
+	    <Slide dir={dir} id={sid} animateIn>
 	      <div style={{ position:"relative" }}>
 	        <PaymentScreen
 	          preselect={paymentPreselect}
@@ -14612,43 +15034,41 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 	      </div>
 	    </Slide>
 	  );
-	  if (phase === "select") return (
-	    withUiLanguage(<Slide dir={dir} id={sid}>
-	      <PackSelect
-	        math={math}
-	        onRunPack={onRunPack}
-	        onBack={navigateBack}
-	        error={analysisError}
-	        unlockedPackIds={unlockedPackIds}
-	        credits={credits}
-	        accessMode={accessMode}
-	        hideCredits={authedIsAdmin}
-	        onOpenUnlock={(packId) => openUnlockReads(packId, "select")}
-	      />
-	    </Slide>)
+	  if (phase === "select") return withUiLanguage(
+	    <PackSelect
+	      animKey={sid}
+	      math={math}
+	      onRunPack={onRunPack}
+	      onBack={navigateBack}
+	      error={analysisError}
+	      unlockedPackIds={unlockedPackIds}
+	      credits={credits}
+	      accessMode={accessMode}
+	      hideCredits={authedIsAdmin}
+	      onOpenUnlock={(packId) => openUnlockReads(packId, "select")}
+	    />
 	  );
-  if (phase === "relationship") return (
-    withUiLanguage(<Slide dir={dir} id={sid}>
-      <RelationshipSelect
-        onSelect={onSelectRelationship}
-        onBack={navigateBack}
-        error={analysisError}
-        showDebugPanel={authedIsAdmin && !math?.isGroup}
-        debugJson={debugExportJson}
-        debugRawText={debugRawText}
-        debugRawLabel={debugRawLabel}
-        debugRawBusy={debugRawBusy}
-        debugRelationshipType={relationshipType || debugRelType}
-        onDebugRelationshipTypeChange={value => { setDebugRelType(value); setDebugExportJson(""); setDebugRawText(""); setDebugRawLabel(""); }}
-        onDebugExport={buildLocalAiDebugExport}
-        onDebugCopy={copyLocalAiDebugExport}
-        onDebugDownload={downloadLocalAiDebugExport}
-        onDebugRunRawCoreA={() => runRawAiDebugExport("coreA")}
-        onDebugRunRawCoreB={() => runRawAiDebugExport("coreB")}
-        onDebugCopyRaw={copyRawAiDebugExport}
-        onDebugDownloadRaw={downloadRawAiDebugExport}
-      />
-    </Slide>)
+  if (phase === "relationship") return withUiLanguage(
+    <RelationshipSelect
+      animKey={sid}
+      onSelect={onSelectRelationship}
+      onBack={navigateBack}
+      error={analysisError}
+      showDebugPanel={authedIsAdmin && !math?.isGroup}
+      debugJson={debugExportJson}
+      debugRawText={debugRawText}
+      debugRawLabel={debugRawLabel}
+      debugRawBusy={debugRawBusy}
+      debugRelationshipType={relationshipType || debugRelType}
+      onDebugRelationshipTypeChange={value => { setDebugRelType(value); setDebugExportJson(""); setDebugRawText(""); setDebugRawLabel(""); }}
+      onDebugExport={buildLocalAiDebugExport}
+      onDebugCopy={copyLocalAiDebugExport}
+      onDebugDownload={downloadLocalAiDebugExport}
+      onDebugRunRawCoreA={() => runRawAiDebugExport("coreA")}
+      onDebugRunRawCoreB={() => runRawAiDebugExport("coreB")}
+      onDebugCopyRaw={copyRawAiDebugExport}
+      onDebugDownloadRaw={downloadRawAiDebugExport}
+    />
   );
   if (phase === "loading") return withUiLanguage(<Loading math={math} reportType={reportType} reportTypes={selectedReportTypes} loadingIndex={loadingReportIndex} />);
 

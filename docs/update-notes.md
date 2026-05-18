@@ -8,6 +8,35 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v3.1 — Animation system overhaul + auth/upload frame unification
+**Files:** `src/App.jsx`, `src/theme.jsx`
+
+### AuthUploadFrame — logo persists across sign-in
+`Auth` and `Upload` phases merged into a single `AuthUploadFrame` component that wraps both inside one `Shell`. `BrandLockup` lives outside the animated region, so it stays perfectly still when the user logs in and the phase transitions from `auth` to `upload`. `AuthPhaseFade` handles the content swap internally — the tab toggle + inputs fade out while the upload controls fade in (180–220ms crossfade). `setSid` no longer fires on `auth → upload` since no Shell remount is needed; it still fires for all other phase changes.
+
+### FadeScale and StaggerList entry animation components
+New `FadeScale` wrapper plays a fade + scale-from-0.93 entry animation (320ms ease-out, `wcFadeScaleIn`). Applied to `RelationshipSelect` and `PackSelect` content via `key={animKey}` (set to `sid`) so the animation re-triggers each time the screen is mounted. New `StaggerList` wrapper staggers list children in 55ms apart (280ms ease-out, `wcStaggerItemIn`). Applied to both the Reports and Names lists in `MyResults`.
+
+### SlidingSegmentedTabs — shared animated tab control
+New `SlidingSegmentedTabs` component replaces all four inline tab/segmented control implementations (`Auth`, `TermsFlow`, `AdminPanel`, `MyResults` sort control). A sliding indicator div animates with `translateX` at `240ms cubic-bezier(0.22, 1, 0.36, 1)` instead of per-button background swaps. Accepts `compact`, `padding`, `background`, `activeBackground`, `activeColor`, `inactiveColor` props. Supports a `suffix` per item (used by `TermsFlow` for read checkmarks). ARIA `role="tablist"` / `role="tab"` / `aria-selected` wired correctly; indicator is `aria-hidden`.
+
+### Shell — animateIn prop and new CSS keyframes
+`Slide` and `SlideContext` gain an `animateIn` prop (default `false`). When true, `Shell` initialises `isEntering` state and plays `wcContentIn` on mount — matching the existing between-card slide — then clears after `SLIDE_MS + 50ms`. Used on `settings`, `upgrade`, and `payment` phase entries. Five new `@keyframes` added to Shell's inline `<style>`: `wcFadeScaleIn`, `wcStaggerItemIn`, `wcAuthFadeIn`, `wcAuthFadeOut`, `wcWaveLayerIn`. `prefers-reduced-motion` overrides collapse all new animations to 150ms fades or instant transitions.
+
+### WaveLines — staggered intro on upload screen
+`WaveLines` accepts a new `intro` boolean. When true each SVG wave starts at `opacity:0` and fades in via `wcWaveLayerIn` (620ms spring ease) with staggered delays (`120ms + i×110ms`). Shell passes `intro={forceWaves && sec === "upload"}` so the waves animate in only on the upload homepage, not on result screens.
+
+### SwatchIcon inner layer — neutral dark background
+Inner rotated square background changed from `${accent}20` (tinted semi-transparent) to `rgba(0,0,0,0.14)` — a palette-neutral dark overlay that reads consistently across all pack accent colors.
+
+### Upload screen — reads check includes unlocked packs
+`isTrialUsed` renamed to `hasNoPaymentReads`. Logic updated: `isPaymentsMode && !quickReadAvailable && !hasUnlockedReads`. Users with any unlocked pack reads no longer see the "No reads left" banner even at zero credits. Same fix applied inside `AuthUploadFrame`.
+
+### SettingsScreen — shared select style object
+Repeated inline styles across the UI language and report language `<select>` elements extracted into a shared `languageSelectStyle` object. Adds a custom SVG chevron via `backgroundImage` with `appearance:none` / `WebkitAppearance:none` / `MozAppearance:none` so the native arrow is suppressed consistently across browsers.
+
+---
+
 ## v3.0 — Persistent report unlocks + iOS safe-area polish
 **Files:** `src/App.jsx`, `src/reportCredits.js`, `supabase/migrations/20260517120000_persistent_report_unlocks.sql`, `supabase/functions/delete-account/index.ts`
 

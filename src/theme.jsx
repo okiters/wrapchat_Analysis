@@ -211,7 +211,7 @@ function _buildWavePath(amp, period, cy, phase) {
   return d;
 }
 
-export function WaveLines({ accent }) {
+export function WaveLines({ accent, intro = false }) {
   const strokeRefs = useRef([]);
   const fillRefs   = useRef([]);
 
@@ -238,8 +238,21 @@ export function WaveLines({ accent }) {
         const cy = w.frac * _VH;
         const s0 = _buildWavePath(w.amp, w.period, cy, 0);
         return (
-          <svg key={i} viewBox={`0 0 ${_VW} ${_VH}`} preserveAspectRatio="none"
-            style={{ position:'absolute', inset:0, width:'100%', height:'100%' }}>
+          <svg
+            key={i}
+            className={intro ? "wc-wave-layer" : undefined}
+            viewBox={`0 0 ${_VW} ${_VH}`}
+            preserveAspectRatio="none"
+            style={{
+              position:'absolute',
+              inset:0,
+              width:'100%',
+              height:'100%',
+              opacity:intro ? 0 : 1,
+              animation:intro ? `wcWaveLayerIn 620ms ${120 + i * 110}ms cubic-bezier(0.22, 1, 0.36, 1) both` : 'none',
+              willChange:intro ? 'opacity' : 'auto',
+            }}
+          >
             <path ref={el => { fillRefs.current[i]   = el; }}
               d={s0 + ` L ${_VW},${_VH} L 0,${_VH} Z`} fill={accent} opacity={w.fOp} />
             <path ref={el => { strokeRefs.current[i] = el; }}
