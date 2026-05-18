@@ -12,6 +12,17 @@ import {
   toAnalysisMessagesFromDataset,
 } from "./import/datasetBuilder";
 import { applyApprovedMerges, normalizeDisplayName } from "./utils/identityMerge";
+import {
+  cacheUnlockedPacks,
+  cacheUserCredits,
+  cacheUserProfile,
+  cacheUserResults,
+  readUserDataCache,
+  removeCachedResults,
+  requestOnce,
+  sameCachedValue,
+  upsertCachedResult,
+} from "./userDataCache";
 import BrandLockup, { wrapchatLogoTransparent } from "./BrandLockup";
 import AiDebugPanel from "../analysis-test/AiDebugPanel.jsx";
 import {
@@ -10959,8 +10970,9 @@ async function saveResult(type, result, mathData, bundleId = null, creditMeta = 
         },
       },
       math_data:   safeMathData,
-    }).select("id").single();
+    }).select("*").single();
     if (error) return null;
+    upsertCachedResult(user.id, data);
     return data;
   } catch { return null; /* silent — never interrupt the user flow */ }
 }
@@ -11975,10 +11987,11 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false }) {
-  const [rows,           setRows]           = useState(null);
+function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false, currentUser = null }) {
+  const cachedRows = currentUser?.id ? readUserDataCache(currentUser.id).results.rows : null;
+  const [rows,           setRows]           = useState(() => cachedRows || null);
   const [err,            setErr]            = useState("");
-  const [currentUserName, setCurrentUserName] = useState("");
+  const [currentUserName, setCurrentUserName] = useState(() => currentUser ? userProvidedDisplayName(currentUser) : "");
   const [editing,        setEditing]        = useState(false);
   const [confirmId,      setConfirmId]      = useState(null);
   const [deletingId,     setDeletingId]     = useState(null);
@@ -11993,18 +12006,42 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   });
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { setRows([]); return; }
+    let alive = true;
+    const load = async () => {
+      const user = currentUser || (await supabase.auth.getUser()).data?.user || null;
+      if (!alive) return;
+      if (!user) {
+        setRows([]);
+        return;
+      }
+
       setCurrentUserName(userProvidedDisplayName(user));
-      const { data, error } = await supabase
+      const cached = readUserDataCache(user.id).results.rows;
+      const hadCachedRows = Array.isArray(cached);
+      if (hadCachedRows) setRows(cached);
+
+      const { data, error } = await requestOnce(`results:${user.id}`, () => supabase
         .from("results")
         .select("*")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (error) setErr("Couldn't load results. Try again.");
-      else setRows(data || []);
-    });
-  }, []);
+        .order("created_at", { ascending: false }));
+
+      if (!alive) return;
+      if (error) {
+        if (!hadCachedRows) setRows([]);
+        setErr("Couldn't load results. Try again.");
+        return;
+      }
+
+      const freshRows = data || [];
+      cacheUserResults(user.id, freshRows);
+      setErr("");
+      setRows(prev => sameCachedValue(prev, freshRows) ? prev : freshRows);
+    };
+
+    load();
+    return () => { alive = false; };
+  }, [currentUser]);
 
   useEffect(() => {
     if (bundleView && rows && !rows.some(r => r.math_data?.bundle_id === bundleView)) {
@@ -12021,6 +12058,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       const { error } = await supabase.from("results").delete().eq("id", id);
       if (!error) {
         setRows(prev => prev.filter(r => r.id !== id));
+        removeCachedResults(currentUser?.id, id);
       } else {
         setErr("Couldn't delete. Try again.");
       }
@@ -12038,6 +12076,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       const { error } = await supabase.from("results").delete().in("id", ids);
       if (!error) {
         setRows(prev => prev.filter(r => !ids.includes(r.id)));
+        removeCachedResults(currentUser?.id, ids);
       } else {
         setErr("Couldn't delete. Try again.");
       }
@@ -12060,6 +12099,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       const { error } = await supabase.from("results").delete().in("id", uniqueIds);
       if (!error) {
         setRows(prev => prev.filter(r => !uniqueIds.includes(r.id)));
+        removeCachedResults(currentUser?.id, uniqueIds);
       } else {
         setErr("Couldn't delete. Try again.");
       }
@@ -12818,25 +12858,41 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return undefined;
     }
 
+    const cached = readUserDataCache(authedUser.id);
+    const cachedProfile = cached.profile || null;
+    const cachedUnlocks = cached.unlockedPackIds || {};
+    if (cachedProfile) {
+      setCredits(cachedProfile.balance ?? null);
+      setQuickReadAvailable(Boolean(cachedProfile.quickReadAvailable));
+      setUserRole(cachedProfile.role || "user");
+      setUnlockedPackIds(cachedUnlocks);
+      if (typeof cachedProfile.balance === "number" && cachedProfile.balance > 0) setUploadInfo("");
+    }
+
     (async () => {
       try {
         const [{ balance, role, quickReadAvailable: hasQuickRead }, packUnlocks] = await Promise.all([
-          getUserProfile(),
-          getUnlockedReportPacks(authedUser.id),
+          requestOnce(`profile:${authedUser.id}`, getUserProfile),
+          requestOnce(`unlocks:${authedUser.id}`, () => getUnlockedReportPacks(authedUser.id)),
         ]);
         if (cancelled) return;
-        setCredits(balance);
-        setQuickReadAvailable(hasQuickRead);
-        setUserRole(role);
-        setUnlockedPackIds(packUnlocks);
+        const nextProfile = { balance, role, quickReadAvailable: hasQuickRead };
+        cacheUserProfile(authedUser.id, nextProfile);
+        cacheUnlockedPacks(authedUser.id, packUnlocks);
+        setCredits(prev => prev === balance ? prev : balance);
+        setQuickReadAvailable(prev => prev === hasQuickRead ? prev : hasQuickRead);
+        setUserRole(prev => prev === role ? prev : role);
+        setUnlockedPackIds(prev => sameCachedValue(prev, packUnlocks) ? prev : packUnlocks);
         if (typeof balance === "number" && balance > 0) setUploadInfo("");
       } catch (error) {
         if (cancelled) return;
         console.error("Credits or unlocks load failed", error);
-        setCredits(null);
-        setQuickReadAvailable(false);
-        setUserRole("user");
-        setUnlockedPackIds({});
+        if (!cachedProfile) {
+          setCredits(null);
+          setQuickReadAvailable(false);
+          setUserRole("user");
+          setUnlockedPackIds({});
+        }
       }
     })();
 
@@ -13013,7 +13069,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     }
 
     let alive = true;
-    getAccessMode()
+    requestOnce("access-mode", getAccessMode)
       .then(mode => {
         if (alive) setAccessModeState(mode);
       })
@@ -13106,11 +13162,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       try {
         const balance = await initialiseUserCredits(userEmail);
         setCredits(balance);
+        cacheUserCredits(authedUser?.id, balance);
         const profile = await getUserProfile();
         setQuickReadAvailable(profile.quickReadAvailable);
         setUserRole(profile.role);
+        if (authedUser?.id) cacheUserProfile(authedUser.id, profile);
         if (authedUser?.id) {
-          setUnlockedPackIds(await getUnlockedReportPacks(authedUser.id));
+          const packUnlocks = await getUnlockedReportPacks(authedUser.id);
+          setUnlockedPackIds(packUnlocks);
+          cacheUnlockedPacks(authedUser.id, packUnlocks);
         }
       } catch (error) {
         console.error("Initial credits setup failed", error);
@@ -13230,6 +13290,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     try {
       availableCredits = await getUserCredits();
       setCredits(availableCredits);
+      cacheUserCredits(authedUser?.id, availableCredits);
     } catch (error) {
       console.error("Credit check failed", error);
       setAnalysisError("Couldn't check your credits right now. Try again.");
@@ -13238,6 +13299,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     if (availableCredits == null || availableCredits < amount) {
       setCredits(availableCredits);
+      cacheUserCredits(authedUser?.id, availableCredits);
       setAnalysisError(`You need ${amount} credits to unlock ${selectedPacks.length === 1 ? "this read" : "these reads"}.`);
       return;
     }
@@ -13246,6 +13308,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       const unlockState = await unlockReportPacks(authedUser?.id, lockedPacks.map(pack => pack.id));
       setCredits(unlockState.balance);
       setUnlockedPackIds(unlockState.unlockedPackIds);
+      cacheUserCredits(authedUser?.id, unlockState.balance);
+      cacheUnlockedPacks(authedUser?.id, unlockState.unlockedPackIds);
     } catch (error) {
       console.error("Pack unlock credit deduction failed", error);
       setAnalysisError("Couldn't unlock these reads right now. Try again.");
@@ -13277,10 +13341,29 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   const purchaseCredits = async (bundle) => {
     if (!bundle?.id || !authedUser?.id) return;
-    const nextBalance = await simulateCreditPurchase(authedUser.id, bundle.id);
-    setCredits(nextBalance);
-    setPaymentToast(`${bundle.credits} credits added`);
-    window.setTimeout(() => setPaymentToast(""), 1800);
+    const previousBalance = credits;
+    const optimisticBalance = Number.isInteger(previousBalance)
+      ? previousBalance + bundle.credits
+      : null;
+    if (optimisticBalance != null) {
+      setCredits(optimisticBalance);
+      cacheUserCredits(authedUser.id, optimisticBalance);
+    }
+    try {
+      const nextBalance = await simulateCreditPurchase(authedUser.id, bundle.id);
+      setCredits(nextBalance);
+      cacheUserCredits(authedUser.id, nextBalance);
+      setPaymentToast(`${bundle.credits} credits added`);
+      window.setTimeout(() => setPaymentToast(""), 1800);
+    } catch (error) {
+      console.error("Credit purchase failed", error);
+      if (Number.isInteger(previousBalance)) {
+        setCredits(previousBalance);
+        cacheUserCredits(authedUser.id, previousBalance);
+      }
+      setPaymentToast("Couldn't add credits right now");
+      window.setTimeout(() => setPaymentToast(""), 1800);
+    }
   };
 
   const continueWithDataset = (dataset, { skipMismatch = false, skipRelationship = false } = {}) => {
@@ -13552,6 +13635,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         const unlockState = await unlockReportPacks(authedUser?.id, [completedPack.id]);
         setCredits(unlockState.balance);
         setUnlockedPackIds(unlockState.unlockedPackIds);
+        cacheUserCredits(authedUser?.id, unlockState.balance);
+        cacheUnlockedPacks(authedUser?.id, unlockState.unlockedPackIds);
         return;
       }
 
@@ -13559,6 +13644,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       const amount = parsedOverride != null ? parsedOverride : getTotalCreditCostBundled(selectedTypes);
       const nextBalance = await deductCreditsAmount(authedUser?.id, amount);
       setCredits(nextBalance);
+      cacheUserCredits(authedUser?.id, nextBalance);
     } catch (error) {
       console.error("Credit deduction failed", error);
       throw error;
@@ -13592,7 +13678,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     let activeAccessMode = accessMode;
     try {
-      activeAccessMode = await getAccessMode({ throwOnError: true });
+      activeAccessMode = await requestOnce("access-mode:strict", () => getAccessMode({ throwOnError: true }));
       setAccessModeState(activeAccessMode);
     } catch (error) {
       console.error("Access mode check failed", error);
@@ -13617,15 +13703,18 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
+    let verifiedCreditBalance = credits;
     if (!isQuickReadRun && !authedIsAdmin && !isOpenMode(activeAccessMode) && !skipCreditDeduction) {
       let availableCredits = credits;
       try {
         availableCredits = await getUserCredits();
+        verifiedCreditBalance = availableCredits;
         setCredits(availableCredits);
+        cacheUserCredits(authedUser?.id, availableCredits);
       } catch (error) {
         console.error("Credit check failed", error);
         availableCredits = null;
-        setCredits(null);
+        if (credits == null) setCredits(null);
       }
 
       const access = creditCostOverride != null
@@ -13661,6 +13750,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     }
 
     const runCreditCost = creditCostOverride != null ? creditCostOverride : getTotalCreditCostBundled(selectedTypes);
+    const optimisticCreditStart = verifiedCreditBalance;
+    const shouldOptimisticallyDecrement = !isQuickReadRun
+      && !authedIsAdmin
+      && !isOpenMode(activeAccessMode)
+      && !skipCreditDeduction
+      && runCreditCost > 0
+      && Number.isInteger(verifiedCreditBalance);
     const matchedBundle = getBundleMatch(selectedTypes);
     const bundleName = bundleNameOverride
       || (matchedBundle?.label
@@ -13682,6 +13778,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setCurrentResultId(null);
     setReportRouteState(null);
     setHistoryBundleView(null);
+    if (shouldOptimisticallyDecrement) {
+      const optimisticBalance = Math.max(verifiedCreditBalance - runCreditCost, 0);
+      setCredits(optimisticBalance);
+      cacheUserCredits(authedUser?.id, optimisticBalance);
+    }
     const bundleId = selectedTypes.length > 1 ? crypto.randomUUID() : null;
     const successfulRuns = [];
     const failedTypes = [];
@@ -13726,6 +13827,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     }
 
     if (!successfulRuns.length) {
+      if (shouldOptimisticallyDecrement) {
+        setCredits(optimisticCreditStart);
+        cacheUserCredits(authedUser?.id, optimisticCreditStart);
+      }
       failBackToSelection(failedTypes.length ? userFacingAnalysisError(new Error("Batch analysis failed.")) : "The AI analysis didn't return a usable result. Please try again.");
       return;
     }
@@ -13734,13 +13839,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       try {
         await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode, runCreditCost);
       } catch {
+        if (shouldOptimisticallyDecrement) {
+          setCredits(optimisticCreditStart);
+          cacheUserCredits(authedUser?.id, optimisticCreditStart);
+        }
         failBackToSelection("Couldn't persist your unlock. No credits were used. Please try again.");
         return;
       }
     }
     if (consumePackIds.length && authedUser?.id) {
       try {
-        setUnlockedPackIds(await getUnlockedReportPacks(authedUser.id));
+        const packUnlocks = await getUnlockedReportPacks(authedUser.id);
+        setUnlockedPackIds(packUnlocks);
+        cacheUnlockedPacks(authedUser.id, packUnlocks);
       } catch (error) {
         console.error("Unlock refresh failed", error);
       }
@@ -13749,6 +13860,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       try {
         await consumeQuickReadTrial(authedUser?.id);
         setQuickReadAvailable(false);
+        cacheUserProfile(authedUser?.id, {
+          ...(readUserDataCache(authedUser?.id).profile || {}),
+          quickReadAvailable: false,
+        });
       } catch (error) {
         console.error("Quick Read entitlement update failed", error);
       }
@@ -14397,7 +14512,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       />
     </Slide>
   );
-  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults initialBundleId={historyBundleView} onBack={navigateBack} onRestoreResult={onRestoreResult} onSettings={() => { setSettingsReturnTarget("history"); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} /></Slide>);
+  if (phase === "history")  return withUiLanguage(<Slide dir={dir} id={sid}><MyResults currentUser={authedUser} initialBundleId={historyBundleView} onBack={navigateBack} onRestoreResult={onRestoreResult} onSettings={() => { setSettingsReturnTarget("history"); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }} /></Slide>);
   if (phase === "upload") return withUiLanguage(
     <>
       <Slide dir={dir} id={sid}>
@@ -14447,6 +14562,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           boxSizing:"border-box",
         }}>
           <MyResults
+            currentUser={authedUser}
             drawerMode={true}
             initialBundleId={historyBundleView}
             onBack={(bundleId) => { if (bundleId) { setHistoryBundleView(bundleId); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("history"); setSid(s => s+1); } else { setHistoryBundleView(null); setHistoryDrawerOpen(false); } }}
