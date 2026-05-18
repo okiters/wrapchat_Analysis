@@ -12051,6 +12051,8 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
         user_id: row.user_id,
         email: row.email || "No email",
         balance: Number.parseInt(String(row.balance ?? 0), 10) || 0,
+        hasConfirmationStatus: Object.prototype.hasOwnProperty.call(row, "email_confirmed_at"),
+        emailConfirmedAt: row.email_confirmed_at || null,
       })));
     };
 
@@ -12075,7 +12077,7 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
       return;
     }
 
-    setBusyById(prev => ({ ...prev, [userId]: true }));
+    setBusyById(prev => ({ ...prev, [userId]: delta < 0 ? "remove" : "add" }));
     setNoticeById(prev => ({ ...prev, [userId]: "" }));
 
     const { data, error } = await supabase.rpc("admin_add_credits", {
@@ -12086,7 +12088,7 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
     if (error) {
       console.error("Admin credit update failed", error);
       setNoticeById(prev => ({ ...prev, [userId]: error.message || "Couldn't update credits right now." }));
-      setBusyById(prev => ({ ...prev, [userId]: false }));
+      setBusyById(prev => ({ ...prev, [userId]: "" }));
       return;
     }
 
@@ -12098,7 +12100,35 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
     )));
     setAmountById(prev => ({ ...prev, [userId]: "1" }));
     setNoticeById(prev => ({ ...prev, [userId]: delta < 0 ? "Removed." : "Added." }));
-    setBusyById(prev => ({ ...prev, [userId]: false }));
+    setBusyById(prev => ({ ...prev, [userId]: "" }));
+  };
+
+  const resendActivationEmail = async (userId, email) => {
+    if (!email || email === "No email") {
+      setNoticeById(prev => ({ ...prev, [userId]: "This user has no email address." }));
+      return;
+    }
+
+    setBusyById(prev => ({ ...prev, [userId]: "resend" }));
+    setNoticeById(prev => ({ ...prev, [userId]: "" }));
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirmed`,
+      },
+    });
+
+    if (error) {
+      console.error("Activation email resend failed", error);
+      setNoticeById(prev => ({ ...prev, [userId]: error.message || "Couldn't resend activation email right now." }));
+      setBusyById(prev => ({ ...prev, [userId]: "" }));
+      return;
+    }
+
+    setNoticeById(prev => ({ ...prev, [userId]: "Activation email sent." }));
+    setBusyById(prev => ({ ...prev, [userId]: "" }));
   };
 
   return (
@@ -12133,14 +12163,19 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
         {rows?.map(row => {
           const inputValue = amountById[row.user_id] ?? "1";
           const notice = noticeById[row.user_id] || "";
-          const busy = !!busyById[row.user_id];
+          const busyAction = busyById[row.user_id] || "";
+          const busy = !!busyAction;
+          const isEmailConfirmed = !!row.emailConfirmedAt;
+          const canResendActivation = row.hasConfirmationStatus && row.email !== "No email" && !isEmailConfirmed;
 
           return (
             <div key={row.user_id} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
                 <div style={{ minWidth:0 }}>
                   <div style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:-0.2, lineHeight:1.35, wordBreak:"break-word" }}>{row.email}</div>
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:5 }}>Current credits: {row.balance}</div>
+                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:5 }}>
+                    Current credits: {row.balance}{row.hasConfirmationStatus ? ` · ${isEmailConfirmed ? "Email confirmed" : "Email not confirmed"}` : ""}
+                  </div>
                 </div>
                 <div style={adminControlPillStyle()}>
                   {row.balance} credit{row.balance === 1 ? "" : "s"}
@@ -12186,7 +12221,7 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                     opacity:busy || !canAdjustCredits ? 0.6 : 1,
                   }}
                 >
-                  {busy ? "Adding…" : "Add credits"}
+                  {busyAction === "add" ? "Adding…" : "Add credits"}
                 </button>
                 <button
                   type="button"
@@ -12206,10 +12241,32 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                     opacity:busy || !canAdjustCredits ? 0.6 : 1,
                   }}
                 >
-                  {busy ? "Removing…" : "Remove credits"}
+                  {busyAction === "remove" ? "Removing…" : "Remove credits"}
                 </button>
+                {canResendActivation && (
+                  <button
+                    type="button"
+                    onClick={() => resendActivationEmail(row.user_id, row.email)}
+                    disabled={busy}
+                    className="wc-btn"
+                    style={{
+                      background:"rgba(176,244,200,0.12)",
+                      border:"1px solid rgba(176,244,200,0.24)",
+                      borderRadius:999,
+                      color:"#DDFBE6",
+                      fontSize:12,
+                      cursor:busy ? "default" : "pointer",
+                      padding:"10px 14px",
+                      fontWeight:700,
+                      letterSpacing:0.1,
+                      opacity:busy ? 0.6 : 1,
+                    }}
+                  >
+                    {busyAction === "resend" ? "Sending…" : "Resend activation email"}
+                  </button>
+                )}
                 {notice && (
-                  <div style={{ fontSize:12, color:notice === "Added." || notice === "Removed." ? "rgba(176,244,200,0.9)" : "#FFB090" }}>
+                  <div style={{ fontSize:12, color:notice === "Added." || notice === "Removed." || notice === "Activation email sent." ? "rgba(176,244,200,0.9)" : "#FFB090" }}>
                     {notice}
                   </div>
                 )}
