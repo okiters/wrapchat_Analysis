@@ -8,11 +8,17 @@ function createImportToken() {
 }
 
 export default function Root() {
-  const [path, setPath] = useState(() => window.location.pathname);
+  const getCurrentPath = () => {
+    if (window.location.protocol === "wrapchat:" && window.location.hostname === "auth") {
+      return `/auth${window.location.pathname}`;
+    }
+    return window.location.pathname;
+  };
+  const [path, setPath] = useState(getCurrentPath);
   const [pendingImportedChat, setPendingImportedChat] = useState(null);
 
   useEffect(() => {
-    const handleNavigation = () => setPath(window.location.pathname);
+    const handleNavigation = () => setPath(getCurrentPath());
     window.addEventListener("popstate", handleNavigation);
     return () => window.removeEventListener("popstate", handleNavigation);
   }, []);

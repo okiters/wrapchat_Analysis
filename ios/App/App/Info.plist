@@ -8,6 +8,17 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
         <string>WrapChat</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.wrapchat.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>wrapchat</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

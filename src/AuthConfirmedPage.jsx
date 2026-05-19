@@ -3,7 +3,13 @@ import { supabase } from "./supabase";
 import { Shell, Heading, Sub, PrimaryButton, DA, PAL, Geo } from "./theme.jsx";
 import BrandLockup from "./BrandLockup.jsx";
 
-function goToApp() {
+async function goToLogin() {
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // The confirmation token may already be consumed. The app route still
+    // returns to the auth screen below.
+  }
   window.history.pushState({}, "", "/");
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
@@ -40,18 +46,18 @@ function SuccessView() {
           fontFamily: DA.dp, fontWeight: 900, fontSize: 42,
           color: DA.text, letterSpacing: "-0.025em", lineHeight: 1.05,
         }}>
-          You're in.
+          Account activated.
         </div>
         <div className="wc-fu2" style={{
           fontFamily: DA.bp, fontSize: 15, color: DA.muted, lineHeight: 1.55,
         }}>
-          Your account is confirmed. Welcome to WrapChat.
+          Your account has been successfully activated. You can now log in.
         </div>
       </div>
 
       <div className="wc-fu3" style={{ width: "100%", marginTop: 4 }}>
-        <PrimaryButton onClick={goToApp} color={DA.teal} textColor={DA.bg}>
-          Continue to WrapChat
+        <PrimaryButton onClick={goToLogin} color={DA.teal} textColor={DA.bg}>
+          Log in to WrapChat
         </PrimaryButton>
       </div>
     </Shell>
@@ -78,7 +84,7 @@ function ErrorView() {
       </div>
 
       <div className="wc-fu3" style={{ width: "100%", marginTop: 4 }}>
-        <PrimaryButton onClick={goToApp} color={PAL.upload.accent} textColor={PAL.upload.bg}>
+        <PrimaryButton onClick={goToLogin} color={PAL.upload.accent} textColor={PAL.upload.bg}>
           Go to WrapChat
         </PrimaryButton>
       </div>

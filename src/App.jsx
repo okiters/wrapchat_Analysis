@@ -2372,6 +2372,12 @@ function hasUserProvidedDisplayName(user) {
   return Boolean(userProvidedDisplayName(user));
 }
 
+function getAuthConfirmationRedirectUrl() {
+  const configured = String(import.meta.env.VITE_AUTH_CONFIRM_REDIRECT_URL || "").trim();
+  if (configured) return configured;
+  return `${window.location.origin}/auth/confirmed`;
+}
+
 function namesWithoutCurrentUser(names = [], user = null) {
   const normalizedUser = normalizeDisplayName(userProvidedDisplayName(user));
   const cleanNames = (Array.isArray(names) ? names : [])
@@ -9055,7 +9061,7 @@ function Auth() {
       } else {
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/confirmed` },
+          options: { emailRedirectTo: getAuthConfirmationRedirectUrl() },
         });
         if (error) {
           setErr(normalizeAuthError(error, "signup"));
@@ -9298,14 +9304,13 @@ function TermsFlow({ onAccepted, onLogout }) {
   const checkRead = (tab) => {
     const el = tab === "tos" ? tosRef.current : privacyRef.current;
     if (!el) return;
+    if (tab !== activeTab) return;
+    if (el.clientHeight <= 0 || el.scrollHeight <= 0) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 28) {
       if (tab === "tos")     setTosRead(true);
       else                   setPrivacyRead(true);
     }
   };
-
-  // check on mount in case content is shorter than container
-  useEffect(() => { checkRead("tos"); checkRead("privacy"); }, []); // eslint-disable-line
 
   const acceptTerms = async () => {
     if (!bothRead || busy) return;
@@ -11061,6 +11066,7 @@ function AuthUploadFrame({
   hideCredits = false,
   unlockedPackIds = {},
   accessMode = DEFAULT_ACCESS_MODE,
+  firstRunQuickRead = false,
   onClearError,
   onUpgrade,
   onPayment,
@@ -11087,7 +11093,7 @@ function AuthUploadFrame({
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: authEmail, password: authPassword,
-          options: { emailRedirectTo: `${window.location.origin}/auth/confirmed` },
+          options: { emailRedirectTo: getAuthConfirmationRedirectUrl() },
         });
         if (error) {
           setAuthErr(normalizeAuthError(error, "signup"));
@@ -11116,12 +11122,13 @@ function AuthUploadFrame({
   const displayUploadErr = uploadLocalErr || uploadError;
   const isPaymentsMode = !hideCredits && accessMode === "payments";
   const hasUnlockedReads = Object.values(unlockedPackIds || {}).some(Boolean);
-  const isTrialPending = isPaymentsMode && quickReadAvailable;
+  const isTrialPending = isPaymentsMode && (quickReadAvailable || firstRunQuickRead);
   const hasNoPaymentReads = isPaymentsMode && !quickReadAvailable && !hasUnlockedReads;
   const displayInfo    = uploadInfo
+    || (firstRunQuickRead ? t("Start with your free Quick Read. Credits and bundles come after your first insight.") : "")
     || (hasNoPaymentReads ? t("No reads left. Unlock more insights.") : "")
     || (!hideCredits && !isPaymentsMode && credits === 0 && !hasUnlockedReads ? OUT_OF_CREDITS_MESSAGE : "");
-  const showCreditPill = !hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
+  const showCreditPill = !hideCredits && !firstRunQuickRead && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
   const showOpenPill   = isOpenMode(accessMode) && !hideCredits;
 
   const handleUpload = async fileList => {
@@ -12124,7 +12131,7 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirmed`,
+        emailRedirectTo: getAuthConfirmationRedirectUrl(),
       },
     });
 
@@ -13317,6 +13324,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     ? (isReliableDetectedLanguage(detectedLang) ? normalizeUiLangCode(detectedLang?.code) : "en")
     : normalizeUiLangCode(reportLang);
   const authedIsAdmin = isAdminUser(authedUser);
+  const firstRunQuickReadActive = Boolean(
+    authedUser
+      && !authedIsAdmin
+      && accessMode === "payments"
+      && authedUser?.user_metadata?.quick_read_intro_completed !== true
+      && (quickReadAvailable || credits == null || credits === 0)
+  );
 
   useEffect(() => {
     setUiLangPref(normalizeUiLangPref(authedUser?.user_metadata?.ui_language));
@@ -14350,6 +14364,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       try {
         await consumeQuickReadTrial(authedUser?.id);
         setQuickReadAvailable(false);
+        void supabase.auth.updateUser({
+          data: {
+            quick_read_intro_completed: true,
+            quick_read_intro_completed_at: new Date().toISOString(),
+          },
+        }).then(({ data }) => {
+          if (data?.user) setAuthedUser(data.user);
+        });
         cacheUserProfile(authedUser?.id, {
           ...(readUserDataCache(authedUser?.id).profile || {}),
           quickReadAvailable: false,
@@ -14973,6 +14995,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           quickReadAvailable={quickReadAvailable}
           hideCredits={authedIsAdmin}
           accessMode={accessMode}
+          firstRunQuickRead={firstRunQuickReadActive}
           onClearError={() => setUploadError("")}
           onUpgrade={() => { setUpgradeInfo({ availableCredits: credits, accessMode, backPhase: "upload" }); setDir("fwd"); setPhase("upgrade"); setSid(s => s+1); }}
           onPayment={() => openPayment(null, "upload")}
