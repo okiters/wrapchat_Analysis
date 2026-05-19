@@ -21,9 +21,9 @@ export const DA = {
   teal:   '#3DC4BF',
   amber:  '#F5A84C',
   lime:   '#C2DC3A',
-  blue:   '#6AAFD4',
+  blue:   '#7A90FF',
   orange: '#E07040',
-  purple: '#7f5bb0',
+  purple: '#7A90FF',
   dp:     "'Nunito',sans-serif",        // display — headings
   bp:     "'Nunito Sans',sans-serif",   // body — labels, body copy
 };
@@ -62,7 +62,7 @@ export const PAL = {
   funny:    { bg:'#4A6A04', inner:'#6E9A08', accent:'#C8F06A' },
   stats:    { bg:'#083870', inner:'#0E5AAA', accent:'#6AB4F0' },
   ai:       { bg:'#1A3060', inner:'#2A4A90', accent:'#8AACF0' },
-  upload:   { bg:'#1f184e', inner:'#2b2065', accent:'#7f5bb0' },
+  upload:   { bg:'#1f184e', inner:'#1A1E72', accent:'#7A90FF' },
   general:  { bg:'#1C0E5A', inner:'#361A96', accent:'#9B72FF' },
   toxicity: { bg:'#3A0808', inner:'#8A1A1A', accent:'#FF3C40' },
   lovelang: { bg:'#3D1A2E', inner:'#8B3A5A', accent:'#FF82B8' },

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import BrandLockup from "./BrandLockup";
+import BrandLockup, { wrapchatLogoTransparent } from "./BrandLockup";
 import { processImportedChatFile } from "./import/fileProcessing";
 import { IMPORT_ACCEPT_TYPES } from "./import/normalizedSchema";
 import {
@@ -9,7 +9,7 @@ import {
   requestSharedFileFromServiceWorker,
   subscribeToShareTargetEvents,
 } from "./import/shareTargetClient";
-import { Shell, LoadingMosaic, PrimaryButton, GhostButton, BackIcon, DA, PAL } from "./theme.jsx";
+import { Shell, GhostButton, BackIcon, DA, PAL } from "./theme.jsx";
 
 const pal = PAL.upload;
 
@@ -57,8 +57,6 @@ export default function ImportRoute({ onComplete, onCancel }) {
   const [statusText, setStatusText] = useState("Opening your chat...");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
-  const [summary, setSummary] = useState(null);
-  const completionTimerRef = useRef(null);
   const startedRef = useRef(false);
 
   const processFile = useCallback(async (file, source = "manual") => {
@@ -66,29 +64,24 @@ export default function ImportRoute({ onComplete, onCancel }) {
     startedRef.current = true;
     setBusy(true);
     setError("");
-    setSummary(null);
+    setStatusText("Reading your chat...");
 
     try {
       const result = await processImportedChatFile(file, {
         onStatus: update => setStatusText(update.message),
       });
 
-      setSummary(result.summary);
-      setStatusText(`Found ${result.summary.messageCount.toLocaleString()} messages with ${result.summary.participantLabel}.`);
-      setBusy(false);
       if (source === "shared") await clearSharedFileFromServiceWorker();
       if (source === "native") clearSharedFileFromNative();
 
-      completionTimerRef.current = window.setTimeout(() => {
-        onComplete({
-          platform: result.platform,
-          sourceFormat: result.sourceFormat,
-          parserId: result.parserId,
-          payload: result.payload,
-          summary: result.summary,
-          fileName: file?.name || null,
-        });
-      }, 900);
+      onComplete({
+        platform: result.platform,
+        sourceFormat: result.sourceFormat,
+        parserId: result.parserId,
+        payload: result.payload,
+        summary: result.summary,
+        fileName: file?.name || null,
+      });
     } catch (processingError) {
       if (source === "shared") await clearSharedFileFromServiceWorker();
       if (source === "native") clearSharedFileFromNative();
@@ -134,75 +127,54 @@ export default function ImportRoute({ onComplete, onCancel }) {
     return () => {
       active = false;
       unsubscribe();
-      if (completionTimerRef.current) window.clearTimeout(completionTimerRef.current);
     };
   }, [processFile]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100svh", background: DA.bg }}>
-      <Shell sec="upload" bg={pal.bg} contentAlign="top">
-        <BrandLockup
-          titleSize={42}
-          titleLetterSpacing={-2.4}
-          subtitle="Your chat, ready to read."
-        />
-
-        <div style={{
-          width: "100%",
-          borderRadius: 24,
-          background: `${pal.accent}15`,
-          border: `1px solid ${pal.accent}40`,
-          padding: "22px 18px",
-          textAlign: "center",
-        }}>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.3, color: "#fff" }}>
-            {statusText}
-          </div>
-          {busy && (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 22 }}>
-              <LoadingMosaic />
-            </div>
-          )}
-
-          {summary && (
-            <div style={{ marginTop: 18, textAlign: "left", lineHeight: 1.75 }}>
-              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: pal.accent, fontWeight: 700 }}>
-                Chat found
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{summary.participantLabel}</div>
-              <div style={{ marginTop: 8, fontSize: 14, color: "rgba(255,255,255,0.75)" }}>
-                {summary.messageCount.toLocaleString()} messages
-              </div>
-              <div style={{ fontSize: 14, color: "rgba(255,255,255,0.75)" }}>{summary.dateRangeLabel}</div>
-            </div>
-          )}
+      <Shell sec="upload" bg={pal.bg} scrollable={false} forceWaves>
+        <div style={{ position:"absolute", top:"calc(33% + 4px)", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
+          <BrandLockup
+            logoSrc={wrapchatLogoTransparent}
+            logoSize={72}
+            subtitle="Your chats, unwrapped."
+            subtitleMarginBottom={8}
+          />
         </div>
 
-        {!busy && !summary && (
+        <div style={{ position:"absolute", top:"calc(33% + 109px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
+          <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
+            <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>
+              {busy ? "Reading your chat..." : statusText}
+            </div>
+          </div>
+
+          {!busy && (
           <>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.62)", lineHeight: 1.7, textAlign: "center" }}>
               If sharing didn&apos;t bring the export in automatically, you can choose it here instead.
             </div>
             <UploadFallback onFile={file => processFile(file, "manual")} busy={busy} />
           </>
-        )}
+          )}
 
-        {error && (
-          <div style={{
-            background: "rgba(200,60,20,0.18)",
-            border: "1px solid rgba(255,160,120,0.2)",
-            color: "#ffcfbf",
-            borderRadius: 18,
-            padding: "12px 14px",
-            fontSize: 13,
-            lineHeight: 1.6,
-            width: "100%",
-          }}>
-            {error}
-          </div>
-        )}
+          {error && (
+            <div style={{
+              background: "rgba(200,60,20,0.18)",
+              border: "1px solid rgba(255,160,120,0.2)",
+              color: "#ffcfbf",
+              borderRadius: 18,
+              padding: "12px 14px",
+              fontSize: 13,
+              lineHeight: 1.6,
+              width: "100%",
+            }}>
+              {error}
+            </div>
+          )}
 
-        <GhostButton onClick={onCancel}><BackIcon size={11} /> Back to WrapChat</GhostButton>
+          {!busy && <GhostButton onClick={onCancel}><BackIcon size={11} /> Back to WrapChat</GhostButton>}
+        </div>
       </Shell>
     </div>
   );

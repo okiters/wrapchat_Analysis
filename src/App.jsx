@@ -2372,6 +2372,21 @@ function hasUserProvidedDisplayName(user) {
   return Boolean(userProvidedDisplayName(user));
 }
 
+function quickReadDaysLeft(expiresAt) {
+  if (!expiresAt) return null;
+  const expires = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expires)) return null;
+  return Math.max(0, Math.ceil((expires - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
+function quickReadExpiryLabel(expiresAt) {
+  const days = quickReadDaysLeft(expiresAt);
+  if (days == null) return "Use it when you are ready.";
+  if (days <= 0) return "Expires today.";
+  if (days === 1) return "Expires tomorrow.";
+  return `${days} days left.`;
+}
+
 function getAuthConfirmationRedirectUrl() {
   const configured = String(import.meta.env.VITE_AUTH_CONFIRM_REDIRECT_URL || "").trim();
   if (configured) return configured;
@@ -2408,6 +2423,20 @@ function getParticipantDisplayTitle(dataset, mathData = null, user = null) {
 
 function detectParticipantConsistencyMismatch(dataset, user) {
   return detectOtherParticipantMismatches(dataset, userProvidedDisplayName(user));
+}
+
+function detectDuoProfileNameMismatch(math, user) {
+  if (!math || math.isGroup) return null;
+  const userName = userProvidedDisplayName(user);
+  if (!userName) return null;
+  const participants = (Array.isArray(math.names) ? math.names : [])
+    .map(name => String(name || "").trim())
+    .filter(Boolean);
+  if (participants.length !== 2) return null;
+  const normalizedUser = normalizeDisplayName(userName);
+  if (!normalizedUser) return null;
+  const matched = participants.some(name => normalizeDisplayName(name) === normalizedUser);
+  return matched ? null : { userName, participants };
 }
 
 function applyAutomaticParticipantMerges(dataset) {
@@ -5940,7 +5969,7 @@ const PAL = {
   stats:    { bg:"#083870", inner:"#0E5AAA", text:"#fff", accent:"#6AB4F0" },
   ai:       { bg:"#1A3060", inner:"#2A4A90", text:"#fff", accent:"#8AACF0" },
   finale:   { bg:"#5E1228", inner:"#8A1C3C", text:"#fff", accent:"#F08EBF" },
-  upload:   { bg:"#1f184e", inner:"#2b2065", text:"#fff", accent:"#7f5bb0" },
+  upload:   { bg:"#1f184e", inner:"#1A1E72", text:"#fff", accent:"#7A90FF" },
   general:  { bg:"#1C0E5A", inner:"#361A96", text:"#fff", accent:"#9B72FF" },
   toxicity: { bg:"#3A0808", inner:"#8A1A1A", text:"#fff", accent:"#FF3C40" },
   lovelang: { bg:"#3D1A2E", inner:"#8B3A5A", text:"#fff", accent:"#FF82B8" },
@@ -6050,7 +6079,7 @@ async function buildTintedShareLogoMarkup(logoSrc, accentColor) {
     if (!response.ok) return "";
     const svgText = await response.text();
     return svgText
-      .replace(/#6cb9e0/gi, accentColor || "#6cb9e0")
+      .replace(/#(?:7A90FF|6cb9e0)/gi, accentColor || "#7A90FF")
       .replace(/<\?xml[^>]*\?>\s*/i, "")
       .replace(/<svg\b/i, '<svg width="34" height="30"');
   } catch {
@@ -6070,7 +6099,7 @@ async function buildShareCanvas(type, logoSrc) {
   const rect = el.getBoundingClientRect();
   const width = Math.ceil(rect.width || 420);
   const height = getShareCaptureHeight(el);
-  const accentColor = el.dataset.shareAccent || "#6cb9e0";
+  const accentColor = el.dataset.shareAccent || "#7A90FF";
   const tintedLogoMarkup = await buildTintedShareLogoMarkup(logoSrc, accentColor);
   el.setAttribute("data-share-active", "true");
 
@@ -8737,9 +8766,17 @@ function hasAcceptedCurrentTerms(user) {
   return meta.terms_accepted === true && meta.terms_version === LEGAL_VERSION;
 }
 
+function shouldShowQuickReadIntro(user) {
+  const meta = user?.user_metadata || {};
+  return meta.quick_read_intro_seen !== true && meta.quick_read_intro_completed !== true;
+}
+
 function postAuthPhaseForUser(user) {
   const meta = user?.user_metadata || {};
-  if (hasAcceptedCurrentTerms(user)) return hasUserProvidedDisplayName(user) ? "upload" : "profileName";
+  if (hasAcceptedCurrentTerms(user)) {
+    if (!hasUserProvidedDisplayName(user)) return "profileName";
+    return shouldShowQuickReadIntro(user) ? "quickReadIntro" : "upload";
+  }
   if (meta.has_onboarded === true) return "terms";
   return "onboarding";
 }
@@ -9111,12 +9148,23 @@ function Auth() {
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
         <input
           type="email" placeholder="Email" value={email}
+          id="wrapchat-auth-email"
+          name="email"
+          inputMode="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="username"
           onChange={e => setEmail(e.target.value)}
           onKeyDown={e => e.key === "Enter" && submit()}
           style={inputStyle}
         />
         <input
           type="password" placeholder="Password" value={password}
+          id="wrapchat-auth-password"
+          name="password"
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete={tab === "login" ? "current-password" : "new-password"}
           onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === "Enter" && submit()}
           style={inputStyle}
@@ -9491,6 +9539,51 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
   );
 }
 
+function QuickReadIntro({ user, onContinue }) {
+  const [busy, setBusy] = useState(false);
+  const continueToUpload = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { data } = await supabase.auth.updateUser({
+        data: {
+          quick_read_intro_seen: true,
+          quick_read_intro_seen_at: new Date().toISOString(),
+        },
+      });
+      onContinue?.(data?.user || user || null);
+    } catch {
+      onContinue?.(user || null);
+    }
+  };
+
+  return (
+    <Shell sec="trial" prog={0} total={0} scrollable={false}>
+      <BrandLockup
+        logoSrc={wrapchatLogoTransparent}
+        logoSize={62}
+        subtitle="Your chats, unwrapped."
+        subtitleMarginBottom={8}
+      />
+      <div style={{ fontSize:26, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
+        Your first read is included.
+      </div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", textAlign:"center", lineHeight:1.7, width:"100%" }}>
+        Start with a Quick Read whenever you are ready. It gives you the first vibe, pattern, and takeaway from a chat.
+      </div>
+      <div style={{ width:"100%", background:"rgba(122,144,255,0.13)", border:"1px solid rgba(122,144,255,0.32)", borderRadius:22, padding:"15px 16px", textAlign:"left" }}>
+        <div style={{ fontSize:11, color:PAL.trial.accent, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", marginBottom:6 }}>Quick Read</div>
+        <div style={{ fontSize:14, color:"rgba(255,255,255,0.76)", lineHeight:1.55 }}>
+          One free starter pass. The deeper reads are there when you want them.
+        </div>
+      </div>
+      <PrimaryButton onClick={continueToUpload} disabled={busy} color={PAL.trial.accent} textColor={PAL.trial.bg}>
+        {busy ? "…" : "Continue"}
+      </PrimaryButton>
+    </Shell>
+  );
+}
+
 function TooShort({ onBack }) {
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
@@ -9607,6 +9700,36 @@ function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
   );
 }
 
+function ProfileNameMismatchReview({ warning, onContinue, onBack }) {
+  const userName = warning?.userName || "your saved name";
+  const participants = Array.isArray(warning?.participants) ? warning.participants : [];
+  return (
+    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+      <ScreenHeader back={onBack} title="Check your name" />
+      <div style={{ background:"rgba(122,144,255,0.14)", border:"1px solid rgba(122,144,255,0.34)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+          We could not find "{userName}" in this duo chat.
+        </div>
+        <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", marginTop:10, lineHeight:1.65 }}>
+          WrapChat uses your name to tell you apart from the other person. If one of these is you, you can continue.
+        </div>
+      </div>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
+        {participants.map(name => (
+          <div key={name} style={{ background:"rgba(122,144,255,0.10)", border:"1px solid rgba(122,144,255,0.26)", borderRadius:18, padding:"14px 16px" }}>
+            <div style={{ fontSize:11, color:PAL.trial.accent, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+              Chat participant
+            </div>
+            <div style={{ marginTop:5, fontSize:16, color:"#fff", fontWeight:800 }}>{name}</div>
+          </div>
+        ))}
+      </div>
+      <PrimaryButton onClick={onContinue} color={PAL.trial.accent} textColor={PAL.trial.bg}>Continue anyway</PrimaryButton>
+      <GhostButton onClick={onBack}><BackIcon size={11} /> Upload a different chat</GhostButton>
+    </Shell>
+  );
+}
+
 function AdminLocked({ onBack }) {
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
@@ -9648,10 +9771,7 @@ function Upload({
   const isPaymentsMode = !hideCredits && accessMode === "payments";
   const hasUnlockedReads = Object.values(unlockedPackIds || {}).some(Boolean);
   const isTrialPending  = isPaymentsMode && quickReadAvailable;
-  const hasNoPaymentReads = isPaymentsMode && !quickReadAvailable && !hasUnlockedReads;
-
   const displayInfo = uploadInfo
-    || (hasNoPaymentReads ? t("No reads left. Unlock more insights.") : "")
     || (!hideCredits && !isPaymentsMode && credits === 0 && !hasUnlockedReads ? OUT_OF_CREDITS_MESSAGE : "");
 
   const showCreditPill = !hideCredits && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
@@ -9741,11 +9861,11 @@ function Upload({
         <input id={uploadInputId} type="file" accept={IMPORT_ACCEPT_TYPES} style={{ display:"none" }} onChange={e => handle(e.target.files)} />
         {isTrialPending && (
           <div style={{
-            fontSize:13, fontWeight:700, color:"rgba(200,170,255,0.95)",
-            background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.35)",
+            fontSize:13, fontWeight:700, color:"rgba(232,236,255,0.95)",
+            background:"rgba(122,144,255,0.14)", border:"1px solid rgba(122,144,255,0.34)",
             borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6,
           }}>
-            {t("You have 1 free Quick Read included. Upload a chat to get started.")}
+            {t("You have 1 Quick Read available.")}
           </div>
         )}
         {displayErr && <div style={{ fontSize:13, color:"#FFB090", textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayErr}</div>}
@@ -10205,14 +10325,19 @@ function PackSelect({
   credits = null,
   accessMode = DEFAULT_ACCESS_MODE,
   hideCredits = false,
+  quickReadAvailable = false,
+  quickReadExpiresAt = null,
+  onRunQuickRead = () => {},
   onOpenUnlock = () => {},
 }) {
-  const [openPack, setOpenPack] = useState("vibe");
+  const hasQuickReadChoice = !hideCredits && !isOpenMode(accessMode) && quickReadAvailable;
+  const [openRead, setOpenRead] = useState(() => (hasQuickReadChoice ? "quick_read" : "vibe"));
   const stepProg  = math?.isGroup ? 1 : 2;
   const stepTotal = math?.isGroup ? 2 : 3;
   const showOpenNotice = !hideCredits && isOpenMode(accessMode);
   const showCreditsCounter = !hideCredits && !isOpenMode(accessMode) && Number.isInteger(credits);
   const isPackOwned = (id) => Boolean(hideCredits || isOpenMode(accessMode) || unlockedPackIds?.[id]);
+  const quickReadOpen = openRead === "quick_read";
 
   return (
     <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start" hidePill>
@@ -10236,17 +10361,76 @@ function PackSelect({
             Open testing is active — analyses will not use credits.
           </div>
         )}
-
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {hasQuickReadChoice && (
+            <div
+              onClick={() => setOpenRead(current => current === "quick_read" ? null : "quick_read")}
+              className="wc-btn"
+              style={{
+                borderRadius:22,
+                overflow:"hidden",
+                cursor:"pointer",
+                background:"rgba(122,144,255,0.16)",
+                border:"1.5px solid rgba(122,144,255,0.48)",
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:quickReadOpen ? "16px 18px 12px" : "16px 18px", transition:"padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:14, minWidth:0 }}>
+                  <SwatchIcon inner={PAL.trial.inner} accent={PAL.trial.accent} />
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em", textAlign:"left" }}>Quick Read</div>
+                    <div style={{ fontSize:10, fontWeight:800, color:PAL.trial.accent, marginTop:3, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                      Free starter pass
+                    </div>
+                  </div>
+                </div>
+                <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(122,144,255,0.18)", display:"flex", alignItems:"center", justifyContent:"center", color:PAL.trial.accent, fontSize:13, transform:quickReadOpen ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)", flexShrink:0 }}>
+                  ▾
+                </div>
+              </div>
+              <div style={{ display:"grid", gridTemplateRows:quickReadOpen ? "1fr" : "0fr", transition:"grid-template-rows 0.32s cubic-bezier(0.2,0,0.1,1)" }}>
+                <div style={{ minHeight:0, overflow:"hidden" }}>
+                  <div style={{ padding:"4px 18px 18px", opacity:quickReadOpen ? 1 : 0, transition:"opacity 0.22s ease" }}>
+                    <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
+                      A fast first look at the vibe, communication pattern, and one useful takeaway. {quickReadExpiryLabel(quickReadExpiresAt)}
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.44)" }}>
+                        <strong style={{ fontSize:18, fontWeight:900, color:"#fff", marginRight:4 }}>1</strong> available
+                      </div>
+                      <button
+                        type="button"
+                        onClick={event => { event.stopPropagation(); onRunQuickRead(); }}
+                        className="wc-btn"
+                        style={{
+                          borderRadius:999,
+                          padding:"10px 22px",
+                          fontSize:14,
+                          fontWeight:800,
+                          fontFamily:"'Nunito Sans',sans-serif",
+                          cursor:"pointer",
+                          border:"none",
+                          background:PAL.trial.accent,
+                          color:PAL.trial.bg,
+                        }}
+                      >
+                        Use free read
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {PACK_ORDER.map(id => {
             const pack = PACK_DEFS[id];
-            const open = openPack === id;
+            const open = openRead === id;
             const owned = isPackOwned(id);
             const locked = !owned;
             return (
               <div
                 key={id}
-                onClick={() => setOpenPack(current => current === id ? null : id)}
+                onClick={() => setOpenRead(current => current === id ? null : id)}
                 className="wc-btn"
                 style={{
                   borderRadius:22,
@@ -11080,6 +11264,7 @@ function AuthUploadFrame({
   const [authErr,      setAuthErr]      = useState("");
   const [authInfo,     setAuthInfo]     = useState("");
   const [authBusy,     setAuthBusy]     = useState(false);
+  const [staySignedIn, setStaySignedIn] = useState(true);
 
   const switchAuthTab = (newTab) => { setAuthTab(newTab); setAuthErr(""); setAuthInfo(""); };
 
@@ -11090,6 +11275,11 @@ function AuthUploadFrame({
       if (authTab === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
         if (error) setAuthErr(normalizeAuthError(error, "login"));
+        else if (!staySignedIn) {
+          try { sessionStorage.setItem("wrapchat_signout_on_close", "1"); } catch { /* ignore */ }
+        } else {
+          try { sessionStorage.removeItem("wrapchat_signout_on_close"); } catch { /* ignore */ }
+        }
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: authEmail, password: authPassword,
@@ -11110,9 +11300,24 @@ function AuthUploadFrame({
   // Reset auth form whenever we return to the auth phase
   useEffect(() => {
     if (phase === "auth") {
-      setAuthTab("login"); setAuthEmail(""); setAuthPassword(""); setAuthErr(""); setAuthInfo(""); setAuthBusy(false);
+      setAuthTab("login"); setAuthEmail(""); setAuthPassword(""); setAuthErr(""); setAuthInfo(""); setAuthBusy(false); setStaySignedIn(true);
     }
   }, [phase]);
+
+  useEffect(() => {
+    const handlePageHide = () => {
+      try {
+        if (sessionStorage.getItem("wrapchat_signout_on_close") === "1") {
+          void supabase.auth.signOut();
+          sessionStorage.removeItem("wrapchat_signout_on_close");
+        }
+      } catch {
+        // Best effort only; password storage stays with the OS/browser.
+      }
+    };
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
+  }, []);
 
   // ── Upload state ────────────────────────────────────────────────
   const [uploadLocalErr, setUploadLocalErr] = useState("");
@@ -11123,10 +11328,7 @@ function AuthUploadFrame({
   const isPaymentsMode = !hideCredits && accessMode === "payments";
   const hasUnlockedReads = Object.values(unlockedPackIds || {}).some(Boolean);
   const isTrialPending = isPaymentsMode && (quickReadAvailable || firstRunQuickRead);
-  const hasNoPaymentReads = isPaymentsMode && !quickReadAvailable && !hasUnlockedReads;
   const displayInfo    = uploadInfo
-    || (firstRunQuickRead ? t("Start with your free Quick Read. Credits and bundles come after your first insight.") : "")
-    || (hasNoPaymentReads ? t("No reads left. Unlock more insights.") : "")
     || (!hideCredits && !isPaymentsMode && credits === 0 && !hasUnlockedReads ? OUT_OF_CREDITS_MESSAGE : "");
   const showCreditPill = !hideCredits && !firstRunQuickRead && !isOpenMode(accessMode) && !isTrialPending && Number.isInteger(credits);
   const showOpenPill   = isOpenMode(accessMode) && !hideCredits;
@@ -11220,17 +11422,39 @@ function AuthUploadFrame({
                   <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
                     <input
                       type="email" placeholder="Email" value={authEmail}
+                      id="wrapchat-email"
+                      name="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      autoComplete="username"
                       onChange={e => setAuthEmail(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && authSubmit()}
                       style={inputStyle}
                     />
                     <input
                       type="password" placeholder="Password" value={authPassword}
+                      id="wrapchat-password"
+                      name="password"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      autoComplete={authTab === "login" ? "current-password" : "new-password"}
                       onChange={e => setAuthPassword(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && authSubmit()}
                       style={inputStyle}
                     />
                   </div>
+                  {authTab === "login" && (
+                    <label style={{ display:"flex", alignItems:"center", gap:9, color:"rgba(255,255,255,0.56)", fontSize:12, fontWeight:700, lineHeight:1.4 }}>
+                      <input
+                        type="checkbox"
+                        checked={staySignedIn}
+                        onChange={event => setStaySignedIn(event.target.checked)}
+                        style={{ width:16, height:16, accentColor:PAL.upload.accent }}
+                      />
+                      Stay signed in on this device
+                    </label>
+                  )}
                   {authErr  && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{authErr}</div>}
                   {authInfo && <div style={{ fontSize:13, color:"#B0F4C8", background:"rgba(20,160,80,0.15)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", lineHeight:1.5 }}>{authInfo}</div>}
                   <PrimaryButton onClick={authSubmit} disabled={authBusy} color={PAL.upload.accent} textColor={PAL.upload.bg}>
@@ -11258,8 +11482,8 @@ function AuthUploadFrame({
                   </label>
                   <input id={uploadInputId} type="file" accept={IMPORT_ACCEPT_TYPES} style={{ display:"none" }} onChange={e => handleUpload(e.target.files)} />
                   {isTrialPending && (
-                    <div style={{ fontSize:13, fontWeight:700, color:"rgba(200,170,255,0.95)", background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.35)", borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
-                      {t("You have 1 free Quick Read included. Upload a chat to get started.")}
+                    <div style={{ fontSize:13, fontWeight:700, color:"rgba(232,236,255,0.95)", background:"rgba(122,144,255,0.14)", border:"1px solid rgba(122,144,255,0.34)", borderRadius:14, padding:"11px 16px", width:"100%", textAlign:"center", lineHeight:1.6 }}>
+                      {t("You have 1 Quick Read available.")}
                     </div>
                   )}
                   {displayUploadErr && <div style={{ fontSize:13, color:"#FFB090", textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayUploadErr}</div>}
@@ -11317,7 +11541,7 @@ async function getUserCredits() {
 async function getUserProfile() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError) throw userError;
-  if (!user) return { balance: null, role: "user", quickReadAvailable: false };
+  if (!user) return { balance: null, role: "user", quickReadAvailable: false, quickReadExpiresAt: null };
 
   const { data, error } = await supabase
     .from("credits")
@@ -11328,8 +11552,11 @@ async function getUserProfile() {
   if (error) throw error;
   const balance = parseCreditBalance(data);
   const role = String(data?.role || "user").trim().toLowerCase();
-  const quickReadAvailable = data?.quick_read_available !== false && !data?.quick_read_used_at;
-  return { balance, role, quickReadAvailable };
+  const quickReadExpiresAt = data?.quick_read_expires_at || null;
+  const expiresAtMs = quickReadExpiresAt ? new Date(quickReadExpiresAt).getTime() : null;
+  const quickReadExpired = Number.isFinite(expiresAtMs) && expiresAtMs < Date.now();
+  const quickReadAvailable = data?.quick_read_available !== false && !data?.quick_read_used_at && !quickReadExpired;
+  return { balance, role, quickReadAvailable, quickReadExpiresAt };
 }
 
 async function initialiseUserCredits(userEmail = null) {
@@ -12488,7 +12715,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   const [confirmNameId,  setConfirmNameId]  = useState(null); // null | string
   const [deletingName,   setDeletingName]   = useState(null); // null | string
   const [viewMode,       setViewMode]       = useState(() => {
-    try { return localStorage.getItem("wrapchat_results_view") || "reports"; } catch { return "reports"; }
+    try { return localStorage.getItem("wrapchat_results_view") || "names"; } catch { return "names"; }
   });
 
   useEffect(() => {
@@ -12720,7 +12947,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   // Bundle palette — visually distinct from per-report-type colors
   const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
   // Name palette — for participant name cards in Names view
-  const NAME_PAL = { bg:"#160F38", inner:"rgba(185,154,242,0.38)", accent:"#B99AF2" };
+  const NAME_PAL = { bg:"#111648", inner:"rgba(122,144,255,0.26)", accent:"#7A90FF" };
   const RESULTS_CARD_BG = "rgba(127,91,176,0.22)";
 
   // ── Compute display items (singles + bundles) ──
@@ -12775,7 +13002,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
         if (d > entry.latestDate) entry.latestDate = d;
       });
     });
-    return Array.from(nameMap.values()).sort((a, b) => b.latestDate - a.latestDate);
+    return Array.from(nameMap.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   })();
 
   const reportLabelFor = (type) => REPORT_TYPES.find(rt => rt.id === type)?.label || type;
@@ -13262,6 +13489,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [authedUser,       setAuthedUser]       = useState(null);
   const [credits,          setCredits]          = useState(null);
   const [quickReadAvailable, setQuickReadAvailable] = useState(false);
+  const [quickReadExpiresAt, setQuickReadExpiresAt] = useState(null);
   const [userRole,         setUserRole]         = useState("user");
   const [accessMode,       setAccessModeState]  = useState(DEFAULT_ACCESS_MODE);
   const [messages,         setMessages]         = useState(null);
@@ -13312,13 +13540,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [,                 setActiveDataset]    = useState(null);
   const [pendingDataset,   setPendingDataset]   = useState(null);
   const [participantMismatch, setParticipantMismatch] = useState(null);
+  const [profileNameMismatch, setProfileNameMismatch] = useState(null);
   const [debugExportJson,  setDebugExportJson]  = useState("");
   const [debugRelType,     setDebugRelType]     = useState(null);
   const [debugRawText,     setDebugRawText]     = useState("");
   const [debugRawLabel,    setDebugRawLabel]    = useState("");
   const [debugRawBusy,     setDebugRawBusy]     = useState(false);
   const consumedImportRef   = useRef(null);
-  const trialAutoRunDoneRef = useRef(false);
   const resolvedUiLang = resolveUiLang(uiLangPref, detectedLang?.code);
   const reportContentLang = reportLang === "auto"
     ? (isReliableDetectedLanguage(detectedLang) ? normalizeUiLangCode(detectedLang?.code) : "en")
@@ -13329,7 +13557,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       && !authedIsAdmin
       && accessMode === "payments"
       && authedUser?.user_metadata?.quick_read_intro_completed !== true
-      && (quickReadAvailable || credits == null || credits === 0)
+      && (quickReadAvailable || credits == null)
   );
 
   useEffect(() => {
@@ -13342,6 +13570,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     if (!authedUser) {
       setCredits(null);
       setQuickReadAvailable(false);
+      setQuickReadExpiresAt(null);
       setUserRole("user");
       setUnlockedPackIds({});
       setUploadInfo("");
@@ -13351,6 +13580,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     if (authedIsAdmin) {
       setCredits(null);
       setQuickReadAvailable(false);
+      setQuickReadExpiresAt(null);
       setUserRole("user");
       setUnlockedPackIds({});
       setUploadInfo("");
@@ -13363,6 +13593,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     if (cachedProfile) {
       setCredits(cachedProfile.balance ?? null);
       setQuickReadAvailable(Boolean(cachedProfile.quickReadAvailable));
+      setQuickReadExpiresAt(cachedProfile.quickReadExpiresAt || null);
       setUserRole(cachedProfile.role || "user");
       setUnlockedPackIds(cachedUnlocks);
       if (typeof cachedProfile.balance === "number" && cachedProfile.balance > 0) setUploadInfo("");
@@ -13370,16 +13601,17 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     (async () => {
       try {
-        const [{ balance, role, quickReadAvailable: hasQuickRead }, packUnlocks] = await Promise.all([
+        const [{ balance, role, quickReadAvailable: hasQuickRead, quickReadExpiresAt: quickReadExpiry }, packUnlocks] = await Promise.all([
           requestOnce(`profile:${authedUser.id}`, getUserProfile),
           requestOnce(`unlocks:${authedUser.id}`, () => getUnlockedReportPacks(authedUser.id)),
         ]);
         if (cancelled) return;
-        const nextProfile = { balance, role, quickReadAvailable: hasQuickRead };
+        const nextProfile = { balance, role, quickReadAvailable: hasQuickRead, quickReadExpiresAt: quickReadExpiry };
         cacheUserProfile(authedUser.id, nextProfile);
         cacheUnlockedPacks(authedUser.id, packUnlocks);
         setCredits(prev => prev === balance ? prev : balance);
         setQuickReadAvailable(prev => prev === hasQuickRead ? prev : hasQuickRead);
+        setQuickReadExpiresAt(prev => prev === quickReadExpiry ? prev : quickReadExpiry);
         setUserRole(prev => prev === role ? prev : role);
         setUnlockedPackIds(prev => sameCachedValue(prev, packUnlocks) ? prev : packUnlocks);
         if (typeof balance === "number" && balance > 0) setUploadInfo("");
@@ -13389,6 +13621,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         if (!cachedProfile) {
           setCredits(null);
           setQuickReadAvailable(false);
+          setQuickReadExpiresAt(null);
           setUserRole("user");
           setUnlockedPackIds({});
         }
@@ -13591,6 +13824,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setAuthedUser(null);
     setCredits(null);
     setQuickReadAvailable(false);
+    setQuickReadExpiresAt(null);
     setUserRole("user");
     setMessages(null);
     setMath(null);
@@ -13636,6 +13870,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setActiveDataset(null);
     setPendingDataset(null);
     setParticipantMismatch(null);
+    setProfileNameMismatch(null);
     setDebugExportJson("");
     setDebugRelType(null);
     setDebugRawText("");
@@ -13667,6 +13902,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         cacheUserCredits(authedUser?.id, balance);
         const profile = await getUserProfile();
         setQuickReadAvailable(profile.quickReadAvailable);
+        setQuickReadExpiresAt(profile.quickReadExpiresAt || null);
         setUserRole(profile.role);
         if (authedUser?.id) cacheUserProfile(authedUser.id, profile);
         if (authedUser?.id) {
@@ -13689,11 +13925,23 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setHistoryBundleView(null);
     setStep(0);
     setDir("fade");
-    setPhase(hasUserProvidedDisplayName(authedUser) ? "upload" : "profileName");
+    setPhase(hasUserProvidedDisplayName(authedUser) ? (shouldShowQuickReadIntro(authedUser) ? "quickReadIntro" : "upload") : "profileName");
     setSid(s => s + 1);
   };
 
   const onProfileNameSaved = (updatedUser) => {
+    const nextUser = updatedUser || authedUser;
+    if (updatedUser) setAuthedUser(updatedUser);
+    setUploadError("");
+    setUploadInfo("");
+    setAnalysisError("");
+    setStep(0);
+    setDir("fade");
+    setPhase(shouldShowQuickReadIntro(nextUser) ? "quickReadIntro" : "upload");
+    setSid(s => s + 1);
+  };
+
+  const onQuickReadIntroContinue = (updatedUser) => {
     if (updatedUser) setAuthedUser(updatedUser);
     setUploadError("");
     setUploadInfo("");
@@ -13731,6 +13979,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setActiveDataset(null);
     setPendingDataset(null);
     setParticipantMismatch(null);
+    setProfileNameMismatch(null);
     setDebugExportJson("");
     setDebugRawText("");
     setDebugRawLabel("");
@@ -13933,6 +14182,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setActiveDataset(dataset);
         setPendingDataset(null);
         setParticipantMismatch(null);
+        setProfileNameMismatch(null);
         setAi(null);
         setConnectionDigest(null);
         setConnectionDigestKey("");
@@ -13947,8 +14197,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setReportRouteState(null);
         setHistoryBundleView(null);
         setDebugRelType(null);
+        const nameWarning = detectDuoProfileNameMismatch(m, authedUser);
+        const nextPhase = m?.isGroup ? "select" : (skipRelationship ? "select" : "relationship");
         setDir("fwd");
-        setPhase(m?.isGroup ? "select" : (skipRelationship ? "select" : "relationship"));
+        if (nameWarning) {
+          setProfileNameMismatch({ ...nameWarning, nextPhase });
+          setPhase("profileNameMismatch");
+        } else {
+          setPhase(nextPhase);
+        }
         setSid(s => s+1);
       } catch (error) {
         console.error("Post-parse analysis failed", error);
@@ -13959,6 +14216,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setActiveDataset(null);
         setPendingDataset(null);
         setParticipantMismatch(null);
+        setProfileNameMismatch(null);
         setUploadError("Couldn't finish reading this chat. Try exporting again or using a shorter date range.");
         setDir("fade");
         setPhase("upload");
@@ -13969,7 +14227,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // Step 1: file parsed → normalize identity, review merges, then compute stats
   const onParsed = (parsedInput) => {
-    trialAutoRunDoneRef.current = false;
     resetImportDerivedState();
     setPendingSkipRelationship(false);
     try {
@@ -14020,6 +14277,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     continueWithDataset(pendingDataset, { skipMismatch: true, skipRelationship: skip });
   };
 
+  const onProfileNameMismatchContinue = () => {
+    const nextPhase = profileNameMismatch?.nextPhase || (math?.isGroup ? "select" : "relationship");
+    setProfileNameMismatch(null);
+    setDir("fwd");
+    setPhase(nextPhase);
+    setSid(s => s + 1);
+  };
+
   useEffect(() => {
     if (!pendingImportedChat?.id || !pendingImportedChat.payload) return;
     if (consumedImportRef.current === pendingImportedChat.id) return;
@@ -14029,31 +14294,6 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     onParsed(pendingImportedChat.payload);
     onPendingImportedChatConsumed(pendingImportedChat.id);
   }, [authedUser, onPendingImportedChatConsumed, pendingImportedChat, phase]);
-
-  // Auto-trigger the onboarding Quick Read entitlement before paid packs.
-  useLayoutEffect(() => {
-    if (phase !== "select") return;
-    if (!messages?.length || !math) return;
-    if (authedIsAdmin || isOpenMode(accessMode)) return;
-    if (accessMode !== "payments" || !quickReadAvailable) return;
-    if (trialAutoRunDoneRef.current) return;
-    trialAutoRunDoneRef.current = true;
-    setAnalysisError("");
-    setUploadInfo("");
-    setUpgradeInfo(null);
-    setStep(0);
-    setDir("fwd");
-    setSelectedReportTypes(["trial_report"]);
-    setReportType("trial_report");
-    prepaintReportLaunchSurface("trial_report");
-    setLoadingReportIndex(0);
-    setCurrentResultId(null);
-    setAiLoading(true);
-    setAi(null);
-    setPhase("loading");
-    setSid(s => s + 1);
-    runAnalysis(["trial_report"], math.isGroup ? null : relationshipType);
-  }, [phase, messages, math, quickReadAvailable, accessMode, authedIsAdmin, relationshipType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generatePipelineResult = async (type, relType, contentLang = reportContentLang) => {
     const pipeline = REPORT_PIPELINES[type];
@@ -14375,6 +14615,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         cacheUserProfile(authedUser?.id, {
           ...(readUserDataCache(authedUser?.id).profile || {}),
           quickReadAvailable: false,
+          quickReadExpiresAt,
         });
       } catch (error) {
         console.error("Quick Read entitlement update failed", error);
@@ -14439,6 +14680,16 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       bundleNameOverride: pack.name,
       consumePackIds: [pack.id],
     } : {});
+  };
+
+  const onRunQuickRead = () => {
+    if (!quickReadAvailable) {
+      setAnalysisError("Your free Quick Read is no longer available.");
+      return;
+    }
+    setAnalysisError("");
+    setSelectedReportTypes([QUICK_READ_TRIAL_CONFIG.reportId]);
+    runAnalysis([QUICK_READ_TRIAL_CONFIG.reportId], math?.isGroup ? null : relationshipType);
   };
 
   // Step 3 (duo only): user picks relationship type → then choose report type
@@ -15054,6 +15305,11 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       <ProfileNameSetup user={authedUser} onSaved={onProfileNameSaved} onLogout={logout} />
     </Slide>)
   );
+  if (phase === "quickReadIntro") return (
+    withUiLanguage(<Slide dir={dir} id={sid}>
+      <QuickReadIntro user={authedUser} onContinue={onQuickReadIntroContinue} />
+    </Slide>)
+  );
   if (phase === "admin") return (
     withUiLanguage(<Slide dir={dir} id={sid}>
       {isAdminUser(authedUser)
@@ -15105,6 +15361,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       />
     </Slide>
   );
+  if (phase === "profileNameMismatch") return withUiLanguage(
+    <Slide dir={dir} id={sid}>
+      <ProfileNameMismatchReview
+        warning={profileNameMismatch}
+        onContinue={onProfileNameMismatchContinue}
+        onBack={() => { setProfileNameMismatch(null); setDir("bk"); setPhase("upload"); setSid(s => s + 1); }}
+      />
+    </Slide>
+  );
 	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid} animateIn><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, "upgrade")} onBuyPacks={buyPacksWithCredits} /></Slide>);
 	  if (phase === "payment") return withUiLanguage(
 	    <Slide dir={dir} id={sid} animateIn>
@@ -15136,6 +15401,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 	      credits={credits}
 	      accessMode={accessMode}
 	      hideCredits={authedIsAdmin}
+	      quickReadAvailable={quickReadAvailable}
+	      quickReadExpiresAt={quickReadExpiresAt}
+	      onRunQuickRead={onRunQuickRead}
 	      onOpenUnlock={(packId) => openUnlockReads(packId, "select")}
 	    />
 	  );

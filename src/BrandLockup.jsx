@@ -1,7 +1,7 @@
 import wrapchatLogo from "../assets/WrapchatLogo_main_2.svg";
 const wrapchatLogoTransparent = wrapchatLogo;
 
-const DEFAULT_ACCENT = "#6cb9e0";
+const DEFAULT_ACCENT = "#7A90FF";
 
 function LogoSVG({ size, accentColor }) {
   const accent = accentColor || DEFAULT_ACCENT;
