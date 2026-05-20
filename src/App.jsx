@@ -6549,7 +6549,7 @@ const SCREEN_HEADER_BLOCK_STYLE = {
   marginBottom:12,
 };
 
-function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false, forceWaves=false }) {
+function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false, forceWaves=false, snapScroll=false }) {
   const p = palette || PAL[sec] || PAL.upload;
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
@@ -6597,6 +6597,9 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
   const enterFrom = dir === "fwd" ? "100%"  : "-100%";
   const exitTo    = dir === "fwd" ? "-100%" : "100%";
   const paneJustify = contentAlign === "start" ? "flex-start" : "safe center";
+  const rootPaddingTop = snapScroll ? 0 : SHELL_SAFE_TOP;
+  const panePadding = snapScroll ? 0 : SHELL_PANE_PADDING;
+  const paneGap = snapScroll ? 0 : 10;
 
   return (
     <SectionPaletteContext.Provider value={p}>
@@ -6610,6 +6613,8 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         .wc-fadeup-3 { animation: fadeUp 0.4s 0.14s cubic-bezier(.2,0,.1,1) both; }
         .wc-btn:hover { opacity:0.82; transform:scale(0.98); }
         .wc-exit-pane [data-nav-row="true"] { visibility:hidden; }
+        .wc-snap-scroll { scrollbar-width:none; -ms-overflow-style:none; }
+        .wc-snap-scroll::-webkit-scrollbar { width:0; height:0; display:none; }
         @media (max-width: 430px) { .wc-root { border-radius: 0 !important; } }
         @keyframes wcContentIn {
           from { transform: translateX(var(--wc-enter-from)); }
@@ -6660,9 +6665,9 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         display: "flex",
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
-        paddingTop: SHELL_SAFE_TOP,
+        paddingTop: rootPaddingTop,
       }}>
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:SHELL_SAFE_TOP, background:p.bg, zIndex:4, pointerEvents:"none" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:rootPaddingTop, background:p.bg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES — result screens + explicitly flagged screens only ── */}
         {(forceWaves || sec !== "upload") && <WaveLines accent={p.accent} intro={forceWaves && sec === "upload"} />}
 
@@ -6746,7 +6751,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             <div data-share-hide className="wc-pane wc-exit-pane" style={{
               position:"absolute", inset:0,
               display:"flex", flexDirection:"column", alignItems:"stretch", justifyContent:paneJustify,
-              padding:SHELL_PANE_PADDING, gap:10,
+              padding:panePadding, gap:paneGap,
               transform:isFade ? "none" : `translateX(${exitTo})`,
               opacity:isFade ? 0 : 1,
               transition:isFade ? `opacity 180ms ${SLIDE_EASE}` : `transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
@@ -6758,20 +6763,22 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
             </div>
           )}
           {/* Incoming content */}
-          <div ref={paneRef} className="wc-pane" style={{
+          <div ref={paneRef} className={`wc-pane${snapScroll ? " wc-snap-scroll" : ""}`} style={{
             position: exitContent ? "absolute" : "relative",
             inset: exitContent ? 0 : "auto",
             flex: exitContent ? "none" : 1,
             display:"flex", flexDirection:"column", alignItems:"stretch", justifyContent:paneJustify,
             width:"100%",
             minHeight:0,
-            padding:SHELL_PANE_PADDING, gap:10,
+            padding:panePadding, gap:paneGap,
             animation: exitContent
               ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`)
               : isEntering ? `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both` : "none",
             ["--wc-enter-from"]: enterFrom,
             willChange: exitContent ? (isFade ? "opacity, transform" : "transform") : "auto",
             overflowY:scrollable ? "auto" : "hidden",
+            scrollSnapType:snapScroll ? "y mandatory" : "none",
+            scrollBehavior:snapScroll ? "smooth" : "auto",
             overscrollBehavior:"contain",
           }}>
             {children}
@@ -9923,7 +9930,7 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   );
 }
 
-function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, reportLang = "en", onReportLangChange = () => {} }) {
+function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, reportLang = "en", onReportLangChange = () => {}, previewUser = null }) {
   const t = useT();
   const { uiLangPref, updateUiLangPref } = useUILanguage();
   const [profileName, setProfileName] = useState("");
@@ -9957,13 +9964,17 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
   };
 
   useEffect(() => {
+    if (previewUser) {
+      setProfileName(userProvidedDisplayName(previewUser));
+      return undefined;
+    }
     let alive = true;
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!alive) return;
       setProfileName(userProvidedDisplayName(user));
     });
     return () => { alive = false; };
-  }, []);
+  }, [previewUser]);
 
   const saveProfileName = async () => {
     if (!canSaveProfileName) {
@@ -11254,6 +11265,7 @@ function AuthUploadFrame({
   onClearError,
   onUpgrade,
   onPayment,
+  authPreview = null,
 }) {
   const t = useT();
 
@@ -11300,9 +11312,15 @@ function AuthUploadFrame({
   // Reset auth form whenever we return to the auth phase
   useEffect(() => {
     if (phase === "auth") {
-      setAuthTab("login"); setAuthEmail(""); setAuthPassword(""); setAuthErr(""); setAuthInfo(""); setAuthBusy(false); setStaySignedIn(true);
+      setAuthTab(authPreview?.tab || "login");
+      setAuthEmail(authPreview?.email || "");
+      setAuthPassword(authPreview?.password || "");
+      setAuthErr(authPreview?.error || "");
+      setAuthInfo(authPreview?.info || "");
+      setAuthBusy(Boolean(authPreview?.busy));
+      setStaySignedIn(authPreview?.staySignedIn !== false);
     }
-  }, [phase]);
+  }, [phase, authPreview]);
 
   useEffect(() => {
     const handlePageHide = () => {
@@ -12665,16 +12683,408 @@ function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
   );
 }
 
+const PREVIEW_USER = {
+  id: "preview-user",
+  email: "preview@wrapchat.app",
+  user_metadata: {
+    full_name: "You",
+    display_name: "You",
+    has_onboarded: true,
+    terms_accepted: true,
+    quick_read_intro_seen: false,
+  },
+};
+
+const PREVIEW_MATH = {
+  isGroup: false,
+  names: ["You", "Mina"],
+  msgCounts: [1842, 1597],
+  mediaCounts: [72, 54],
+  voiceCounts: [18, 11],
+  linkCounts: [31, 19],
+  topWords: ["okay", "today", "come", "wait", "miss", "home"],
+  topBigrams: ["good morning", "call me", "see you"],
+  spiritEmoji: ["😭", "😂", "❤️"],
+  totalMessages: 3439,
+  streak: 42,
+  topMonths: [["Apr", 612]],
+  ghostName: "Mina",
+  ghostAvg: ["18m", "41m"],
+  ghostEqual: false,
+  convStarter: "You",
+  convStarterPct: "61%",
+  convKiller: "Mina",
+  displayTitle: "You & Mina",
+};
+
+const PREVIEW_GROUP_MATH = {
+  ...PREVIEW_MATH,
+  isGroup: true,
+  names: ["You", "Mina", "Deniz", "Aylin", "Can"],
+  msgCounts: [1842, 1597, 912, 640, 318],
+  mediaCounts: [72, 54, 33, 18, 9],
+  voiceCounts: [18, 11, 6, 4, 2],
+  linkCounts: [31, 19, 14, 8, 3],
+  totalMessages: 5309,
+  mainChar: "You",
+  ghost: "Can",
+  convStarter: "Mina",
+  convKiller: "Deniz",
+  displayTitle: "Weekend Crew",
+};
+
+const PREVIEW_AI_QUICK_READ = {
+  vibe: "Warm, fast, and a little chaotic in a way that feels familiar. There is a lot of checking in, tiny updates, and playful recovery after small tension.",
+  pattern: "You tend to restart the rhythm when the chat goes quiet. Mina answers with more detail once the conversation has an obvious emotional lane.",
+  takeaway: "The chat works best when the topic is specific. Vague check-ins fade quickly, but plans, jokes, and honest reactions pull both people back in.",
+};
+
+const PREVIEW_RESULT_ROWS = [
+  {
+    id: "preview-general",
+    user_id: "preview-user",
+    report_type: "general",
+    chat_type: "duo",
+    names: ["You", "Mina"],
+    created_at: "2026-05-18T12:00:00.000Z",
+    math_data: { ...PREVIEW_MATH, bundle_id: "preview-full-pack", bundle_pack_id: "full" },
+    result_data: {
+      relationshipType: "partner",
+      vibeOneLiner: "This chat has a soft daily-life intimacy with occasional little sparks of avoidance.",
+      relationshipSummary: "You both keep returning to the thread, even after the rhythm gets uneven.",
+      runMetadata: { displayTitle: "You & Mina", sourceChatCount: 2, datasetKind: "combined" },
+    },
+  },
+  {
+    id: "preview-love",
+    user_id: "preview-user",
+    report_type: "lovelang",
+    chat_type: "duo",
+    names: ["You", "Mina"],
+    created_at: "2026-05-18T12:00:00.000Z",
+    math_data: { ...PREVIEW_MATH, bundle_id: "preview-full-pack", bundle_pack_id: "full" },
+    result_data: {
+      compatibilityScore: 8,
+      compatibilityRead: "You show care through availability; Mina shows it through practical memory and small acts.",
+      personA: { name: "You", language: "quality time", examples: "Frequent check-ins and quick follow-ups." },
+      personB: { name: "Mina", language: "acts of service", examples: "Remembering details and solving tiny problems." },
+    },
+  },
+  {
+    id: "preview-growth",
+    user_id: "preview-user",
+    report_type: "growth",
+    chat_type: "duo",
+    names: ["You", "Mina"],
+    created_at: "2026-05-12T10:00:00.000Z",
+    math_data: PREVIEW_MATH,
+    result_data: {
+      trajectory: "deepening",
+      arcSummary: "The early chat was mostly logistics. The recent chat has more emotional shorthand and less explaining.",
+      trajectoryDetail: "More callbacks, more repair, and more shared context appear later in the export.",
+    },
+  },
+  {
+    id: "preview-toxic",
+    user_id: "preview-user",
+    report_type: "toxicity",
+    chat_type: "duo",
+    names: ["You", "Mina"],
+    created_at: "2026-05-03T09:00:00.000Z",
+    math_data: PREVIEW_MATH,
+    result_data: {
+      chatHealthScore: 7,
+      verdict: "Mostly healthy, but conflict gets indirect when one person feels ignored.",
+      conflictPattern: "Small delays turn into tone checks instead of direct requests.",
+    },
+  },
+];
+
+const PREVIEW_DUPLICATE_DATASET = {
+  mergeState: {
+    approved: [],
+    suggestions: [
+      {
+        id: "mina-duplicate",
+        participantA: { displayName: "Mina", phone: "+90 555 0101" },
+        participantB: { displayName: "Mina K.", phone: "+90 555 0101" },
+      },
+    ],
+  },
+};
+
+const PREVIEW_PARTICIPANT_MISMATCH = {
+  rows: [
+    { chatId: "chat-1", label: "Main chat", otherName: "Mina", fileName: "WhatsApp Chat with Mina.txt" },
+    { chatId: "chat-2", label: "Extra chat", otherName: "Selin", fileName: "WhatsApp Chat with Selin.txt" },
+  ],
+};
+
+const PREVIEW_PROFILE_WARNING = {
+  userName: "Ozge",
+  participants: ["Mina", "Mina K."],
+};
+
+function PreviewAuthConfirmed({ status = "success" }) {
+  const ok = status === "success";
+  return (
+    <Shell sec="upload" prog={0} total={0} scrollable={false} hidePill hideProgressBar>
+      <BrandLockup logoSrc={wrapchatLogoTransparent} logoSize={62} subtitle="Your chats, unwrapped." subtitleMarginBottom={8} />
+      <div style={{ width:"100%", background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:24, padding:"28px 22px", textAlign:"center" }}>
+        <div style={{ fontSize:ok ? 30 : 26, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.08 }}>
+          {ok ? "Account activated." : "Link expired or invalid."}
+        </div>
+        <div style={{ marginTop:10, fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.65 }}>
+          {ok ? "Your account has been successfully activated. You can now log in." : "This confirmation link has expired or has already been used. Sign in to your account or request a new link."}
+        </div>
+      </div>
+      <PrimaryButton onClick={() => {}} color={ok ? PAL.growth.accent : PAL.upload.accent} textColor={ok ? PAL.growth.bg : PAL.upload.bg}>
+        {ok ? "Log in to WrapChat" : "Go to WrapChat"}
+      </PrimaryButton>
+    </Shell>
+  );
+}
+
+function PreviewFrame({ children }) {
+  return (
+    <CloseResultsContext.Provider value={null}>
+      <ShareResultsContext.Provider value={null}>
+        <FeedbackContext.Provider value={null}>
+          <SlideContext.Provider value={{ dir: "fade", id: 0, animateIn: false }}>
+            <style>{`
+              .wc-admin-preview-frame > .wc-root {
+                width: min(420px, 100vw) !important;
+                height: 100svh !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none;
+                pointer-events: none;
+              }
+            `}</style>
+            <div
+              className="wc-admin-preview-frame"
+              style={{
+                width:"100%",
+                minHeight:"100svh",
+                background:"transparent",
+                display:"flex",
+                justifyContent:"center",
+                alignItems:"flex-start",
+                overflow:"hidden",
+                scrollSnapAlign:"start",
+                scrollSnapStop:"always",
+                flexShrink:0,
+              }}
+            >
+              {children}
+            </div>
+          </SlideContext.Provider>
+        </FeedbackContext.Provider>
+      </ShareResultsContext.Provider>
+    </CloseResultsContext.Provider>
+  );
+}
+
+function AdminPreviewLab({ header = null }) {
+  const noop = () => {};
+  const previewPages = [
+    {
+      id:"auth",
+      title:"Auth",
+      variations:[
+        { id:"login", label:"Log in", render:() => <AuthUploadFrame phase="auth" onParsed={noop} /> },
+        { id:"signup", label:"Sign up", render:() => <AuthUploadFrame phase="auth" onParsed={noop} authPreview={{ tab:"signup" }} /> },
+        { id:"login-error", label:"Login error", render:() => <AuthUploadFrame phase="auth" onParsed={noop} authPreview={{ email:"preview@wrapchat.app", password:"password", error:"Email or password is incorrect." }} /> },
+        { id:"check-email", label:"Check email", render:() => <AuthUploadFrame phase="auth" onParsed={noop} authPreview={{ tab:"signup", email:"preview@wrapchat.app", password:"password", info:"Check your email to confirm your account, then log in." }} /> },
+        { id:"confirmed", label:"Confirmed", render:() => <PreviewAuthConfirmed status="success" /> },
+        { id:"expired", label:"Expired link", render:() => <PreviewAuthConfirmed status="error" /> },
+        { id:"admin-locked", label:"Admin locked", render:() => <AdminLocked onBack={noop} /> },
+      ],
+    },
+    {
+      id:"onboarding",
+      title:"Onboarding",
+      variations:[
+        { id:"intro", label:"Intro", render:() => <OnboardingFlow step={0} next={noop} onOnboarded={noop} /> },
+        { id:"export", label:"Export steps", render:() => <OnboardingFlow step={1} next={noop} onOnboarded={noop} /> },
+        { id:"reports", label:"Reports", render:() => <OnboardingFlow step={2} next={noop} onOnboarded={noop} /> },
+        { id:"language", label:"Language", render:() => <OnboardingFlow step={3} next={noop} onOnboarded={noop} /> },
+        { id:"terms", label:"Terms", render:() => <TermsFlow onAccepted={noop} onLogout={noop} /> },
+        { id:"profile-name", label:"Profile name", render:() => <ProfileNameSetup user={PREVIEW_USER} onSaved={noop} onLogout={noop} /> },
+      ],
+    },
+    {
+      id:"upload",
+      title:"Upload",
+      variations:[
+        { id:"payment-quick", label:"Payment + Quick Read", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} credits={0} quickReadAvailable accessMode={ACCESS_MODES.PAYMENTS} onPayment={noop} /> },
+        { id:"payment-used", label:"Payment used", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} credits={0} accessMode={ACCESS_MODES.PAYMENTS} uploadInfo="Your Quick Read has already been used. Credits are required for everything else." onPayment={noop} /> },
+        { id:"credit-balance", label:"Credit balance", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} credits={160} unlockedPackIds={{ vibe:true }} accessMode={ACCESS_MODES.CREDITS} onUpgrade={noop} /> },
+        { id:"zero-credits", label:"0 credits", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} credits={0} accessMode={ACCESS_MODES.CREDITS} onUpgrade={noop} /> },
+        { id:"open-testing", label:"Open testing", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} accessMode={ACCESS_MODES.OPEN} /> },
+        { id:"upload-error", label:"Upload error", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} credits={0} accessMode={ACCESS_MODES.PAYMENTS} uploadError="Couldn't open this file. Please export the chat again and retry." /> },
+        { id:"first-run", label:"First run", render:() => <AuthUploadFrame phase="upload" onParsed={noop} onHistory={noop} firstRunQuickRead accessMode={ACCESS_MODES.PAYMENTS} /> },
+      ],
+    },
+    {
+      id:"setup",
+      title:"Set Up Chat",
+      variations:[
+        { id:"relationship", label:"Relationship", render:() => <RelationshipSelect animKey="preview" onSelect={noop} onBack={noop} /> },
+        { id:"too-short", label:"Too short", render:() => <TooShort onBack={noop} /> },
+        { id:"duplicates", label:"Duplicate contacts", render:() => <DuplicateParticipantReview dataset={PREVIEW_DUPLICATE_DATASET} onContinue={noop} onBack={noop} /> },
+        { id:"participant-mismatch", label:"Participant mismatch", render:() => <ParticipantMismatchReview mismatch={PREVIEW_PARTICIPANT_MISMATCH} onContinue={noop} onBack={noop} /> },
+        { id:"name-mismatch", label:"Name mismatch", render:() => <ProfileNameMismatchReview warning={PREVIEW_PROFILE_WARNING} onContinue={noop} onBack={noop} /> },
+      ],
+    },
+    {
+      id:"pick-read",
+      title:"Pick Read",
+      variations:[
+        { id:"quick-available", label:"Quick available", render:() => <PackSelect animKey="preview" math={PREVIEW_MATH} credits={0} accessMode={ACCESS_MODES.PAYMENTS} quickReadAvailable onRunPack={noop} onBack={noop} onRunQuickRead={noop} onOpenUnlock={noop} /> },
+        { id:"some-unlocked", label:"Some unlocked", render:() => <PackSelect animKey="preview" math={PREVIEW_MATH} credits={80} accessMode={ACCESS_MODES.PAYMENTS} unlockedPackIds={{ vibe:true, growth:true }} onRunPack={noop} onBack={noop} onOpenUnlock={noop} /> },
+        { id:"open-testing", label:"Open testing", render:() => <PackSelect animKey="preview" math={PREVIEW_MATH} accessMode={ACCESS_MODES.OPEN} onRunPack={noop} onBack={noop} onOpenUnlock={noop} /> },
+        { id:"no-quick", label:"No Quick Read", render:() => <PackSelect animKey="preview" math={PREVIEW_MATH} credits={0} accessMode={ACCESS_MODES.PAYMENTS} onRunPack={noop} onBack={noop} onOpenUnlock={noop} /> },
+        { id:"group", label:"Group chat", render:() => <PackSelect animKey="preview" math={PREVIEW_GROUP_MATH} credits={100} accessMode={ACCESS_MODES.PAYMENTS} quickReadAvailable onRunPack={noop} onBack={noop} onRunQuickRead={noop} onOpenUnlock={noop} /> },
+      ],
+    },
+    {
+      id:"unlock",
+      title:"Unlock",
+      variations:[
+        { id:"not-enough", label:"Not enough", render:() => <UpgradePlaceholder info={{ accessMode:ACCESS_MODES.PAYMENTS, requiredCredits:getPackCreditCost("full"), backPhase:"select" }} credits={60} accessMode={ACCESS_MODES.PAYMENTS} onBack={noop} onOpenPayment={noop} onBuyPacks={noop} /> },
+        { id:"enough", label:"Enough credits", render:() => <UpgradePlaceholder info={{ accessMode:ACCESS_MODES.PAYMENTS, requiredCredits:getPackCreditCost("vibe"), backPhase:"select" }} credits={220} accessMode={ACCESS_MODES.PAYMENTS} onBack={noop} onOpenPayment={noop} onBuyPacks={noop} /> },
+        { id:"credit-beta", label:"Credit beta", render:() => <UpgradePlaceholder info={{ accessMode:ACCESS_MODES.CREDITS, requiredCredits:getPackCreditCost("rf"), backPhase:"select" }} credits={40} accessMode={ACCESS_MODES.CREDITS} onBack={noop} onBuyPacks={noop} /> },
+      ],
+    },
+    {
+      id:"credits",
+      title:"Add Credits",
+      variations:[
+        { id:"low", label:"Low balance", render:() => <PaymentScreen preselect="full" credits={0} userId="preview-user" onBack={noop} onPaymentComingSoon={noop} onPurchaseCredits={noop} /> },
+        { id:"existing", label:"Existing balance", render:() => <PaymentScreen preselect="vibe" credits={160} userId="preview-user" onBack={noop} onPaymentComingSoon={noop} onPurchaseCredits={noop} /> },
+      ],
+    },
+    {
+      id:"quick-read",
+      title:"Quick Read",
+      variations:[
+        { id:"intro", label:"Intro", render:() => <QuickReadIntro user={PREVIEW_USER} onContinue={noop} /> },
+        { id:"buffer", label:"Buffer", render:() => <Loading math={PREVIEW_MATH} reportType="trial_report" reportTypes={["trial_report"]} /> },
+        { id:"snapshot", label:"Snapshot", render:() => <TrialReportScreen s={PREVIEW_MATH} ai={PREVIEW_AI_QUICK_READ} aiLoading={false} step={0} back={noop} next={noop} /> },
+        { id:"ai-read", label:"AI read", render:() => <TrialReportScreen s={PREVIEW_MATH} ai={PREVIEW_AI_QUICK_READ} aiLoading={false} step={5} back={noop} next={noop} /> },
+        { id:"summary", label:"Summary", render:() => <TrialReportScreen s={PREVIEW_MATH} ai={PREVIEW_AI_QUICK_READ} aiLoading={false} step={7} back={noop} next={noop} /> },
+        { id:"unlock-explainer", label:"Unlock explainer", render:() => <TrialReportScreen s={PREVIEW_MATH} ai={PREVIEW_AI_QUICK_READ} aiLoading={false} step={8} back={noop} next={noop} /> },
+        { id:"pricing", label:"Pricing", render:() => <TrialFinale back={noop} credits={0} userId="preview-user" onPaymentComingSoon={noop} onPurchaseCredits={noop} /> },
+      ],
+    },
+    {
+      id:"my-results",
+      title:"My Results",
+      variations:[
+        { id:"empty", label:"Empty", render:() => <MyResults currentUser={PREVIEW_USER} previewRows={[]} onBack={noop} onRestoreResult={noop} onSettings={noop} /> },
+        { id:"filled", label:"Filled", render:() => <MyResults currentUser={PREVIEW_USER} previewRows={PREVIEW_RESULT_ROWS} onBack={noop} onRestoreResult={noop} onSettings={noop} /> },
+      ],
+    },
+    {
+      id:"settings",
+      title:"Settings",
+      variations:[
+        { id:"default", label:"Default", render:() => <SettingsScreen onBack={noop} onAccountDeleted={noop} onLogout={noop} onUserUpdated={noop} reportLang="en" onReportLangChange={noop} previewUser={PREVIEW_USER} /> },
+      ],
+    },
+  ];
+
+  const readInitialSelection = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pageParam = params.get("previewPage");
+      const variationParam = params.get("previewVariation");
+      const legacyPreview = params.get("preview");
+      if (pageParam) return { pageId:pageParam, variationId:variationParam || "" };
+      for (const page of previewPages) {
+        const match = page.variations.find(item => item.id === legacyPreview || `${page.id}-${item.id}` === legacyPreview);
+        if (match) return { pageId:page.id, variationId:match.id };
+      }
+    } catch {
+      // Ignore malformed URLs.
+    }
+    return { pageId:"auth", variationId:"login" };
+  };
+
+  const initialSelection = readInitialSelection();
+  const [pageId, setPageId] = useState(initialSelection.pageId);
+  const [variationId, setVariationId] = useState(initialSelection.variationId);
+  const selectedPage = previewPages.find(page => page.id === pageId) || previewPages[0];
+  const selectedVariation = selectedPage.variations.find(item => item.id === variationId) || selectedPage.variations[0];
+
+  const updateUrl = (nextPageId, nextVariationId) => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("previewPage", nextPageId);
+      url.searchParams.set("previewVariation", nextVariationId);
+      url.searchParams.delete("preview");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      // URL persistence is helpful, not required.
+    }
+  };
+
+  const selectPage = (nextPageId) => {
+    const nextPage = previewPages.find(page => page.id === nextPageId) || previewPages[0];
+    const nextVariationId = nextPage.variations[0]?.id || "";
+    setPageId(nextPage.id);
+    setVariationId(nextVariationId);
+    updateUrl(nextPage.id, nextVariationId);
+  };
+
+  const selectVariation = (nextVariationId) => {
+    setVariationId(nextVariationId);
+    updateUrl(selectedPage.id, nextVariationId);
+  };
+
+  return (
+    <>
+      <div style={{ width:"100%", minHeight:"100svh", display:"flex", flexDirection:"column", justifyContent:"flex-start", gap:12, flexShrink:0, padding:`calc(${SHELL_SAFE_TOP} + 16px) 20px calc(24px + env(safe-area-inset-bottom, 0px))`, scrollSnapAlign:"start", scrollSnapStop:"always" }}>
+        {header}
+        <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:2, flexShrink:0 }}>
+          {previewPages.map(page => {
+            const active = page.id === selectedPage.id;
+            return (
+              <button key={page.id} type="button" onClick={() => selectPage(page.id)} className="wc-btn" style={{ border:`1px solid ${active ? PAL.upload.accent : "rgba(255,255,255,0.12)"}`, background:active ? "rgba(122,144,255,0.20)" : "rgba(255,255,255,0.05)", color:active ? "#fff" : "rgba(255,255,255,0.62)", borderRadius:999, padding:"8px 12px", fontSize:12, fontWeight:850, cursor:"pointer", whiteSpace:"nowrap" }}>
+                {page.title}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:2, flexShrink:0 }}>
+          {selectedPage.variations.map(item => {
+            const active = item.id === selectedVariation.id;
+            return (
+              <button key={item.id} type="button" onClick={() => selectVariation(item.id)} className="wc-btn" style={{ border:`1px solid ${active ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.10)"}`, background:active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.04)", color:active ? "#fff" : "rgba(255,255,255,0.54)", borderRadius:999, padding:"7px 10px", fontSize:11, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <PreviewFrame>
+        {selectedVariation.render()}
+      </PreviewFrame>
+    </>
+  );
+}
+
 function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
   const [tab, setTab] = useState("feedback");
   const tabs = [
     { id: "feedback", label: "Feedback" },
     { id: "users", label: "Users" },
     { id: "settings", label: "Settings" },
+    { id: "preview", label: "Preview" },
   ];
-
-  return (
-    <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
+  const adminHeader = (
+    <>
       <ScreenHeader back={onBack} title="Admin" />
 
       {!ADMIN_EMAILS.length && (
@@ -12689,10 +13099,21 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
         onChange={setTab}
         ariaLabel="Admin tabs"
       />
+    </>
+  );
+
+  return (
+    <Shell sec="upload" prog={0} total={0} scrollable={tab === "preview"} contentAlign="start" snapScroll={tab === "preview"} hidePill={tab === "preview"}>
+      {tab !== "preview" && (
+        <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, flexShrink:0 }}>
+          {adminHeader}
+        </div>
+      )}
 
       {tab === "feedback" && <AdminFeedbackTab />}
       {tab === "users" && <AdminUsersTab accessMode={accessMode} />}
       {tab === "settings" && <AdminAccessModeTab accessMode={accessMode} onAccessModeChange={onAccessModeChange} />}
+      {tab === "preview" && <AdminPreviewLab header={adminHeader} />}
     </Shell>
   );
 }
@@ -12700,9 +13121,10 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // ─────────────────────────────────────────────────────────────────
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
-function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false, currentUser = null }) {
-  const cachedRows = currentUser?.id ? readUserDataCache(currentUser.id).results.rows : null;
-  const [rows,           setRows]           = useState(() => cachedRows || null);
+function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false, currentUser = null, previewRows = null }) {
+  const isPreview = Array.isArray(previewRows);
+  const cachedRows = !isPreview && currentUser?.id ? readUserDataCache(currentUser.id).results.rows : null;
+  const [rows,           setRows]           = useState(() => isPreview ? previewRows : (cachedRows || null));
   const [err,            setErr]            = useState("");
   const [currentUserName, setCurrentUserName] = useState(() => currentUser ? userProvidedDisplayName(currentUser) : "");
   const [editing,        setEditing]        = useState(false);
@@ -12719,6 +13141,12 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   });
 
   useEffect(() => {
+    if (isPreview) {
+      setRows(previewRows);
+      setCurrentUserName(currentUser ? userProvidedDisplayName(currentUser) : "You");
+      setErr("");
+      return undefined;
+    }
     let alive = true;
     const load = async () => {
       const user = currentUser || (await supabase.auth.getUser()).data?.user || null;
@@ -12754,7 +13182,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
 
     load();
     return () => { alive = false; };
-  }, [currentUser]);
+  }, [currentUser, isPreview, previewRows]);
 
   useEffect(() => {
     if (bundleView && rows && !rows.some(r => r.math_data?.bundle_id === bundleView)) {
