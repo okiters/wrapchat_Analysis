@@ -6539,6 +6539,7 @@ const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 const SHELL_SAFE_TOP = "max(20px, env(safe-area-inset-top, 0px))";
 const SHELL_PANE_PADDING = "16px 20px calc(24px + env(safe-area-inset-bottom, 0px))";
 const SHELL_DRAWER_PADDING = `calc(${SHELL_SAFE_TOP} + 6px) 20px 0`;
+const SCREEN_HEADER_CONTROL_TOP = "36px";
 const SCREEN_CONTENT_STYLE = {
   alignSelf:"stretch",
   flex:1,
@@ -7176,12 +7177,14 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
 }
 
 function SwatchIcon({ inner, accent, size = 48, inset = 9, style = {} }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   return (
     <div style={{ width:size, height:size, position:"relative", flexShrink:0, ...style }}>
       <div style={{
         position:"absolute", inset:0,
         borderRadius:Math.round(size * 0.27),
-        background: "rgba(0,0,0,0.14)",
+        background: isLight ? `${accent}18` : "rgba(0,0,0,0.14)",
         border:`1.5px solid ${accent}55`,
       }} />
       <div style={{
@@ -9318,11 +9321,11 @@ function OnboardingFlow({ step, next, onOnboarded }) {
       </>)}
 
       {step === 3 && (<>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Choose your language")}
         </div>
-        <div style={{ width:"100%", background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.24)", borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
-          <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", lineHeight:1.6 }}>
+        <div style={{ width:"100%", background: isLight ? "rgba(31,24,78,0.07)" : "rgba(var(--wc-p),0.12)", border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.24)"}`, borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+          <div style={{ fontSize:13, color:da.muted, lineHeight:1.6 }}>
             {t("Auto selection will recognize the language from your chats.")}
           </div>
           <select
@@ -9332,10 +9335,10 @@ function OnboardingFlow({ step, next, onOnboarded }) {
             style={{
               width:"100%",
               height:44,
-              background:"rgba(0,0,0,0.22)",
-              border:"1px solid rgba(255,255,255,0.18)",
+              background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.22)",
+              border: isLight ? "1px solid rgba(31,24,78,0.14)" : "1px solid rgba(255,255,255,0.18)",
               borderRadius:14,
-              color:"#fff",
+              color:da.text,
               fontSize:14,
               fontWeight:800,
               padding:"0 12px",
@@ -10979,7 +10982,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       {canUnlockWithCredits && (
-        <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
+        <div style={{ position:"absolute", top:SCREEN_HEADER_CONTROL_TOP, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
           <div style={{
             height:34,
             boxSizing:"border-box",
@@ -11502,7 +11505,7 @@ function AuthUploadFrame({
     <Shell sec="upload" prog={0} total={0} scrollable={false} forceWaves={phase === "upload"}>
       {/* ── Upload-only absolute overlays ── */}
       {phase === "upload" && onHistory && (
-        <div style={{ position:"absolute", top:16, left:16, zIndex:5, animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
+        <div style={{ position:"absolute", top:SCREEN_HEADER_CONTROL_TOP, left:16, zIndex:5, animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
           <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
             style={{ width:40, height:40, borderRadius:"50%", background: isLight ? "none" : "rgba(var(--wc-p),0.20)", border: isLight ? "none" : "1px solid rgba(var(--wc-p),0.38)", color: isLight ? "#7A90FF" : "rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
             <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -11514,7 +11517,7 @@ function AuthUploadFrame({
         </div>
       )}
       {phase === "upload" && showCreditPill && (
-        <div style={{ position:"absolute", top:16, right:20, minHeight:40, zIndex:5, display:"flex", alignItems:"center", animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
+        <div style={{ position:"absolute", top:SCREEN_HEADER_CONTROL_TOP, right:20, minHeight:40, zIndex:5, display:"flex", alignItems:"center", animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
           <AnalysisDotsCounter credits={credits} activePackIds={unlockedPackIds} onAdd={onUpgrade || onPayment} hide={hideCredits} />
         </div>
       )}
@@ -12401,6 +12404,9 @@ function AdminFeedbackTab() {
 }
 
 function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [busyById, setBusyById] = useState({});
@@ -12565,12 +12571,12 @@ function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                   onChange={e => setAmount(row.user_id, e.target.value)}
                   style={{
                     width:88,
-                    background:"rgba(0,0,0,0.22)",
-                    border:"1px solid rgba(255,255,255,0.12)",
+                    background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.22)",
+                    border: isLight ? "1px solid rgba(31,24,78,0.14)" : "1px solid rgba(255,255,255,0.12)",
                     borderRadius:12,
                     padding:"10px 12px",
                     fontSize:14,
-                    color:"#fff",
+                    color:da.text,
                     outline:"none",
                     fontFamily:"inherit",
                     opacity:!canAdjustCredits ? 0.45 : 1,

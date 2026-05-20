@@ -33,7 +33,7 @@ export const DA_DARK = {
 };
 
 export const DA_LIGHT = {
-  bg:     '#F0EDE7',
+  bg:     '#EDE8DC',
   text:   '#1f184e',
   muted:  'rgba(31,24,78,0.6)',
   faint:  'rgba(31,24,78,0.28)',
