@@ -1,10 +1,13 @@
 import wrapchatLogo from "../assets/WrapchatLogo_main_2.svg";
+import { useTheme } from "./theme.jsx";
 const wrapchatLogoTransparent = wrapchatLogo;
 
 const DEFAULT_ACCENT = "#7A90FF";
 
 function LogoSVG({ size, accentColor }) {
+  const { theme } = useTheme();
   const accent = accentColor || DEFAULT_ACCENT;
+  const bodyFill = theme === "light" ? "#B8C4FF" : "#fff";
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -15,7 +18,7 @@ function LogoSVG({ size, accentColor }) {
       style={{ display: "block", flexShrink: 0 }}
     >
       <path
-        fill="#fff"
+        fill={bodyFill}
         d="M855.01,260.96c-.35.07-.69.26-1.28.91-3.44-5.95-8.4-10.73-14.61-14.88-38.47-25.72-97.2-19.92-138.63-.99-18.54,8.56-36.27,17.79-51.15,31.64l-32,29.79,78.06,62.39,37.07,28.98,85.92,62.44c11.3,8.21,21.03,16.81,28.86,28.14,14.37,20.79,15.87,45.88,4.12,68.14l-18.71,35.43-55.3,101.05-20.81,37.76c-.72-.16-1.28.16-1.84,1.21.56-6.53,1.96-13.23.92-20.21-3.61-24.34-21.63-38.42-41.46-51.38-21.43-14.01-42.07-27.57-62.53-43.27l-52.55-40.33-85.37-69.16-53.98-44.79-45.45,38.13c-52.78,44.28-105.95,86.82-161.16,127.73l-12.14,8.2-46.09,30.72c-23.42,15.61-37.73,42.94-27.01,68.66l-29.61-51.93-51.98-94.64-17.66-33.35c-8.14-15.37-10.28-33.11-4.73-49.72,10.68-31.94,39.11-46.71,64.99-65.78l60.81-44.81,57.18-44.75,55.59-44.83-15.9-15.02c-18.08-17.08-37.43-32.2-59.72-42.99-25.01-12.1-51.09-19.32-79.32-19.65-22.97-.27-45.2,3.53-64.49,15.47-6.55,4.06-12.63,9.12-16.64,15.92-.82,1.49-2.11-.51-1.08-1.54,4.82-15.22,11.24-29.61,18.45-44.46,10.19-20.99,19.52-41.53,31-61.77,16.5-29.09,45.79-58.28,73.66-77.1,54.67-36.92,118.26-27.55,174.71,1.91,22.62,12.15,41.53,28.06,60.16,45.65l36.56,34.52,52.43-48.77c38.6-35.91,99.55-61.25,152.79-56.8,26.68,2.23,50.57,11.57,72.35,27.45,19.68,14.35,36.63,30.89,52.02,49.72,8.76,10.72,15.36,21.86,21.76,34.22,13.2,25.52,25.33,50.72,36.64,76.98l7.15,19.76Z"
       />
       <path
@@ -45,7 +48,9 @@ export default function BrandLockup({
   logoSrc = wrapchatLogo,
   accentColor = null,
 }) {
-  const useInline = !!accentColor;
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  const useInline = !!accentColor || isLight;
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div
@@ -80,7 +85,7 @@ export default function BrandLockup({
           style={{
             fontSize: titleSize,
             fontWeight: 800,
-            color: accentColor || "#fff",
+            color: accentColor || (isLight ? "#1f184e" : "#fff"),
             letterSpacing: titleLetterSpacing,
             lineHeight: 1,
             textAlign: "center",
@@ -94,7 +99,7 @@ export default function BrandLockup({
         <div
           style={{
             fontSize: 15,
-            color: "rgba(255,255,255,0.5)",
+            color: isLight ? "rgba(31,24,78,0.5)" : "rgba(255,255,255,0.5)",
             marginTop: 8,
             marginBottom: subtitleMarginBottom,
             textAlign: "center",

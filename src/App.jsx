@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
 import _updateNotesRaw from "../docs/update-notes.md?raw";
-import { DA, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon, ForwardIcon, setAppSafeAreaColor } from "./theme.jsx";
+import { DA, getDA, ThemeContext, useTheme, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon, ForwardIcon, setAppSafeAreaColor } from "./theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
 import { processImportedChatFile } from "./import/fileProcessing";
@@ -94,6 +94,8 @@ const SectionPaletteContext = createContext(null);
 // uiLang is the resolved code ("en","tr","es","pt","ar","fr","de","it").
 const UILanguageContext = createContext({ uiLang: "en", uiLangPref: "en", updateUiLangPref: () => {} });
 function useUILanguage() { return useContext(UILanguageContext); }
+
+function useAppTheme() { return useContext(ThemeContext); }
 function useT() {
   const { uiLang } = useUILanguage();
   return (key, vars) => translateUI(uiLang, key, vars);
@@ -6308,9 +6310,9 @@ const PACK_DEFS = Object.freeze({
     fg: "#f0e8ff",
     inner: "#1a0e40",
     paymentSelectedBg: "#3d2480",
-    paymentSelectedBorder: "rgba(127,91,176,0.70)",
+    paymentSelectedBorder: "rgba(var(--wc-p),0.70)",
     paymentMutedBg: "#2b1960",
-    paymentMutedBorder: "rgba(127,91,176,0.35)",
+    paymentMutedBorder: "rgba(var(--wc-p),0.35)",
   }),
   rf: Object.freeze({
     id: "rf",
@@ -6549,8 +6551,13 @@ const SCREEN_HEADER_BLOCK_STYLE = {
   marginBottom:12,
 };
 
+const THEME_BG_SECTIONS = new Set(["upload", "trial"]);
+
 function Shell({ sec, prog, total, children, feedback=null, shareType="card", scrollable=true, contentAlign="center", hidePill=false, palette=null, hideChromeButtons=false, hideProgressBar=false, forceWaves=false, snapScroll=false }) {
   const p = palette || PAL[sec] || PAL.upload;
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const onClose = useContext(CloseResultsContext);
   const share = useContext(ShareResultsContext);
   const feedbackApi = useContext(FeedbackContext);
@@ -6586,9 +6593,11 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const shellBg = (isLight && THEME_BG_SECTIONS.has(sec)) ? da.bg : p.bg;
+
   useLayoutEffect(() => {
     if (rootRef.current?.closest('[data-share-capture="summary"]')) return;
-    setAppSafeAreaColor(p.bg);
+    setAppSafeAreaColor(shellBg);
   });
 
   prevContentRef.current = children;
@@ -6656,7 +6665,7 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         width: "min(420px, 100vw)",
         height: "100svh",
         margin: "0 auto",
-        background: p.bg,
+        background: shellBg,
         borderRadius: 32,
         overflow: "hidden",
         position: "relative",
@@ -6667,15 +6676,15 @@ function Shell({ sec, prog, total, children, feedback=null, shareType="card", sc
         fontFamily: "system-ui, sans-serif",
         paddingTop: rootPaddingTop,
       }}>
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:rootPaddingTop, background:p.bg, zIndex:4, pointerEvents:"none" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:rootPaddingTop, background:shellBg, zIndex:4, pointerEvents:"none" }} />
         {/* ── WAVE LINES — result screens + explicitly flagged screens only ── */}
         {(forceWaves || sec !== "upload") && <WaveLines accent={p.accent} intro={forceWaves && sec === "upload"} />}
 
         {/* ── STATIC CHROME — never moves ── */}
         {/* Thin progress bar at very top */}
         {!hideProgressBar && total > 0 && (
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:5 }}>
-          <div style={{ height:"100%", background:"rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${Math.round((prog/total)*100)}%`, transition:"width 0.4s" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:3, background: isLight && THEME_BG_SECTIONS.has(sec) ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)", zIndex:5 }}>
+          <div style={{ height:"100%", background: isLight && THEME_BG_SECTIONS.has(sec) ? "rgba(31,24,78,0.6)" : "rgba(255,255,255,0.75)", borderRadius:"0 2px 2px 0", width:`${Math.round((prog/total)*100)}%`, transition:"width 0.4s" }} />
         </div>
         )}
         {!hideChromeButtons && share?.onShare && (
@@ -6940,7 +6949,6 @@ function FeedbackSheet({ open, target, selected, note, submitting, onSelect, onN
             transition: "transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)",
             overflowX: "hidden",
             overscrollBehavior: "contain",
-            scrollbarWidth: "thin",
             boxSizing: "border-box",
           }}
         >
@@ -7127,6 +7135,8 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
 }
 function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=null, centerTitle=false, topOffset=20 }) {
   const t = useT();
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <div data-share-hide style={{ width:"100%", minHeight:40, display:"grid", gridTemplateColumns:"40px minmax(0, 1fr) 40px", alignItems:"center", columnGap:8, flexShrink:0, marginTop:topOffset }}>
       {back && (
@@ -7142,7 +7152,7 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
             border:"none",
             padding:0,
             background:"none",
-            color:"rgba(255,255,255,0.74)",
+            color: theme === "light" ? "rgba(31,24,78,0.6)" : "rgba(255,255,255,0.74)",
             display:"flex",
             alignItems:"center",
             justifyContent:"center",
@@ -7155,7 +7165,7 @@ function ScreenHeader({ title, titleNode=null, back, backLabel="Back", action=nu
       {!back && <div />}
       <div style={{
         minWidth:0,
-        fontSize:28, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.08,
+        fontSize:28, fontWeight:900, color:da.text, letterSpacing:-1, lineHeight:1.08,
         textAlign:centerTitle ? "center" : "left", overflowWrap:"anywhere",
       }}>
         {titleNode ?? t(title)}
@@ -7200,6 +7210,8 @@ function PackSwatch({ pack, size = 48, inset = 9 }) {
 
 function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = false }) {
   if (hide || !Number.isInteger(credits)) return null;
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const useExplicitPackState = activePackIds && typeof activePackIds === "object";
   const dotPacks = PACK_ORDER.map(id => PACK_DEFS[id]).filter(Boolean);
   const activeCount = useExplicitPackState
@@ -7209,8 +7221,8 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
   return (
     <div style={{
       display:"flex", alignItems:"center", gap:6,
-      background:"rgba(127,91,176,0.18)",
-      border:"1px solid rgba(127,91,176,0.32)",
+      background: isLight ? "none" : "rgba(var(--wc-p),0.18)",
+      border: isLight ? "none" : "1px solid rgba(var(--wc-p),0.32)",
       borderRadius:999,
       padding:"5px 7px 5px 10px",
     }}>
@@ -7223,14 +7235,14 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
               title={active ? "Owned read" : "Locked read"}
               style={{
                 width:8, height:8, borderRadius:"50%",
-                background:active ? pack.accent : "rgba(255,255,255,0.16)",
+                background: active ? pack.accent : (isLight ? "rgba(122,144,255,0.28)" : "rgba(255,255,255,0.16)"),
                 transition:"all 0.2s",
               }}
             />
           );
         })}
       </div>
-      <div style={{ width:1, height:14, background:"rgba(255,255,255,0.12)", margin:"0 1px" }} />
+      <div style={{ width:1, height:14, background: isLight ? "rgba(122,144,255,0.3)" : "rgba(255,255,255,0.12)", margin:"0 1px" }} />
       <button
         type="button"
         onClick={onAdd}
@@ -7238,10 +7250,10 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
         aria-label="Unlock more reads"
         style={{
           width:22, height:22, borderRadius:"50%",
-          background:"rgba(255,255,255,0.10)",
-          border:"1px solid rgba(255,255,255,0.16)",
+          background: isLight ? "none" : "rgba(255,255,255,0.10)",
+          border: isLight ? "none" : "1px solid rgba(255,255,255,0.16)",
           display:"flex", alignItems:"center", justifyContent:"center",
-          color:"rgba(255,255,255,0.82)",
+          color: isLight ? "#7A90FF" : "rgba(255,255,255,0.82)",
           fontSize:14, fontWeight:700, lineHeight:1,
           padding:0, flexShrink:0, cursor:"pointer",
         }}
@@ -8174,7 +8186,7 @@ function PricingCostOverview({ accent = DA.teal, compact = false }) {
   const t = useT();
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
-      <div style={{ width:"100%", background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"12px 14px" }}>
+      <div style={{ width:"100%", background:"rgba(var(--wc-p),0.10)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:18, padding:"12px 14px" }}>
         <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:accent, marginBottom:8 }}>{t("Bundles")}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:7 }}>
           {PACK_ORDER.map(id => {
@@ -8192,7 +8204,7 @@ function PricingCostOverview({ accent = DA.teal, compact = false }) {
       </div>
 
       {!compact && (
-        <div style={{ width:"100%", background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"12px 14px" }}>
+        <div style={{ width:"100%", background:"rgba(var(--wc-p),0.10)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:18, padding:"12px 14px" }}>
           <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:accent, marginBottom:8 }}>{t("Credit rules")}</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:6 }}>
             {["Credits never expire.", "One-time purchases only.", "No subscriptions."].map(line => (
@@ -8812,6 +8824,9 @@ function RelationshipSelect({
   onDebugDownloadRaw = () => {},
 }) {
   const t = useT();
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const [sel, setSel] = useState(null);
   const [extraChats, setExtraChats] = useState([]);
   const [extraOpen, setExtraOpen] = useState(false);
@@ -8868,9 +8883,9 @@ function RelationshipSelect({
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
           padding:"20px 10px 16px",
           borderRadius:20,
-          background: active ? `${opt.accent}14` : "rgba(127,91,176,0.08)",
-          border: active ? `1.5px solid ${opt.accent}` : "1px solid rgba(127,91,176,0.20)",
-          color:"#fff", cursor:"pointer", transition:"all 0.18s",
+          background: active ? `${opt.accent}14` : (isLight ? "rgba(31,24,78,0.05)" : "rgba(var(--wc-p),0.08)"),
+          border: active ? `1.5px solid ${opt.accent}` : `1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.20)"}`,
+          color:da.text, cursor:"pointer", transition:"all 0.18s",
           minHeight:100,
         }}
       >
@@ -8883,11 +8898,11 @@ function RelationshipSelect({
         <img
           src={opt.icon} alt="" aria-hidden="true"
           style={{ width:32, height:32, objectFit:"contain", marginBottom:9,
-            filter:"brightness(0) invert(1)", opacity: active ? 1 : 0.65 }}
+            filter: isLight ? `brightness(0) saturate(100%) invert(14%) sepia(52%) saturate(800%) hue-rotate(225deg) brightness(93%) contrast(96%) opacity(${active ? 1 : 0.65})` : `brightness(0) invert(1) opacity(${active ? 1 : 0.65})` }}
         />
         <div style={{
           fontSize:14, fontWeight:800, letterSpacing:-0.2, textAlign:"center",
-          color: active ? opt.accent : "rgba(255,255,255,0.85)",
+          color: active ? opt.accent : da.text,
         }}>
           {t(opt.label)}
         </div>
@@ -8905,7 +8920,7 @@ function RelationshipSelect({
 
       {/* ── Section A: relationship ── */}
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12 }}>
-        <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
+        <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.1em", textTransform:"uppercase", color:da.faint }}>
           Who is this with?
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, width:"100%" }}>
@@ -8918,14 +8933,14 @@ function RelationshipSelect({
 
       {/* ── Section B: extra chats — collapsible ── */}
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, marginTop:8 }}>
-        <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
+        <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.1em", textTransform:"uppercase", color:da.faint }}>
           Have more chats with this person?
         </div>
       <div style={{
         width:"100%",
         borderRadius:20,
-        border: extraOpen ? "1px solid rgba(127,91,176,0.35)" : "1px solid rgba(127,91,176,0.18)",
-        background: extraOpen ? "rgba(127,91,176,0.10)" : "rgba(127,91,176,0.05)",
+        border: extraOpen ? "1px solid rgba(var(--wc-p),0.35)" : "1px solid rgba(var(--wc-p),0.18)",
+        background: extraOpen ? "rgba(var(--wc-p),0.10)" : "rgba(var(--wc-p),0.05)",
         overflow:"hidden",
         transition:"border-color 0.2s, background 0.2s",
       }}>
@@ -8943,13 +8958,13 @@ function RelationshipSelect({
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {extraChats.length > 0 ? (
               <div style={{
-                fontSize:11, fontWeight:800, background:"rgba(127,91,176,0.28)",
+                fontSize:11, fontWeight:800, background:"rgba(var(--wc-p),0.28)",
                 color:"#c090e8", borderRadius:999, padding:"2px 8px", flexShrink:0,
               }}>
                 {extraChats.length + 1} chats added
               </div>
             ) : (
-              <span style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.45)", letterSpacing:-0.1 }}>
+              <span style={{ fontSize:13, fontWeight:600, color:da.muted, letterSpacing:-0.1 }}>
                 Add older exports or number changes
               </span>
             )}
@@ -8965,25 +8980,25 @@ function RelationshipSelect({
         {/* Expanded body */}
         {extraOpen && (
           <div style={{ padding:"0 16px 16px" }}>
-            <div style={{ fontSize:13, color:"rgba(255,255,255,0.45)", lineHeight:1.7, marginBottom:14 }}>
+            <div style={{ fontSize:13, color:da.muted, lineHeight:1.7, marginBottom:14 }}>
               If they changed numbers or you have older exports, add them here and we&apos;ll read them together.
             </div>
 
             {extraChats.length > 0 && (
               <div style={{ marginBottom:14, display:"flex", flexDirection:"column", gap:6 }}>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", fontWeight:700 }}>
+                <div style={{ fontSize:12, color:da.muted, fontWeight:700 }}>
                   We&apos;ll combine them before analysis.
                 </div>
                 {extraChats.map((chat, i) => (
-                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(127,91,176,0.12)", borderRadius:10, padding:"7px 11px" }}>
-                    <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(var(--wc-p),0.12)", borderRadius:10, padding:"7px 11px" }}>
+                    <div style={{ fontSize:12, color:da.muted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                       {chat.fileName || `Chat ${i + 2}`}
                     </div>
                     <button
                       type="button"
                       onClick={() => setExtraChats(prev => prev.filter((_, j) => j !== i))}
                       className="wc-btn"
-                      style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:11, fontWeight:700, cursor:"pointer", padding:0, flexShrink:0 }}
+                      style={{ background:"none", border:"none", color:da.faint, fontSize:11, fontWeight:700, cursor:"pointer", padding:0, flexShrink:0 }}
                     >
                       Remove
                     </button>
@@ -9092,6 +9107,9 @@ function Auth() {
   const [err,      setErr]      = useState("");
   const [info,     setInfo]     = useState("");
   const [busy,     setBusy]     = useState(false);
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
 
   const switchTab = (t) => { setTab(t); setErr(""); setInfo(""); };
 
@@ -9110,9 +9128,6 @@ function Auth() {
         if (error) {
           setErr(normalizeAuthError(error, "signup"));
         } else if (data?.user?.identities?.length === 0) {
-          // Supabase returns success with an empty identities array when the email
-          // already exists and email confirmation is enabled (avoids enumeration
-          // server-side). This is the only reliable client-side signal.
           setErr("This email is already registered. Log in instead.");
         } else {
           setInfo("Check your email to confirm your account, then log in.");
@@ -9124,12 +9139,12 @@ function Auth() {
 
   const inputStyle = {
     width: "100%",
-    background: "rgba(0,0,0,0.25)",
-    border: "1.5px solid rgba(255,255,255,0.12)",
+    background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.25)",
+    border: `1.5px solid ${isLight ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)"}`,
     borderRadius: 14,
     padding: "13px 16px",
     fontSize: 15,
-    color: "#fff",
+    color: da.text,
     outline: "none",
     fontFamily: "inherit",
   };
@@ -9185,8 +9200,8 @@ function Auth() {
         {busy ? "…" : tab === "login" ? "Log in" : "Create account"}
       </PrimaryButton>
 
-      <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
-      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
+      <div style={{ fontSize:11, color:da.faint, textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:da.faint, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none" }}>
         {HOMEPAGE_VERSION_LABEL}
       </div>
     </Shell>
@@ -9216,6 +9231,9 @@ const EXPORT_STEPS = [
 function OnboardingFlow({ step, next, onOnboarded }) {
   const { uiLangPref } = useUILanguage();
   const t = useT();
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const [busy, setBusy] = useState(false);
   const [err]           = useState("");
   const [selectedUiLang, setSelectedUiLang] = useState(uiLangPref);
@@ -9236,37 +9254,37 @@ function OnboardingFlow({ step, next, onOnboarded }) {
   const handleSkip   = () => markOnboarded("en", () => onOnboarded?.("en"));
   const handleFinish = () => markOnboarded(selectedUiLang, () => onOnboarded?.(selectedUiLang));
 
-  const linkBtn = { background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
+  const linkBtn = { background:"none", border:"none", color:da.faint, fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
 
   return (
     <Shell sec="upload" prog={step + 1} total={4} scrollable={false}>
 
       {/* ── Screen 1: hook ── */}
       {step === 0 && (<>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Your relationship, in data.")}
         </div>
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", textAlign:"center", lineHeight:1.75, width:"100%" }}>
+        <div style={{ fontSize:14, color:da.muted, textAlign:"center", lineHeight:1.75, width:"100%" }}>
           {t("Reads your chat export and shows you what's actually going on. Who shows up. Who ghosts. Who carries the conversation.")}
         </div>
         <PrimaryButton onClick={next} color={PAL.upload.accent} textColor={PAL.upload.bg}>
           <span style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>{t("Next")}<ForwardIcon size={13} /></span>
         </PrimaryButton>
-        <button onClick={handleSkip} className="wc-btn" style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, padding:"4px 8px", fontWeight:600 }}>{t("Skip")}</button>
+        <button onClick={handleSkip} className="wc-btn" style={{ background:"none", border:"none", color:da.faint, fontSize:12, padding:"4px 8px", fontWeight:600 }}>{t("Skip")}</button>
       </>)}
 
       {/* ── Screen 2: export instructions ── */}
       {step === 1 && (<>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Start with your chat.")}
         </div>
         <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:9 }}>
           {EXPORT_STEPS.map((label, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:18, padding:"13px 16px" }}>
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:14, background: isLight ? "rgba(31,24,78,0.07)" : "rgba(var(--wc-p),0.12)", border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.24)"}`, borderRadius:18, padding:"13px 16px" }}>
               <div style={{ width:28, height:28, borderRadius:"50%", background:PAL.upload.inner, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800, color:"#fff", flexShrink:0 }}>
                 {i + 1}
               </div>
-              <div style={{ fontSize:14, fontWeight:600, color:"#fff", lineHeight:1.4 }}>{t(label)}</div>
+              <div style={{ fontSize:14, fontWeight:600, color:da.text, lineHeight:1.4 }}>{t(label)}</div>
             </div>
           ))}
         </div>
@@ -9277,10 +9295,10 @@ function OnboardingFlow({ step, next, onOnboarded }) {
 
       {/* ── Screen 3: launch ── */}
       {step === 2 && (<>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Upload. Analyse. See it clearly.")}
         </div>
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", textAlign:"center", lineHeight:1.75, width:"100%" }}>
+        <div style={{ fontSize:14, color:da.muted, textAlign:"center", lineHeight:1.75, width:"100%" }}>
           {t("Six reports. Toxicity, love languages, accountability, energy, growth, and your full chat wrapped. Results in under a minute.")}
         </div>
         <div style={{ display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center", width:"100%" }}>
@@ -9303,7 +9321,7 @@ function OnboardingFlow({ step, next, onOnboarded }) {
         <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1.5, lineHeight:1.1, textAlign:"center", width:"100%" }}>
           {t("Choose your language")}
         </div>
-        <div style={{ width:"100%", background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+        <div style={{ width:"100%", background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.24)", borderRadius:22, padding:"18px 16px", display:"flex", flexDirection:"column", gap:12 }}>
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", lineHeight:1.6 }}>
             {t("Auto selection will recognize the language from your chats.")}
           </div>
@@ -9346,6 +9364,9 @@ function OnboardingFlow({ step, next, onOnboarded }) {
 // TERMS & PRIVACY ACCEPTANCE (separate step, after onboarding)
 // ─────────────────────────────────────────────────────────────────
 function TermsFlow({ onAccepted, onLogout }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const [activeTab,    setActiveTab]    = useState("tos");
   const [tosRead,      setTosRead]      = useState(false);
   const [privacyRead,  setPrivacyRead]  = useState(false);
@@ -9388,9 +9409,9 @@ function TermsFlow({ onAccepted, onLogout }) {
 
   const scrollBox = {
     height:"40vh", overflowY:"auto",
-    background:"rgba(0,0,0,0.22)", borderRadius:20,
+    background: isLight ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.22)", borderRadius:20,
     padding:"18px 20px", width:"100%",
-    fontSize:12.5, color:"rgba(255,255,255,0.62)", lineHeight:1.8,
+    fontSize:12.5, color:da.muted, lineHeight:1.8,
     fontFamily:"inherit", whiteSpace:"pre-wrap",
   };
 
@@ -9398,14 +9419,14 @@ function TermsFlow({ onAccepted, onLogout }) {
     ? <span style={{ color:PAL.growth.accent, fontWeight:800 }}>✓</span>
     : null;
 
-  const linkBtn = { background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
+  const linkBtn = { background:"none", border:"none", color:da.faint, fontSize:12, cursor:"pointer", padding:"4px 8px", fontWeight:600, letterSpacing:0.1 };
 
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
-      <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>
+      <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-1, lineHeight:1.15, textAlign:"center", width:"100%" }}>
         One thing before you start.
       </div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", textAlign:"center", lineHeight:1.6, width:"100%" }}>
+      <div style={{ fontSize:13, color:da.muted, textAlign:"center", lineHeight:1.6, width:"100%" }}>
         Read both documents below before continuing.
       </div>
 
@@ -9453,7 +9474,7 @@ function TermsFlow({ onAccepted, onLogout }) {
       </PrimaryButton>
 
       <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
-        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:999, color:"rgba(200,170,240,0.70)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>Log out</button>}
+        {onLogout && <button onClick={onLogout} className="wc-btn" style={{ background:"rgba(var(--wc-p),0.10)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:999, color:"rgba(200,170,240,0.70)", fontSize:12, padding:"8px 14px", fontWeight:700 }}>Log out</button>}
       </div>
     </Shell>
   );
@@ -9466,6 +9487,9 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
   const [err, setErr] = useState("");
   const cleanName = String(name || "").replace(/\s+/g, " ").trim();
   const canSave = cleanName.length >= 2 && !busy;
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
 
   const save = async () => {
     if (!canSave) {
@@ -9497,12 +9521,12 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
 
   const inputStyle = {
     width: "100%",
-    background: "rgba(0,0,0,0.25)",
-    border: "1.5px solid rgba(255,255,255,0.12)",
+    background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.25)",
+    border: `1.5px solid ${isLight ? "rgba(31,24,78,0.15)" : "rgba(255,255,255,0.12)"}`,
     borderRadius: 16,
     padding: "14px 16px",
     fontSize: 16,
-    color: "#fff",
+    color: da.text,
     outline: "none",
     fontFamily: "inherit",
   };
@@ -9515,10 +9539,10 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
         subtitle="Your chats, unwrapped."
         subtitleMarginBottom={8}
       />
-      <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
+      <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
         What name should we look for?
       </div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", textAlign:"center", lineHeight:1.7, width:"100%" }}>
+      <div style={{ fontSize:13, color:da.muted, textAlign:"center", lineHeight:1.7, width:"100%" }}>
         Use the name that appears for you inside your exported chats. This helps WrapChat tell you apart from the other person and keeps My Results cleaner.
       </div>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
@@ -9538,7 +9562,7 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
         {busy ? "Saving…" : "Continue"}
       </PrimaryButton>
       {onLogout && (
-        <button onClick={onLogout} className="wc-btn" style={{ background:"none", border:"none", color:"rgba(255,255,255,0.32)", fontSize:12, padding:"4px 8px", fontWeight:700 }}>
+        <button onClick={onLogout} className="wc-btn" style={{ background:"none", border:"none", color:da.faint, fontSize:12, padding:"4px 8px", fontWeight:700 }}>
           Log out
         </button>
       )}
@@ -9548,6 +9572,8 @@ function ProfileNameSetup({ user, onSaved, onLogout }) {
 
 function QuickReadIntro({ user, onContinue }) {
   const [busy, setBusy] = useState(false);
+  const { theme } = useTheme();
+  const da = getDA(theme);
   const continueToUpload = async () => {
     if (busy) return;
     setBusy(true);
@@ -9572,15 +9598,15 @@ function QuickReadIntro({ user, onContinue }) {
         subtitle="Your chats, unwrapped."
         subtitleMarginBottom={8}
       />
-      <div style={{ fontSize:26, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
+      <div style={{ fontSize:26, fontWeight:900, color:da.text, letterSpacing:-1, lineHeight:1.12, textAlign:"center", width:"100%" }}>
         Your first read is included.
       </div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", textAlign:"center", lineHeight:1.7, width:"100%" }}>
+      <div style={{ fontSize:13, color:da.muted, textAlign:"center", lineHeight:1.7, width:"100%" }}>
         Start with a Quick Read whenever you are ready. It gives you the first vibe, pattern, and takeaway from a chat.
       </div>
       <div style={{ width:"100%", background:"rgba(122,144,255,0.13)", border:"1px solid rgba(122,144,255,0.32)", borderRadius:22, padding:"15px 16px", textAlign:"left" }}>
         <div style={{ fontSize:11, color:PAL.trial.accent, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", marginBottom:6 }}>Quick Read</div>
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.76)", lineHeight:1.55 }}>
+        <div style={{ fontSize:14, color:da.muted, lineHeight:1.55 }}>
           One free starter pass. The deeper reads are there when you want them.
         </div>
       </div>
@@ -9592,18 +9618,20 @@ function QuickReadIntro({ user, onContinue }) {
 }
 
 function TooShort({ onBack }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false}>
       <BrandLockup />
-      <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+      <div style={{ background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.24)", borderRadius:24, padding:"32px 24px", textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:26, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
           Not enough messages to wrap
         </div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginTop:10, lineHeight:1.75 }}>
+        <div style={{ fontSize:13, color:da.muted, marginTop:10, lineHeight:1.75 }}>
           This chat has fewer than {MIN_MESSAGES} messages after filtering system messages. WrapChat needs more to work with.
         </div>
       </div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", textAlign:"center", lineHeight:1.8 }}>
+      <div style={{ fontSize:12, color:da.faint, textAlign:"center", lineHeight:1.8 }}>
         Try exporting a longer chat history.
       </div>
       <GhostButton onClick={onBack}><BackIcon size={11} /> Upload a different file</GhostButton>
@@ -9617,16 +9645,19 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
   const [approvedIds, setApprovedIds] = useState([]);
   const markApproved = (id) => setApprovedIds(prev => prev.includes(id) ? prev : [...prev, id]);
   const markSeparate = (id) => setApprovedIds(prev => prev.filter(item => item !== id));
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <ScreenHeader back={onBack} title="Review contacts" />
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:14 }}>
-        <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
-          <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+        <div style={{ background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+          <div style={{ fontSize:22, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
             We found possible duplicate contacts.
           </div>
-          <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", marginTop:10, lineHeight:1.65 }}>
+          <div style={{ fontSize:13, color:da.muted, marginTop:10, lineHeight:1.65 }}>
             Choose which pairs should be treated as the same person before analysis.
           </div>
         </div>
@@ -9634,8 +9665,8 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
           const active = approvedIds.includes(suggestion.id);
           return (
             <div key={suggestion.id} style={{
-              background:"rgba(127,91,176,0.10)",
-              border:`1px solid ${active ? PAL.upload.accent : "rgba(127,91,176,0.22)"}`,
+              background:"rgba(var(--wc-p),0.10)",
+              border:`1px solid ${active ? PAL.upload.accent : "rgba(var(--wc-p),0.22)"}`,
               borderRadius:20,
               padding:16,
               display:"flex",
@@ -9645,14 +9676,14 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 {[suggestion.participantA, suggestion.participantB].map((participant, index) => (
                   <div key={`${suggestion.id}-${index}`} style={{ minWidth:0 }}>
-                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                    <div style={{ fontSize:11, color:da.faint, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em" }}>
                       Participant {index === 0 ? "A" : "B"}
                     </div>
-                    <div style={{ marginTop:5, fontSize:15, color:"#fff", fontWeight:800, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    <div style={{ marginTop:5, fontSize:15, color:da.text, fontWeight:800, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                       {participant.displayName || "Unknown"}
                     </div>
                     {participant.phone && (
-                      <div style={{ marginTop:3, fontSize:12, color:"rgba(255,255,255,0.45)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      <div style={{ marginTop:3, fontSize:12, color:da.muted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {participant.phone}
                       </div>
                     )}
@@ -9661,11 +9692,11 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button type="button" onClick={() => markApproved(suggestion.id)} className="wc-btn"
-                  style={{ flex:1, borderRadius:999, padding:"10px 12px", border:`1px solid ${active ? PAL.upload.accent : "rgba(255,255,255,0.16)"}`, background:active ? PAL.upload.accent : "rgba(255,255,255,0.08)", color:active ? PAL.upload.bg : "#fff", fontSize:13, fontWeight:800 }}>
+                  style={{ flex:1, borderRadius:999, padding:"10px 12px", border:`1px solid ${active ? PAL.upload.accent : (isLight ? "rgba(31,24,78,0.2)" : "rgba(255,255,255,0.16)")}`, background:active ? PAL.upload.accent : (isLight ? "rgba(31,24,78,0.06)" : "rgba(255,255,255,0.08)"), color:active ? PAL.upload.bg : da.text, fontSize:13, fontWeight:800 }}>
                   Approve
                 </button>
                 <button type="button" onClick={() => markSeparate(suggestion.id)} className="wc-btn"
-                  style={{ flex:1, borderRadius:999, padding:"10px 12px", border:"1px solid rgba(255,255,255,0.16)", background:!active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)", color:"#fff", fontSize:13, fontWeight:700 }}>
+                  style={{ flex:1, borderRadius:999, padding:"10px 12px", border:`1px solid ${isLight ? "rgba(31,24,78,0.2)" : "rgba(255,255,255,0.16)"}`, background:!active ? (isLight ? "rgba(31,24,78,0.1)" : "rgba(255,255,255,0.14)") : (isLight ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.08)"), color:da.text, fontSize:13, fontWeight:700 }}>
                   Keep separate
                 </button>
               </div>
@@ -9679,25 +9710,27 @@ function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
 }
 
 function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <ScreenHeader back={onBack} title="Review chats" />
-      <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
-        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
+      <div style={{ background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
+        <div style={{ fontSize:22, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
           These chats may be from different people.
         </div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.58)", marginTop:10, lineHeight:1.65 }}>
+        <div style={{ fontSize:13, color:da.muted, marginTop:10, lineHeight:1.65 }}>
           Confirm before combining them into one analysis.
         </div>
       </div>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
         {(mismatch?.rows || []).map(row => (
-          <div key={row.chatId} style={{ background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"14px 16px" }}>
+          <div key={row.chatId} style={{ background:"rgba(var(--wc-p),0.10)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:18, padding:"14px 16px" }}>
             <div style={{ fontSize:11, color:PAL.upload.accent, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.08em" }}>
               {row.label}
             </div>
-            <div style={{ marginTop:5, fontSize:16, color:"#fff", fontWeight:800 }}>{row.otherName}</div>
-            {row.fileName && <div style={{ marginTop:4, fontSize:12, color:"rgba(255,255,255,0.42)" }}>{row.fileName}</div>}
+            <div style={{ marginTop:5, fontSize:16, color:da.text, fontWeight:800 }}>{row.otherName}</div>
+            {row.fileName && <div style={{ marginTop:4, fontSize:12, color:da.muted }}>{row.fileName}</div>}
           </div>
         ))}
       </div>
@@ -9710,14 +9743,16 @@ function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
 function ProfileNameMismatchReview({ warning, onContinue, onBack }) {
   const userName = warning?.userName || "your saved name";
   const participants = Array.isArray(warning?.participants) ? warning.participants : [];
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
       <ScreenHeader back={onBack} title="Check your name" />
       <div style={{ background:"rgba(122,144,255,0.14)", border:"1px solid rgba(122,144,255,0.34)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
-        <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, lineHeight:1.2 }}>
-          We could not find "{userName}" in this duo chat.
+        <div style={{ fontSize:22, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
+          We could not find &ldquo;{userName}&rdquo; in this duo chat.
         </div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", marginTop:10, lineHeight:1.65 }}>
+        <div style={{ fontSize:13, color:da.muted, marginTop:10, lineHeight:1.65 }}>
           WrapChat uses your name to tell you apart from the other person. If one of these is you, you can continue.
         </div>
       </div>
@@ -9727,7 +9762,7 @@ function ProfileNameMismatchReview({ warning, onContinue, onBack }) {
             <div style={{ fontSize:11, color:PAL.trial.accent, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.08em" }}>
               Chat participant
             </div>
-            <div style={{ marginTop:5, fontSize:16, color:"#fff", fontWeight:800 }}>{name}</div>
+            <div style={{ marginTop:5, fontSize:16, color:da.text, fontWeight:800 }}>{name}</div>
           </div>
         ))}
       </div>
@@ -9738,11 +9773,13 @@ function ProfileNameMismatchReview({ warning, onContinue, onBack }) {
 }
 
 function AdminLocked({ onBack }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false} contentAlign="start">
       <ScreenHeader back={onBack} title="Admin access only" />
-      <div style={{ background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.7 }}>
+      <div style={{ background:"rgba(var(--wc-p),0.10)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
+        <div style={{ fontSize:14, color:da.muted, lineHeight:1.7 }}>
           This panel is only visible to the configured admin email.
         </div>
       </div>
@@ -9769,6 +9806,9 @@ function Upload({
   onPayment,
 }) {
   const t = useT();
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const showAdminEntry = Boolean(onAdmin) && canAdmin;
@@ -9812,7 +9852,7 @@ function Upload({
       {onHistory && (
         <div style={{ position:"absolute", top:16, left:16, zIndex:5 }}>
           <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
-            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(127,91,176,0.20)", border:"1px solid rgba(127,91,176,0.38)", color:"rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+            style={{ width:40, height:40, borderRadius:"50%", background: isLight ? "none" : "rgba(var(--wc-p),0.20)", border: isLight ? "none" : "1px solid rgba(var(--wc-p),0.38)", color: isLight ? "#7A90FF" : "rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
             <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <line x1="1" y1="1.5" x2="15" y2="1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -9826,7 +9866,7 @@ function Upload({
           <AnalysisDotsCounter credits={credits} activePackIds={unlockedPackIds} onAdd={onUpgrade || onPayment} hide={hideCredits} />
         </div>
       )}
-      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:da.faint, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
         {HOMEPAGE_VERSION_LABEL}
       </div>
 
@@ -9859,11 +9899,11 @@ function Upload({
           htmlFor={uploadInputId}
           onDrop={e => { e.preventDefault(); handle(e.dataTransfer.files); }}
           onDragOver={e => e.preventDefault()}
-          style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
-          onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.35)"}
-          onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
+          style={{ background: isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.background = isLight ? "rgba(31,24,78,0.14)" : "rgba(0,0,0,0.35)"}
+          onMouseLeave={e => e.currentTarget.style.background = isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)"}
         >
-          <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : t("Upload your chat")}</div>
+          <div style={{ fontSize:17, fontWeight:800, color:da.text, letterSpacing:-0.3 }}>{busy ? t("Reading your chat…") : t("Upload your chat")}</div>
         </label>
         <input id={uploadInputId} type="file" accept={IMPORT_ACCEPT_TYPES} style={{ display:"none" }} onChange={e => handle(e.target.files)} />
         {isTrialPending && (
@@ -9878,17 +9918,17 @@ function Upload({
         {displayErr && <div style={{ fontSize:13, color:"#FFB090", textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayErr}</div>}
         {displayInfo && (
           <div style={{
-            fontSize:13, color:"rgba(255,255,255,0.82)", textAlign:"center",
-            background:"rgba(127,91,176,0.22)", border:"1px solid rgba(127,91,176,0.38)",
+            fontSize:13, color: isLight ? "rgba(31,24,78,0.82)" : "rgba(255,255,255,0.82)", textAlign:"center",
+            background:"rgba(var(--wc-p),0.22)", border:"1px solid rgba(var(--wc-p),0.38)",
             padding:"11px 16px", borderRadius:16, width:"100%", lineHeight:1.6,
           }}>
             {displayInfo}
           </div>
         )}
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
+        <div style={{ fontSize:11, color:da.faint, textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
         {showAdminEntry && (
           <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%" }}>
-            <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.30)", borderRadius:999, color:"rgba(200,170,240,0.90)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+            <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(var(--wc-p),0.16)", border:"1px solid rgba(var(--wc-p),0.30)", borderRadius:999, color:"rgba(200,170,240,0.90)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
               Admin
             </button>
           </div>
@@ -9903,6 +9943,9 @@ function Upload({
 // ─────────────────────────────────────────────────────────────────
 function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   const t = useT();
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick(x => Math.min(x+1, LOADING_STEPS.length-1)), 1800); return () => clearInterval(t); }, []);
   const rtype = REPORT_TYPES.find(r => r.id === reportType);
@@ -9914,16 +9957,16 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
   return (
     <Shell sec={sec} prog={tick+1} total={LOADING_STEPS.length} scrollable={false} hidePill>
       <BrandLockup accentColor={reportType ? pal.accent : null} />
-      <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center", fontWeight:500 }}>
+      <div style={{ fontSize:14, color:da.muted, textAlign:"center", fontWeight:500 }}>
         {queuePrefix}{t(label)} · {math.totalMessages.toLocaleString()} {t("messages")}
       </div>
-      <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"24px 20px", width:"100%", textAlign:"center" }}>
-        <div style={{ fontSize:18, fontWeight:800, color:"#fff", minHeight:52, letterSpacing:-0.3 }}>{t(LOADING_STEPS[tick])}</div>
+      <div style={{ background: isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)", borderRadius:24, padding:"24px 20px", width:"100%", textAlign:"center" }}>
+        <div style={{ fontSize:18, fontWeight:800, color:da.text, minHeight:52, letterSpacing:-0.3 }}>{t(LOADING_STEPS[tick])}</div>
         <div style={{ display:"flex", gap:8, justifyContent:"center", marginTop:16 }}>
-          {[0,1,2].map(i => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:"rgba(255,255,255,0.4)", animation:`blink 1.2s ${i*0.2}s infinite` }} />)}
+          {[0,1,2].map(i => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background: isLight ? "rgba(31,24,78,0.4)" : "rgba(255,255,255,0.4)", animation:`blink 1.2s ${i*0.2}s infinite` }} />)}
         </div>
       </div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.25)", textAlign:"center", lineHeight:1.8 }}>
+      <div style={{ fontSize:12, color:da.faint, textAlign:"center", lineHeight:1.8 }}>
         Your chat is analysed by AI and never stored. Only results are saved.
       </div>
     </Shell>
@@ -9933,6 +9976,9 @@ function Loading({ math, reportType, reportTypes = [], loadingIndex = 0 }) {
 function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, reportLang = "en", onReportLangChange = () => {}, previewUser = null }) {
   const t = useT();
   const { uiLangPref, updateUiLangPref } = useUILanguage();
+  const { theme, toggleTheme } = useAppTheme();
+  const isLight = theme === "light";
+  const da = getDA(theme);
   const [profileName, setProfileName] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileInfo, setProfileInfo] = useState("");
@@ -9943,16 +9989,17 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
   const autoLanguage = uiLangPref === "auto";
   const cleanProfileName = String(profileName || "").replace(/\s+/g, " ").trim();
   const canSaveProfileName = cleanProfileName.length >= 2 && !profileBusy;
+  const arrowStroke = isLight ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.68)";
   const languageSelectStyle = {
     width:"100%",
     height:42,
-    backgroundColor:"rgba(0,0,0,0.22)",
-    backgroundImage:`url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 5.25L7 8.75L10.5 5.25' stroke='rgba(255,255,255,0.68)' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundColor: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.22)",
+    backgroundImage:`url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 5.25L7 8.75L10.5 5.25' stroke='${encodeURIComponent(arrowStroke)}' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
     backgroundRepeat:"no-repeat",
     backgroundPosition:"right 18px center",
     backgroundSize:"14px 14px",
     borderRadius:14,
-    color:"#fff",
+    color: da.text,
     fontSize:14,
     fontWeight:700,
     padding:"0 46px 0 12px",
@@ -10036,10 +10083,61 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
             <ScreenHeader back={onBack} title="Settings" />
           </div>
           <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, minHeight:0 }}>
+
+            {/* ── Appearance toggle ── */}
             <div style={{
               width:"100%",
-              background:"rgba(127,91,176,0.12)",
-              border:"1px solid rgba(127,91,176,0.24)",
+              background: isLight ? "rgba(31,24,78,0.07)" : "rgba(var(--wc-p),0.12)",
+              border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.24)"}`,
+              borderRadius:18,
+              padding:"15px 16px",
+              display:"flex",
+              flexDirection:"row",
+              alignItems:"center",
+              justifyContent:"space-between",
+              gap:12,
+            }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:da.text }}>Appearance</div>
+                <div style={{ fontSize:12, color:isLight ? "rgba(31,24,78,0.48)" : "rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
+                  Choose your preferred color theme.
+                </div>
+              </div>
+              <div style={{
+                display:"flex",
+                background: isLight ? "rgba(31,24,78,0.1)" : "rgba(0,0,0,0.22)",
+                borderRadius:999,
+                padding:3,
+                gap:2,
+                flexShrink:0,
+              }}>
+                {["dark","light"].map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => opt !== theme && toggleTheme()}
+                    style={{
+                      borderRadius:999,
+                      padding:"6px 14px",
+                      border:"none",
+                      fontSize:13,
+                      fontWeight:700,
+                      background: theme === opt ? PAL.upload.accent : "transparent",
+                      color: theme === opt ? PAL.upload.bg : (isLight ? "rgba(31,24,78,0.5)" : "rgba(255,255,255,0.45)"),
+                      transition:"all .2s",
+                      cursor: theme === opt ? "default" : "pointer",
+                    }}
+                  >
+                    {opt === "dark" ? "Dark" : "Light"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{
+              width:"100%",
+              background: isLight ? "rgba(31,24,78,0.07)" : "rgba(var(--wc-p),0.12)",
+              border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.24)"}`,
               borderRadius:18,
               padding:"15px 16px",
               display:"flex",
@@ -10047,8 +10145,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
               gap:12,
             }}>
               <div>
-                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#fff" }}>Your name</div>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:da.text }}>Your name</div>
+                <div style={{ fontSize:12, color:isLight ? "rgba(31,24,78,0.48)" : "rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
                   This is how WrapChat recognizes you in uploaded chats and keeps duo result cards focused on the other person.
                 </div>
               </div>
@@ -10068,10 +10166,10 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   style={{
                     minWidth:0,
                     height:42,
-                    background:"rgba(0,0,0,0.22)",
-                    border:"1px solid rgba(255,255,255,0.12)",
+                    background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.22)",
+                    border:`1px solid ${isLight ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)"}`,
                     borderRadius:14,
-                    color:"#fff",
+                    color: da.text,
                     fontSize:14,
                     fontWeight:700,
                     padding:"0 12px",
@@ -10086,10 +10184,10 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   className="wc-btn"
                   style={{
                     height:42,
-                    border:"1px solid rgba(255,255,255,0.14)",
-                    background:canSaveProfileName ? PAL.upload.accent : "rgba(255,255,255,0.08)",
+                    border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(255,255,255,0.14)"}`,
+                    background:canSaveProfileName ? PAL.upload.accent : (isLight ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.08)"),
                     borderRadius:999,
-                    color:canSaveProfileName ? PAL.upload.bg : "rgba(255,255,255,0.34)",
+                    color:canSaveProfileName ? PAL.upload.bg : (isLight ? "rgba(31,24,78,0.34)" : "rgba(255,255,255,0.34)"),
                     fontSize:13,
                     fontWeight:850,
                     padding:"0 16px",
@@ -10108,8 +10206,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
             </div>
             <div style={{
               width:"100%",
-              background:"rgba(127,91,176,0.12)",
-              border:"1px solid rgba(127,91,176,0.24)",
+              background: isLight ? "rgba(31,24,78,0.07)" : "rgba(var(--wc-p),0.12)",
+              border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.24)"}`,
               borderRadius:18,
               padding:"15px 16px",
               display:"flex",
@@ -10117,8 +10215,8 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
               gap:12,
             }}>
               <div>
-                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#fff" }}>App language</div>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:da.text }}>App language</div>
+                <div style={{ fontSize:12, color:isLight ? "rgba(31,24,78,0.48)" : "rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
                   {t("Auto selection will recognize the language from your chats.")}
                 </div>
               </div>
@@ -10129,7 +10227,7 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   aria-label="App language"
                   style={{
                     ...languageSelectStyle,
-                    border:`1px solid ${autoLanguage ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.28)"}`,
+                    border:`1px solid ${autoLanguage ? (isLight ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)") : (isLight ? "rgba(31,24,78,0.28)" : "rgba(255,255,255,0.28)")}`,
                   }}
                 >
                   <option value="auto">{t("Auto-detect")}</option>
@@ -10140,10 +10238,10 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   ))}
                 </select>
               </div>
-              <div style={{ height:1, background:"rgba(255,255,255,0.08)" }} />
+              <div style={{ height:1, background: isLight ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.08)" }} />
               <div>
-                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#fff" }}>{t("Report language")}</div>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
+                <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:da.text }}>{t("Report language")}</div>
+                <div style={{ fontSize:12, color:isLight ? "rgba(31,24,78,0.48)" : "rgba(255,255,255,0.48)", lineHeight:1.5, marginTop:4 }}>
                   The language used for generated reads.
                 </div>
               </div>
@@ -10154,7 +10252,7 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                 style={{
                   ...languageSelectStyle,
                   minWidth:0,
-                  border:"1px solid rgba(255,255,255,0.18)",
+                  border:`1px solid ${isLight ? "rgba(31,24,78,0.18)" : "rgba(255,255,255,0.18)"}`,
                 }}
               >
                 <option value="auto">{t("Auto-detect")}</option>
@@ -10177,15 +10275,15 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                   justifyContent:"space-between",
                   gap:14,
                   textAlign:"left",
-                  background:"rgba(127,91,176,0.10)",
-                  border:"1px solid rgba(127,91,176,0.22)",
+                  background: isLight ? "rgba(31,24,78,0.07)" : "rgba(var(--wc-p),0.10)",
+                  border:`1px solid ${isLight ? "rgba(31,24,78,0.14)" : "rgba(var(--wc-p),0.22)"}`,
                   borderRadius:18,
                   padding:"15px 16px",
-                  color:"#fff",
+                  color: da.text,
                 }}
               >
-                <span style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"rgba(255,255,255,0.75)" }}>{t("Log out")}</span>
-                <span style={{ fontSize:18, lineHeight:1, color:"rgba(255,255,255,0.28)" }}>›</span>
+                <span style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:da.muted }}>{t("Log out")}</span>
+                <span style={{ fontSize:18, lineHeight:1, color: isLight ? "rgba(31,24,78,0.28)" : "rgba(255,255,255,0.28)" }}>›</span>
               </button>
             )}
             <button
@@ -10236,18 +10334,18 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
             onClick={e => e.stopPropagation()}
             style={{
               width:"min(380px, calc(100vw - 32px))",
-              background:"linear-gradient(180deg, #211426 0%, #161018 100%)",
-              border:"1px solid rgba(255,255,255,0.12)",
+              background: isLight ? "linear-gradient(180deg, #EDE8E0 0%, #E4DED4 100%)" : "linear-gradient(180deg, #211426 0%, #161018 100%)",
+              border:`1px solid ${isLight ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)"}`,
               borderRadius:24,
               padding:"22px 20px 18px",
-              color:"#fff",
+              color: da.text,
               boxShadow:"0 24px 70px rgba(0,0,0,0.55)",
             }}
           >
             <div id="delete-account-title" style={{ fontSize:20, fontWeight:900, letterSpacing:-0.5, lineHeight:1.15 }}>
               {t("Are you sure you want to delete your account?")}
             </div>
-            <div style={{ marginTop:10, fontSize:14, lineHeight:1.6, color:"rgba(255,255,255,0.66)" }}>
+            <div style={{ marginTop:10, fontSize:14, lineHeight:1.6, color: isLight ? "rgba(31,24,78,0.66)" : "rgba(255,255,255,0.66)" }}>
               {t("All your saved results will be gone. This permanently deletes your WrapChat account and cannot be undone.")}
             </div>
             {deleteError && (
@@ -10262,9 +10360,9 @@ function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdated, rep
                 disabled={deleteBusy}
                 className="wc-btn"
                 style={{
-                  border:"1px solid rgba(255,255,255,0.12)",
-                  background:"rgba(255,255,255,0.06)",
-                  color:"rgba(255,255,255,0.72)",
+                  border:`1px solid ${isLight ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)"}`,
+                  background: isLight ? "rgba(31,24,78,0.06)" : "rgba(255,255,255,0.06)",
+                  color: isLight ? "rgba(31,24,78,0.72)" : "rgba(255,255,255,0.72)",
                   borderRadius:16,
                   padding:"12px 10px",
                   fontSize:14,
@@ -10341,6 +10439,8 @@ function PackSelect({
   onRunQuickRead = () => {},
   onOpenUnlock = () => {},
 }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
   const hasQuickReadChoice = !hideCredits && !isOpenMode(accessMode) && quickReadAvailable;
   const [openRead, setOpenRead] = useState(() => (hasQuickReadChoice ? "quick_read" : "vibe"));
   const stepProg  = math?.isGroup ? 1 : 2;
@@ -10362,7 +10462,7 @@ function PackSelect({
         <div style={{ marginBottom:14 }}>
           <ScreenHeader back={onBack} title="Pick your read" centerTitle />
         </div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.42)", lineHeight:1.5, textAlign:"center", margin:"-4px 8px 16px" }}>
+        <div style={{ fontSize:13, color:da.muted, lineHeight:1.5, textAlign:"center", margin:"-4px 8px 16px" }}>
           Choose the angle you want on this chat and uncover what is actually going on.
         </div>
 
@@ -10389,7 +10489,7 @@ function PackSelect({
                 <div style={{ display:"flex", alignItems:"center", gap:14, minWidth:0 }}>
                   <SwatchIcon inner={PAL.trial.inner} accent={PAL.trial.accent} />
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em", textAlign:"left" }}>Quick Read</div>
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:da.text, letterSpacing:"-0.015em", textAlign:"left" }}>Quick Read</div>
                     <div style={{ fontSize:10, fontWeight:800, color:PAL.trial.accent, marginTop:3, textAlign:"left", textTransform:"uppercase", letterSpacing:"0.07em" }}>
                       Free starter pass
                     </div>
@@ -10402,12 +10502,12 @@ function PackSelect({
               <div style={{ display:"grid", gridTemplateRows:quickReadOpen ? "1fr" : "0fr", transition:"grid-template-rows 0.32s cubic-bezier(0.2,0,0.1,1)" }}>
                 <div style={{ minHeight:0, overflow:"hidden" }}>
                   <div style={{ padding:"4px 18px 18px", opacity:quickReadOpen ? 1 : 0, transition:"opacity 0.22s ease" }}>
-                    <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
+                    <div style={{ fontSize:13, color:da.muted, lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
                       A fast first look at the vibe, communication pattern, and one useful takeaway. {quickReadExpiryLabel(quickReadExpiresAt)}
                     </div>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.44)" }}>
-                        <strong style={{ fontSize:18, fontWeight:900, color:"#fff", marginRight:4 }}>1</strong> available
+                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:da.muted }}>
+                        <strong style={{ fontSize:18, fontWeight:900, color:da.text, marginRight:4 }}>1</strong> available
                       </div>
                       <button
                         type="button"
@@ -10457,8 +10557,8 @@ function PackSelect({
                   <div style={{ display:"flex", alignItems:"center", gap:14 }}>
                     <PackSwatch pack={pack} />
                     <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:"#fff", letterSpacing:"-0.015em", textAlign:"left" }}>{pack.name}</div>
-                      <div style={{ fontSize:10, fontWeight:700, color:locked ? "rgba(255,255,255,0.35)" : pack.accent, marginTop:3, textAlign:"left" }}>
+                      <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:da.text, letterSpacing:"-0.015em", textAlign:"left" }}>{pack.name}</div>
+                      <div style={{ fontSize:10, fontWeight:700, color:locked ? da.faint : pack.accent, marginTop:3, textAlign:"left" }}>
                         {pack.reports.length === 6 ? "All 6 reports" : `${pack.reports.length} ${pack.reports.length === 1 ? "report" : "reports"}`}
                       </div>
                     </div>
@@ -10470,7 +10570,7 @@ function PackSelect({
                 <div style={{ display:"grid", gridTemplateRows:open ? "1fr" : "0fr", transition:"grid-template-rows 0.32s cubic-bezier(0.2,0,0.1,1)" }}>
                   <div style={{ minHeight:0, overflow:"hidden" }}>
                     <div style={{ padding:"4px 18px 18px", opacity:open ? 1 : 0, transition:"opacity 0.22s ease" }}>
-                      <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
+                      <div style={{ fontSize:13, color:da.muted, lineHeight:1.55, marginBottom:14, textAlign:"left" }}>
                         {pack.desc}
                       </div>
                       <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
@@ -10479,8 +10579,8 @@ function PackSelect({
                         ))}
                       </div>
                       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.38)" }}>
-                          <strong style={{ fontSize:18, fontWeight:900, color:locked ? "rgba(255,255,255,0.45)" : "#fff", marginRight:4 }}>{owned ? 1 : 0}</strong> left
+                        <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:da.faint }}>
+                          <strong style={{ fontSize:18, fontWeight:900, color:locked ? da.faint : da.text, marginRight:4 }}>{owned ? 1 : 0}</strong> left
                         </div>
                         <button
                           type="button"
@@ -10520,6 +10620,9 @@ function PackSelect({
 }
 
 function PaymentScreen({ preselect = null, credits = null, userId = null, onBack, onPaymentComingSoon, onPurchaseCredits = null }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const getSuggestedBundleId = () => {
     const packCost = getPackCreditCost(preselect);
     const balance = Number.isInteger(credits) ? credits : 0;
@@ -10576,23 +10679,23 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
         <div style={{ marginBottom:10 }}>
           <ScreenHeader back={onBack} title="Add Credits" />
         </div>
-        <div style={{ fontSize:14, color:"rgba(255,255,255,0.42)", lineHeight:1.5, marginBottom:18 }}>Add credits once. Use them whenever you want.</div>
+        <div style={{ fontSize:14, color:da.muted, lineHeight:1.5, marginBottom:18 }}>Add credits once. Use them whenever you want.</div>
         {error && (
           <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center", marginBottom:12 }}>
             {error}
           </div>
         )}
 
-        <div style={{ background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.28)", borderRadius:18, padding:"12px 14px", marginBottom:14 }}>
+        <div style={{ background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.28)", borderRadius:18, padding:"12px 14px", marginBottom:14 }}>
           <div style={{ display:"flex", alignItems:"baseline", justifyContent:"center", gap:9 }}>
-            <span style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.38)", whiteSpace:"nowrap" }}>Your balance</span>
-            <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, lineHeight:1, fontWeight:900, color:"#fff", letterSpacing:"-0.02em" }}>{Number.isInteger(credits) ? credits : "—"}</span>
-            <span style={{ fontSize:12, fontWeight:800, color:"rgba(255,255,255,0.34)" }}>credits</span>
+            <span style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:da.faint, whiteSpace:"nowrap" }}>Your balance</span>
+            <span style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, lineHeight:1, fontWeight:900, color:da.text, letterSpacing:"-0.02em" }}>{Number.isInteger(credits) ? credits : "—"}</span>
+            <span style={{ fontSize:12, fontWeight:800, color:da.faint }}>credits</span>
           </div>
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
-          <div style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.32)", margin:"0 2px 2px" }}>Add Credits</div>
+          <div style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:da.faint, margin:"0 2px 2px" }}>Add Credits</div>
           {CREDIT_BUNDLES.map(bundle => {
             const active = selectedBundleId === bundle.id;
             return (
@@ -10606,22 +10709,22 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
                   padding:"14px 16px",
                   display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
                   cursor:"pointer",
-                  border:`1.5px solid ${active ? "rgba(127,91,176,0.70)" : "rgba(127,91,176,0.22)"}`,
-                  background:active ? "rgba(127,91,176,0.22)" : "rgba(127,91,176,0.07)",
-                  color:"#fff",
+                  border:`1.5px solid ${active ? "rgba(var(--wc-p),0.70)" : "rgba(var(--wc-p),0.22)"}`,
+                  background:active ? "rgba(var(--wc-p),0.22)" : "rgba(var(--wc-p),0.07)",
+                  color:da.text,
                   textAlign:"left",
                 }}
               >
                 <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
-                  <div style={{ width:42, height:42, borderRadius:14, background:bundle.recommended ? "rgba(127,91,176,0.32)" : "rgba(127,91,176,0.14)", border:`1px solid ${bundle.recommended ? "rgba(127,91,176,0.60)" : "rgba(127,91,176,0.28)"}`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                  <div style={{ width:42, height:42, borderRadius:14, background:bundle.recommended ? "rgba(var(--wc-p),0.32)" : "rgba(var(--wc-p),0.14)", border:`1px solid ${bundle.recommended ? "rgba(var(--wc-p),0.60)" : "rgba(var(--wc-p),0.28)"}`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
                     <img src={CREDIT_BUNDLE_ICON[bundle.id]} alt={bundle.label} style={{ width:"92%", height:"92%", objectFit:"contain" }} />
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:3, minWidth:0 }}>
-                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:"#fff", letterSpacing:"-0.01em", display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:16, fontWeight:900, color:da.text, letterSpacing:"-0.01em", display:"flex", alignItems:"center", gap:5 }}>
                       <span>{bundle.label}</span>
                       {bundle.recommended && <SolidStarIcon size={12} color="#c090e8" />}
                       {bundle.recommended && (
-                        <span style={{ border:"1px solid rgba(127,91,176,0.55)", background:"rgba(127,91,176,0.20)", color:"#c090e8", borderRadius:999, padding:"2px 7px", fontSize:9, lineHeight:1.1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+                        <span style={{ border:"1px solid rgba(var(--wc-p),0.55)", background:"rgba(var(--wc-p),0.20)", color:"#c090e8", borderRadius:999, padding:"2px 7px", fontSize:9, lineHeight:1.1, fontWeight:900, letterSpacing:"0.08em", textTransform:"uppercase" }}>
                           Popular
                         </span>
                       )}
@@ -10631,20 +10734,20 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
                     </div>
                   </div>
                 </div>
-                <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:bundle.recommended ? "#c090e8" : "rgba(255,255,255,0.80)", flexShrink:0 }}>{bundle.priceLabel}</div>
+                <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:17, fontWeight:900, color:bundle.recommended ? "#c090e8" : da.muted, flexShrink:0 }}>{bundle.priceLabel}</div>
               </button>
             );
           })}
         </div>
 
-        <div style={{ background:"rgba(127,91,176,0.08)", border:"1px solid rgba(127,91,176,0.20)", borderRadius:18, padding:"16px 18px", marginBottom:14 }}>
-          <div style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.32)", marginBottom:10 }}>What can I do with credits?</div>
+        <div style={{ background:"rgba(var(--wc-p),0.08)", border:"1px solid rgba(var(--wc-p),0.20)", borderRadius:18, padding:"16px 18px", marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:900, letterSpacing:"0.09em", textTransform:"uppercase", color:da.faint, marginBottom:10 }}>What can I do with credits?</div>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
             {PACK_ORDER.map(id => {
               const pack = PACK_DEFS[id];
               return (
                 <div key={id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.68)", fontWeight:700 }}>{pack.name}</div>
+                  <div style={{ fontSize:13, color:da.muted, fontWeight:700 }}>{pack.name}</div>
                   <div style={{ fontSize:13, color:pack.accent, fontWeight:900 }}>{pack.cost} credits</div>
                 </div>
               );
@@ -10662,8 +10765,8 @@ function PaymentScreen({ preselect = null, credits = null, userId = null, onBack
           {busy ? "Adding..." : `Add ${selectedBundle?.credits || 0} credits`}
         </button>
 
-        <div style={{ textAlign:"center", fontSize:12, color:"rgba(255,255,255,0.20)", lineHeight:1.6 }}>
-          <strong style={{ color:"rgba(255,255,255,0.38)", fontWeight:600 }}>Credits never expire.</strong> One-time purchases only.<br/>No subscriptions. Leftover credits stay in your account.
+        <div style={{ textAlign:"center", fontSize:12, color:da.faint, lineHeight:1.6 }}>
+          <strong style={{ color:da.muted, fontWeight:600 }}>Credits never expire.</strong> One-time purchases only.<br/>No subscriptions. Leftover credits stay in your account.
         </div>
       </div>
     </Shell>
@@ -10881,8 +10984,8 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             height:34,
             boxSizing:"border-box",
             display:"flex", alignItems:"center", gap:6,
-            background:"rgba(127,91,176,0.16)",
-            border:"1px solid rgba(127,91,176,0.32)",
+            background:"rgba(var(--wc-p),0.16)",
+            border:"1px solid rgba(var(--wc-p),0.32)",
             borderRadius:999,
             padding:"5px 7px 5px 10px",
           }}>
@@ -10998,7 +11101,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
             })}
           </div>
 
-          <div style={{ width:"100%", background:"rgba(127,91,176,0.10)", border:"1px solid rgba(127,91,176,0.22)", borderRadius:18, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
+          <div style={{ width:"100%", background:"rgba(var(--wc-p),0.10)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:18, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
             {selectedIds.length ? selectedIds.map(id => {
               const pack = PACK_DEFS[id];
               const qty = selected[id] || 0;
@@ -11039,7 +11142,7 @@ function UpgradePlaceholder({ info, onBack, credits = null, userRole = "user", a
               onClick={() => isPayments ? onOpenPayment(selectedSingleId) : null}
               disabled={!isPayments}
               className="wc-btn"
-              style={{ width:"100%", padding:14, borderRadius:999, background:isPayments ? "rgba(127,91,176,0.14)" : "rgba(127,91,176,0.06)", border:`1.5px solid ${isPayments ? "rgba(127,91,176,0.35)" : "rgba(127,91,176,0.16)"}`, color:isPayments ? "rgba(200,170,240,0.88)" : "rgba(200,170,240,0.35)", fontSize:14, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:isPayments ? "pointer" : "default", textAlign:"center" }}
+              style={{ width:"100%", padding:14, borderRadius:999, background:isPayments ? "rgba(var(--wc-p),0.14)" : "rgba(var(--wc-p),0.06)", border:`1.5px solid ${isPayments ? "rgba(var(--wc-p),0.35)" : "rgba(var(--wc-p),0.16)"}`, color:isPayments ? "rgba(200,170,240,0.88)" : "rgba(200,170,240,0.35)", fontSize:14, fontWeight:700, fontFamily:"'Nunito Sans',sans-serif", cursor:isPayments ? "pointer" : "default", textAlign:"center" }}
             >
               {isPayments ? "Add Credits" : "Ask admin for more credits"}
             </button>
@@ -11099,12 +11202,19 @@ function SlidingSegmentedTabs({
   onChange,
   ariaLabel,
   compact = false,
-  background = "rgba(0,0,0,0.25)",
-  activeBackground = "rgba(255,255,255,0.18)",
-  inactiveColor = "rgba(255,255,255,0.38)",
-  activeColor = "#fff",
+  background: bgProp,
+  activeBackground: activeBgProp,
+  inactiveColor: inactiveColorProp,
+  activeColor: activeColorProp,
   padding = 4,
 }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
+  const background       = bgProp       ?? (isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)");
+  const activeBackground = activeBgProp ?? (isLight ? "rgba(31,24,78,0.15)" : "rgba(255,255,255,0.18)");
+  const inactiveColor    = inactiveColorProp ?? da.muted;
+  const activeColor      = activeColorProp   ?? da.text;
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
   const activeIndex = Math.max(0, safeItems.findIndex(item => item.id === value));
   const count = Math.max(1, safeItems.length);
@@ -11268,6 +11378,9 @@ function AuthUploadFrame({
   authPreview = null,
 }) {
   const t = useT();
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
 
   // ── Auth state ──────────────────────────────────────────────────
   const [authTab,      setAuthTab]      = useState("login");
@@ -11375,12 +11488,12 @@ function AuthUploadFrame({
 
   const inputStyle = {
     width: "100%",
-    background: "rgba(0,0,0,0.25)",
-    border: "1.5px solid rgba(255,255,255,0.12)",
+    background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.25)",
+    border: `1.5px solid ${isLight ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.12)"}`,
     borderRadius: 14,
     padding: "13px 16px",
     fontSize: 15,
-    color: "#fff",
+    color: da.text,
     outline: "none",
     fontFamily: "inherit",
   };
@@ -11391,7 +11504,7 @@ function AuthUploadFrame({
       {phase === "upload" && onHistory && (
         <div style={{ position:"absolute", top:16, left:16, zIndex:5, animation:"wcAuthFadeIn 220ms 90ms ease-out both" }}>
           <button type="button" onClick={onHistory} className="wc-btn" aria-label="My Results"
-            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(127,91,176,0.20)", border:"1px solid rgba(127,91,176,0.38)", color:"rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
+            style={{ width:40, height:40, borderRadius:"50%", background: isLight ? "none" : "rgba(var(--wc-p),0.20)", border: isLight ? "none" : "1px solid rgba(var(--wc-p),0.38)", color: isLight ? "#7A90FF" : "rgba(220,200,255,0.85)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0, flexShrink:0 }}>
             <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <line x1="1" y1="1.5" x2="15" y2="1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               <line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -11407,7 +11520,7 @@ function AuthUploadFrame({
       )}
 
       {/* ── Version label ── */}
-      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.28)", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
+      <div style={{ position:"absolute", left:20, right:20, bottom:"calc(12px + env(safe-area-inset-bottom, 0px))", textAlign:"center", fontSize:11, color:da.faint, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", pointerEvents:"none", zIndex:1 }}>
         {HOMEPAGE_VERSION_LABEL}
       </div>
 
@@ -11463,7 +11576,7 @@ function AuthUploadFrame({
                     />
                   </div>
                   {authTab === "login" && (
-                    <label style={{ display:"flex", alignItems:"center", gap:9, color:"rgba(255,255,255,0.56)", fontSize:12, fontWeight:700, lineHeight:1.4 }}>
+                    <label style={{ display:"flex", alignItems:"center", gap:9, color:da.muted, fontSize:12, fontWeight:700, lineHeight:1.4 }}>
                       <input
                         type="checkbox"
                         checked={staySignedIn}
@@ -11478,7 +11591,7 @@ function AuthUploadFrame({
                   <PrimaryButton onClick={authSubmit} disabled={authBusy} color={PAL.upload.accent} textColor={PAL.upload.bg}>
                     {authBusy ? "…" : authTab === "login" ? "Log in" : "Create account"}
                   </PrimaryButton>
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
+                  <div style={{ fontSize:11, color:da.faint, textAlign:"center" }}>Your chat is analysed by AI and never stored. Only results are saved.</div>
                 </>
               ) : (
                 <>
@@ -11492,11 +11605,11 @@ function AuthUploadFrame({
                     htmlFor={uploadInputId}
                     onDrop={e => { e.preventDefault(); handleUpload(e.dataTransfer.files); }}
                     onDragOver={e => e.preventDefault()}
-                    style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.35)"}
-                    onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
+                    style={{ background: isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", cursor:"pointer", width:"100%", transition:"background 0.2s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = isLight ? "rgba(31,24,78,0.14)" : "rgba(0,0,0,0.35)"}
+                    onMouseLeave={e => e.currentTarget.style.background = isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)"}
                   >
-                    <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>{uploadBusy ? t("Reading your chat…") : t("Upload your chat")}</div>
+                    <div style={{ fontSize:17, fontWeight:800, color:da.text, letterSpacing:-0.3 }}>{uploadBusy ? t("Reading your chat…") : t("Upload your chat")}</div>
                   </label>
                   <input id={uploadInputId} type="file" accept={IMPORT_ACCEPT_TYPES} style={{ display:"none" }} onChange={e => handleUpload(e.target.files)} />
                   {isTrialPending && (
@@ -11506,14 +11619,14 @@ function AuthUploadFrame({
                   )}
                   {displayUploadErr && <div style={{ fontSize:13, color:"#FFB090", textAlign:"center", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%" }}>{displayUploadErr}</div>}
                   {displayInfo && (
-                    <div style={{ fontSize:13, color:"rgba(255,255,255,0.82)", textAlign:"center", background:"rgba(127,91,176,0.22)", border:"1px solid rgba(127,91,176,0.38)", padding:"11px 16px", borderRadius:16, width:"100%", lineHeight:1.6 }}>
+                    <div style={{ fontSize:13, color: isLight ? "rgba(31,24,78,0.82)" : "rgba(255,255,255,0.82)", textAlign:"center", background:"rgba(var(--wc-p),0.22)", border:"1px solid rgba(var(--wc-p),0.38)", padding:"11px 16px", borderRadius:16, width:"100%", lineHeight:1.6 }}>
                       {displayInfo}
                     </div>
                   )}
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
+                  <div style={{ fontSize:11, color:da.faint, textAlign:"center" }}>{t("Group or duo detected automatically. Your chat is analysed by AI and never stored. Only results are saved.")}</div>
                   {showAdminEntry && (
                     <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", flexWrap:"wrap", width:"100%" }}>
-                      <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.30)", borderRadius:999, color:"rgba(200,170,240,0.90)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
+                      <button onClick={onAdmin} className="wc-btn" style={{ background:"rgba(var(--wc-p),0.16)", border:"1px solid rgba(var(--wc-p),0.30)", borderRadius:999, color:"rgba(200,170,240,0.90)", fontSize:12, padding:"8px 14px", fontWeight:700, letterSpacing:0.1 }}>
                         Admin
                       </button>
                     </div>
@@ -12830,7 +12943,7 @@ function PreviewAuthConfirmed({ status = "success" }) {
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false} hidePill hideProgressBar>
       <BrandLockup logoSrc={wrapchatLogoTransparent} logoSize={62} subtitle="Your chats, unwrapped." subtitleMarginBottom={8} />
-      <div style={{ width:"100%", background:"rgba(127,91,176,0.12)", border:"1px solid rgba(127,91,176,0.24)", borderRadius:24, padding:"28px 22px", textAlign:"center" }}>
+      <div style={{ width:"100%", background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.24)", borderRadius:24, padding:"28px 22px", textAlign:"center" }}>
         <div style={{ fontSize:ok ? 30 : 26, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.08 }}>
           {ok ? "Account activated." : "Link expired or invalid."}
         </div>
@@ -13122,6 +13235,9 @@ function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
 function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false, currentUser = null, previewRows = null }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const isPreview = Array.isArray(previewRows);
   const cachedRows = !isPreview && currentUser?.id ? readUserDataCache(currentUser.id).results.rows : null;
   const [rows,           setRows]           = useState(() => isPreview ? previewRows : (cachedRows || null));
@@ -13360,11 +13476,11 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:pal.accent, marginBottom:5 }}>
         {rt?.label || row.report_type} · {dateLabel}
       </div>
-      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2 }}>
+      <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:da.text, lineHeight:1.2 }}>
         {rowNames(row)}
       </div>
       {datasetBadge(row) && (
-        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.38)", marginTop:4 }}>{datasetBadge(row)}</div>
+        <div style={{ fontSize:11, fontWeight:700, color:da.faint, marginTop:4 }}>{datasetBadge(row)}</div>
       )}
       {stat !== "—" && (
         <div style={{ fontSize:12, fontWeight:600, color:pal.accent, marginTop:4 }}>{stat}</div>
@@ -13376,7 +13492,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
   const BUNDLE_PAL = { bg:"#160F38", inner:"#2E1F70", accent:"#C4B0FF" };
   // Name palette — for participant name cards in Names view
   const NAME_PAL = { bg:"#111648", inner:"rgba(122,144,255,0.26)", accent:"#7A90FF" };
-  const RESULTS_CARD_BG = "rgba(127,91,176,0.22)";
+  const RESULTS_CARD_BG = "rgba(var(--wc-p),0.22)";
 
   // ── Compute display items (singles + bundles) ──
   const displayItems = (() => {
@@ -13473,7 +13589,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
           background:cardBg, border:isConfirming ? "1.5px solid rgba(220,50,50,0.55)" : "1.5px solid transparent",
           borderRadius:18, padding:"16px 18px",
-          color:"#fff", width:"100%", position:"relative",
+          color:da.text, width:"100%", position:"relative",
           textAlign:"left", transition:"border-color 0.18s",
           cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
         }}
@@ -13492,16 +13608,16 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           )}
           <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:4 }}>
             <div style={{ display:"flex", alignItems:"baseline", justifyContent:"flex-start", gap:8, minWidth:0 }}>
-              <div style={{ fontSize:15, fontWeight:900, letterSpacing:-0.25, color:"#fff", lineHeight:1.15, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0, flex:"0 1 auto" }}>
+              <div style={{ fontSize:15, fontWeight:900, letterSpacing:-0.25, color:da.text, lineHeight:1.15, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0, flex:"0 1 auto" }}>
                 {packOrReportName}
               </div>
               <div style={{
-                fontSize:11, fontWeight:800, color:"rgba(255,255,255,0.50)", flexShrink:0,
+                fontSize:11, fontWeight:800, color:da.muted, flexShrink:0,
               }}>
                 {dateLabel}
               </div>
             </div>
-            <div style={{ fontSize:13, fontWeight:800, letterSpacing:-0.15, color:"rgba(255,255,255,0.86)", lineHeight:1.18, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            <div style={{ fontSize:13, fontWeight:800, letterSpacing:-0.15, color:isLight ? "rgba(31,24,78,0.75)" : "rgba(255,255,255,0.86)", lineHeight:1.18, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {participantName}
             </div>
             {subline && (
@@ -13512,7 +13628,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           </div>
         </div>
         <div style={{
-          width:24, fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+          width:24, fontSize:20, color:da.faint, flexShrink:0, lineHeight:1,
           textAlign:"center",
           opacity: editing || isDeleting || isConfirming ? 0 : 1,
           transition:"opacity 0.2s ease",
@@ -13598,7 +13714,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
       }}>
         <div style={SCREEN_HEADER_BLOCK_STYLE}>
           <ScreenHeader back={() => { exitEditing(); setNameView(null); }} titleNode={nameView} topOffset={0} />
-          <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginTop:6, fontWeight:600, textAlign:"center" }}>
+          <div style={{ fontSize:13, color:da.faint, marginTop:6, fontWeight:600, textAlign:"center" }}>
             {totalReports} report{totalReports !== 1 ? "s" : ""}
           </div>
         </div>
@@ -13695,9 +13811,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             aria-label={editing ? "Done editing" : "Edit results"}
             style={{ position:"absolute", bottom:"calc(20px + env(safe-area-inset-bottom, 0px))", right:20,
               width:48, height:48, borderRadius:"50%",
-              background: editing ? PAL.upload.accent : "rgba(127,91,176,0.22)",
-              border:`1px solid ${editing ? PAL.upload.accent : "rgba(127,91,176,0.38)"}`,
-              color: editing ? PAL.upload.bg : "#fff",
+              background: editing ? PAL.upload.accent : "rgba(var(--wc-p),0.22)",
+              border:`1px solid ${editing ? PAL.upload.accent : "rgba(var(--wc-p),0.38)"}`,
+              color: editing ? PAL.upload.bg : da.text,
               display:"flex", alignItems:"center", justifyContent:"center",
               boxShadow:"0 4px 20px rgba(0,0,0,0.35)", cursor:"pointer", zIndex:10 }}>
             {editing
@@ -13728,14 +13844,14 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
           topOffset={0}
           action={onSettings ? (
             <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
-              style={{ background:"rgba(127,91,176,0.16)", border:"1px solid rgba(127,91,176,0.32)", borderRadius:999, color:"rgba(200,170,240,0.85)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+              style={{ background:"rgba(var(--wc-p),0.16)", border:"1px solid rgba(var(--wc-p),0.32)", borderRadius:999, color:isLight ? "#7A90FF" : "rgba(200,170,240,0.85)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
               <GearIcon />
             </button>
           ) : null}
         />
         {rows?.length > 0 && (
           <div style={{ marginTop:12, display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", flexShrink:0 }}>Sort by</div>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:da.faint, flexShrink:0 }}>Sort by</div>
             <div style={{ flex:1 }}>
               <SlidingSegmentedTabs
                 compact
@@ -13744,8 +13860,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                 value={viewMode}
                 onChange={(mode) => { exitEditing(); changeViewMode(mode); }}
                 ariaLabel="Sort results by"
-                background="rgba(127,91,176,0.12)"
-                inactiveColor="rgba(255,255,255,0.45)"
+                background={isLight ? "rgba(31,24,78,0.08)" : "rgba(var(--wc-p),0.12)"}
               />
             </div>
           </div>
@@ -13764,9 +13879,9 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               right:20,
               width:48, height:48,
               borderRadius:"50%",
-              background: editing ? PAL.upload.accent : "rgba(127,91,176,0.22)",
-              border:`1px solid ${editing ? PAL.upload.accent : "rgba(127,91,176,0.38)"}`,
-              color: editing ? PAL.upload.bg : "#fff",
+              background: editing ? PAL.upload.accent : "rgba(var(--wc-p),0.22)",
+              border:`1px solid ${editing ? PAL.upload.accent : "rgba(var(--wc-p),0.38)"}`,
+              color: editing ? PAL.upload.bg : da.text,
               display:"flex", alignItems:"center", justifyContent:"center",
               boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
               cursor:"pointer",
@@ -13791,7 +13906,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
             <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
           )}
           {rows?.length === 0 && (
-            <div style={{ fontSize:14, color:"rgba(255,255,255,0.35)", textAlign:"center", padding:"32px 0", lineHeight:1.7 }}>
+            <div style={{ fontSize:14, color:da.faint, textAlign:"center", padding:"32px 0", lineHeight:1.7 }}>
               No saved results yet.<br/>Run an analysis to see it here.
             </div>
           )}
@@ -13811,7 +13926,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
               <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{err}</div>
             )}
             {rows?.length === 0 && (
-              <div style={{ fontSize:14, color:"rgba(255,255,255,0.35)", textAlign:"center", padding:"32px 0", lineHeight:1.7 }}>
+              <div style={{ fontSize:14, color:da.faint, textAlign:"center", padding:"32px 0", lineHeight:1.7 }}>
                 No saved results yet.<br/>Run an analysis to see it here.
               </div>
             )}
@@ -13833,7 +13948,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                   <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:NAME_PAL.accent, marginBottom:5 }}>
                     {totalReports} report{totalReports !== 1 ? "s" : ""}
                   </div>
-                  <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:"#fff", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  <div style={{ fontSize:15, fontWeight:800, letterSpacing:-0.3, color:da.text, lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {group.name}
                   </div>
                 </div>
@@ -13845,7 +13960,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                     display:"flex", alignItems:"center", gap:16, boxSizing:"border-box",
                     background:RESULTS_CARD_BG, border:isConfirmingName ? "1.5px solid rgba(220,50,50,0.55)" : "1.5px solid transparent",
                     borderRadius:18, padding:"16px 18px",
-                    color:"#fff", width:"100%", position:"relative",
+                    color:da.text, width:"100%", position:"relative",
                     textAlign:"left", transition:"border-color 0.18s",
                     cursor: editing || isDeletingName || isConfirmingName ? "default" : "pointer",
                   }}
@@ -13860,7 +13975,7 @@ function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings
                     {nameSwatchEl}{nameTextEl}
                   </div>
                   <div style={{
-                    width:24, fontSize:20, color:"rgba(255,255,255,0.28)", flexShrink:0, lineHeight:1,
+                    width:24, fontSize:20, color:da.faint, flexShrink:0, lineHeight:1,
                     textAlign:"center",
                     opacity: editing || isDeletingName || isConfirmingName ? 0 : 1,
                     transition:"opacity 0.2s ease",
@@ -13937,6 +14052,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [reportLang,       setReportLang]       = useState("auto");  // explicit report/output language, or auto from chat
   const [detectedLang,     setDetectedLang]     = useState(null);  // { code, label, confidence }
   const [uiLangPref,       setUiLangPref]       = useState("en");
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem("wrapchat_theme") || "dark"; } catch { return "dark"; } });
+  const toggleTheme = () => setTheme(t => { const next = t === "dark" ? "light" : "dark"; try { localStorage.setItem("wrapchat_theme", next); } catch {} return next; });
   const [step,             setStep]             = useState(0);
   const [dir,              setDir]              = useState("fwd");
   const [sid,              setSid]              = useState(0);
@@ -13991,6 +14108,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   useEffect(() => {
     setUiLangPref(normalizeUiLangPref(authedUser?.user_metadata?.ui_language));
   }, [authedUser]);
+
+  useEffect(() => {
+    const da = getDA(theme);
+    setAppSafeAreaColor(da.bg);
+    document.documentElement.style.setProperty(
+      "--wc-scrollbar",
+      theme === "light" ? "rgba(31,24,78,0.15)" : "rgba(255,255,255,0.15)"
+    );
+    document.documentElement.style.setProperty(
+      "--wc-p",
+      theme === "light" ? "122,144,255" : "127,91,176"
+    );
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -15530,6 +15660,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   };
 
   const wrap = child => (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
     <UILanguageContext.Provider value={{ uiLang: resolvedUiLang, uiLangPref, updateUiLangPref }}>
       <ShareResultsContext.Provider value={{ onShare: () => setSharePicker(true), busy: shareBusy }}>
         <FeedbackContext.Provider value={{ openFeedback }}>
@@ -15584,12 +15715,15 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         </FeedbackContext.Provider>
       </ShareResultsContext.Provider>
     </UILanguageContext.Provider>
+    </ThemeContext.Provider>
   );
 
   const withUiLanguage = (node) => (
-    <UILanguageContext.Provider value={{ uiLang: resolvedUiLang, uiLangPref, updateUiLangPref }}>
-      {node}
-    </UILanguageContext.Provider>
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <UILanguageContext.Provider value={{ uiLang: resolvedUiLang, uiLangPref, updateUiLangPref }}>
+        {node}
+      </UILanguageContext.Provider>
+    </ThemeContext.Provider>
   );
 
   const pushReportHistoryEntry = () => {
@@ -15700,7 +15834,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
             padding:SHELL_DRAWER_PADDING,
             transform: historyDrawerOpen ? "translateX(0)" : "translateX(-100%)",
             transition:"transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
-            background:DA.bg,
+            background:getDA(theme).bg,
             display:"flex", flexDirection:"column",
             overflow:"hidden",
             boxSizing:"border-box",

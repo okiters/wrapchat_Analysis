@@ -9,11 +9,15 @@
 // uses these tokens and components.
 // ─────────────────────────────────────────────────────────────────────────
 
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, createContext, useContext } from 'react';
+
+// ── Theme context ──────────────────────────────────────────────────────────
+export const ThemeContext = createContext({ theme: 'dark', toggleTheme: () => {} });
+export function useTheme() { return useContext(ThemeContext); }
 
 // ── Base tokens ────────────────────────────────────────────────────────────
 // Used for non-result screens (auth, upload, nav chrome) and as fallbacks.
-export const DA = {
+export const DA_DARK = {
   bg:     '#1f184e',
   text:   '#fff',
   muted:  'rgba(255,255,255,0.6)',
@@ -24,9 +28,27 @@ export const DA = {
   blue:   '#7A90FF',
   orange: '#E07040',
   purple: '#7A90FF',
-  dp:     "'Nunito',sans-serif",        // display — headings
-  bp:     "'Nunito Sans',sans-serif",   // body — labels, body copy
+  dp:     "'Nunito',sans-serif",
+  bp:     "'Nunito Sans',sans-serif",
 };
+
+export const DA_LIGHT = {
+  bg:     '#F0EDE7',
+  text:   '#1f184e',
+  muted:  'rgba(31,24,78,0.6)',
+  faint:  'rgba(31,24,78,0.28)',
+  teal:   '#3DC4BF',
+  amber:  '#F5A84C',
+  lime:   '#C2DC3A',
+  blue:   '#7A90FF',
+  orange: '#E07040',
+  purple: '#7A90FF',
+  dp:     "'Nunito',sans-serif",
+  bp:     "'Nunito Sans',sans-serif",
+};
+
+export const DA = DA_DARK; // kept for result screens and back-compat
+export function getDA(theme) { return theme === 'light' ? DA_LIGHT : DA_DARK; }
 
 // ── Vivid pack palette ─────────────────────────────────────────────────────
 // 3 shades per report type / pack, from darkest base to vivid accent.
@@ -159,7 +181,7 @@ export function injectGlobalStyles() {
     .wc-sR  { animation: slideR .26s cubic-bezier(.2,0,.1,1) both }
     .wc-sL  { animation: slideL .26s cubic-bezier(.2,0,.1,1) both }
     ::-webkit-scrollbar { width: 3px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--wc-scrollbar, rgba(255,255,255,0.15)); border-radius: 3px; }
     button { transition: all .15s; cursor: pointer; }
     button:hover  { opacity: .82; transform: scale(.98); }
     button:active { opacity: .65; transform: scale(.95); }
@@ -272,10 +294,14 @@ export function WaveLines({ accent, intro = false }) {
 // onClose → renders × button (top-right)
 // geos  → pass <><Geo .../><Geo .../></> for that screen's background shapes
 export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, children, contentAlign='center' }) {
+  const { theme } = useTheme();
+  const da        = getDA(theme);
   const pill      = PILL_LABEL[sec];
-  const pillColor = PILL_COLOR[sec] || DA.teal;
-  const shellBg   = bg || DA.bg;
-  const topInset = contentAlign === 'top'
+  const pillColor = PILL_COLOR[sec] || da.teal;
+  const shellBg   = bg || da.bg;
+  const isLight   = theme === 'light';
+  const dimAlpha  = (light, dark) => isLight ? light : dark;
+  const topInset  = contentAlign === 'top'
     ? 'calc(max(20px, env(safe-area-inset-top, 0px)) + 99px)'
     : 'max(108px, calc(70px + env(safe-area-inset-top, 0px)))';
 
@@ -290,14 +316,17 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
       position: 'relative', display: 'flex', flexDirection: 'column',
       flexShrink: 0, overflow: 'hidden',
       WebkitFontSmoothing: 'antialiased',
-      fontFamily: DA.bp,
+      fontFamily: da.bp,
     }}>
       {geos}
 
       {/* progress bar */}
       {total > 0 && (
-        <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'rgba(255,255,255,0.1)', zIndex:5 }}>
-          <div style={{ height:'100%', background:'rgba(255,255,255,0.65)', borderRadius:'0 2px 2px 0',
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:3,
+          background: dimAlpha('rgba(31,24,78,0.1)', 'rgba(255,255,255,0.1)'), zIndex:5 }}>
+          <div style={{ height:'100%',
+            background: dimAlpha('rgba(31,24,78,0.65)', 'rgba(255,255,255,0.65)'),
+            borderRadius:'0 2px 2px 0',
             width: `${Math.round((prog / total) * 100)}%`, transition:'width .4s' }} />
         </div>
       )}
@@ -307,7 +336,7 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
         <div style={{ position:'absolute', top:14, left: onBack ? 92 : 14, zIndex:10,
           background:`${pillColor}20`, border:`1px solid ${pillColor}50`,
           borderRadius:999, padding:'4px 12px',
-          fontFamily: DA.bp, fontSize:11, fontWeight:700,
+          fontFamily: da.bp, fontSize:11, fontWeight:700,
           color: pillColor, letterSpacing:'0.04em' }}>
           {pill}
         </div>
@@ -316,9 +345,11 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
       {/* back button */}
       {onBack && (
         <button onClick={onBack} style={{ position:'absolute', top:10, left:14, zIndex:10,
-          background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.14)',
+          background: dimAlpha('rgba(31,24,78,0.07)', 'rgba(255,255,255,0.08)'),
+          border: `1px solid ${dimAlpha('rgba(31,24,78,0.12)', 'rgba(255,255,255,0.14)')}`,
           borderRadius:999, padding:'7px 14px',
-          fontFamily: DA.bp, color:'rgba(255,255,255,0.7)', fontSize:13, fontWeight:700,
+          fontFamily: da.bp, color: dimAlpha('rgba(31,24,78,0.7)', 'rgba(255,255,255,0.7)'),
+          fontSize:13, fontWeight:700,
           display:'flex', alignItems:'center', gap:6 }}>
           <BackIcon size={11} /> Back
         </button>
@@ -327,9 +358,11 @@ export function Shell({ sec, prog=0, total=0, onClose, onBack, geos, bg, childre
       {/* close button */}
       {onClose && (
         <button onClick={onClose} style={{ position:'absolute', top:10, right:14, zIndex:10,
-          background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.14)',
+          background: dimAlpha('rgba(31,24,78,0.07)', 'rgba(255,255,255,0.08)'),
+          border: `1px solid ${dimAlpha('rgba(31,24,78,0.12)', 'rgba(255,255,255,0.14)')}`,
           borderRadius:999, width:34, height:34,
-          fontFamily: DA.bp, color:'rgba(255,255,255,0.7)', fontSize:18,
+          fontFamily: da.bp, color: dimAlpha('rgba(31,24,78,0.7)', 'rgba(255,255,255,0.7)'),
+          fontSize:18,
           display:'flex', alignItems:'center', justifyContent:'center' }}>
           ×
         </button>
@@ -360,51 +393,72 @@ export function RShell({ sec, prog, total, onClose, step, children }) {
 }
 
 // ── Typography ─────────────────────────────────────────────────────────────
-export const Overline = ({ children }) => (
-  <div className="wc-fu" style={{ fontFamily:DA.bp, fontSize:11, fontWeight:700,
-    letterSpacing:'0.1em', textTransform:'uppercase', color:DA.faint, width:'100%' }}>
-    {children}
-  </div>
-);
+export const Overline = ({ children }) => {
+  const da = getDA(useTheme().theme);
+  return (
+    <div className="wc-fu" style={{ fontFamily:da.bp, fontSize:11, fontWeight:700,
+      letterSpacing:'0.1em', textTransform:'uppercase', color:da.faint, width:'100%' }}>
+      {children}
+    </div>
+  );
+};
 
-export const Heading = ({ children, size=32 }) => (
-  <div className="wc-fu" style={{ fontFamily:DA.dp, fontWeight:900, fontSize:size,
-    color:DA.text, letterSpacing:'-0.025em', lineHeight:1.05, width:'100%' }}>
-    {children}
-  </div>
-);
+export const Heading = ({ children, size=32 }) => {
+  const da = getDA(useTheme().theme);
+  return (
+    <div className="wc-fu" style={{ fontFamily:da.dp, fontWeight:900, fontSize:size,
+      color:da.text, letterSpacing:'-0.025em', lineHeight:1.05, width:'100%' }}>
+      {children}
+    </div>
+  );
+};
 
-export const Sub = ({ children }) => (
-  <div className="wc-fu2" style={{ fontFamily:DA.bp, fontSize:14, color:DA.muted,
-    lineHeight:1.55, width:'100%' }}>
-    {children}
-  </div>
-);
+export const Sub = ({ children }) => {
+  const da = getDA(useTheme().theme);
+  return (
+    <div className="wc-fu2" style={{ fontFamily:da.bp, fontSize:14, color:da.muted,
+      lineHeight:1.55, width:'100%' }}>
+      {children}
+    </div>
+  );
+};
 
-export const BigStat = ({ children }) => (
-  <div className="wc-fu2" style={{ fontFamily:DA.dp, fontWeight:900, fontSize:46,
-    color:DA.text, letterSpacing:'-0.03em', lineHeight:1, textAlign:'center' }}>
-    {children}
-  </div>
-);
+export const BigStat = ({ children }) => {
+  const da = getDA(useTheme().theme);
+  return (
+    <div className="wc-fu2" style={{ fontFamily:da.dp, fontWeight:900, fontSize:46,
+      color:da.text, letterSpacing:'-0.03em', lineHeight:1, textAlign:'center' }}>
+      {children}
+    </div>
+  );
+};
 
 // Italic quote / AI insight block
-export const Quip = ({ children }) => (
-  <div className="wc-fu3" style={{ fontFamily:DA.bp, fontSize:14, textAlign:'center',
-    color:'rgba(255,255,255,0.82)', background:'rgba(255,255,255,0.07)',
-    padding:'13px 18px', borderRadius:18, width:'100%',
-    lineHeight:1.55, fontStyle:'italic', fontWeight:500 }}>
-    {children}
-  </div>
-);
+export const Quip = ({ children }) => {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === 'light';
+  return (
+    <div className="wc-fu3" style={{ fontFamily:da.bp, fontSize:14, textAlign:'center',
+      color: isLight ? 'rgba(31,24,78,0.82)' : 'rgba(255,255,255,0.82)',
+      background: isLight ? 'rgba(31,24,78,0.06)' : 'rgba(255,255,255,0.07)',
+      padding:'13px 18px', borderRadius:18, width:'100%',
+      lineHeight:1.55, fontStyle:'italic', fontWeight:500 }}>
+      {children}
+    </div>
+  );
+};
 
 // Small uppercase label inside a card
-export const CLabel = ({ children, color }) => (
-  <div style={{ fontFamily:DA.bp, fontSize:11, fontWeight:700, letterSpacing:'0.08em',
-    textTransform:'uppercase', color: color || DA.teal, marginBottom:12 }}>
-    {children}
-  </div>
-);
+export const CLabel = ({ children, color }) => {
+  const da = getDA(useTheme().theme);
+  return (
+    <div style={{ fontFamily:da.bp, fontSize:11, fontWeight:700, letterSpacing:'0.08em',
+      textTransform:'uppercase', color: color || da.teal, marginBottom:12 }}>
+      {children}
+    </div>
+  );
+};
 
 // ── ACard — accent result card ─────────────────────────────────────────────
 // accent → pass PAL[sec].accent; card bg is auto-derived from ACCENT_INNER.
@@ -425,11 +479,13 @@ export function ACard({ accent, children, style={} }) {
 
 // ── DCard — plain dark info card ──────────────────────────────────────────
 export function DCard({ children, style={} }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   return (
     <div className="wc-fu2" style={{
       borderRadius: 20,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.1)',
+      background: isLight ? 'rgba(31,24,78,0.05)' : 'rgba(255,255,255,0.05)',
+      border: `1px solid ${isLight ? 'rgba(31,24,78,0.1)' : 'rgba(255,255,255,0.1)'}`,
       padding: '18px', width: '100%',
       ...style,
     }}>
@@ -441,12 +497,17 @@ export function DCard({ children, style={} }) {
 // ── StatChips — 3-stat row inside ACard ───────────────────────────────────
 // chips: array of [value, label] pairs, e.g. [['847','Alex msgs'],['400','Your msgs']]
 export function StatChips({ chips }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === 'light';
   return (
     <div style={{ display:'flex', gap:8, marginTop:18 }}>
       {chips.map(([v, l]) => (
-        <div key={l} style={{ flex:1, background:'rgba(255,255,255,0.12)', borderRadius:14, padding:'10px 8px' }}>
-          <div style={{ fontFamily:DA.dp, fontWeight:800, fontSize:17, color:'#fff' }}>{v}</div>
-          <div style={{ fontFamily:DA.bp, fontSize:10, color:'rgba(255,255,255,0.6)', marginTop:2 }}>{l}</div>
+        <div key={l} style={{ flex:1,
+          background: isLight ? 'rgba(31,24,78,0.1)' : 'rgba(255,255,255,0.12)',
+          borderRadius:14, padding:'10px 8px' }}>
+          <div style={{ fontFamily:da.dp, fontWeight:800, fontSize:17, color:da.text }}>{v}</div>
+          <div style={{ fontFamily:da.bp, fontSize:10, color:da.muted, marginTop:2 }}>{l}</div>
         </div>
       ))}
     </div>
@@ -455,16 +516,20 @@ export function StatChips({ chips }) {
 
 // ── Bar — horizontal progress bar ─────────────────────────────────────────
 export function Bar({ value, max, color, label }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === 'light';
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div style={{ marginBottom:14 }}>
       <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-        <span style={{ fontFamily:DA.bp, fontSize:13, fontWeight:600, color:DA.text }}>{label}</span>
-        <span style={{ fontFamily:DA.bp, fontSize:13, color:DA.muted }}>
+        <span style={{ fontFamily:da.bp, fontSize:13, fontWeight:600, color:da.text }}>{label}</span>
+        <span style={{ fontFamily:da.bp, fontSize:13, color:da.muted }}>
           {typeof value === 'number' && value <= 100 ? `${value}%` : value.toLocaleString()}
         </span>
       </div>
-      <div style={{ height:9, borderRadius:999, background:'rgba(255,255,255,0.1)' }}>
+      <div style={{ height:9, borderRadius:999,
+        background: isLight ? 'rgba(31,24,78,0.1)' : 'rgba(255,255,255,0.1)' }}>
         <div style={{ height:'100%', width:`${pct}%`, borderRadius:999, background:color, transition:'width .7s ease' }} />
       </div>
     </div>
@@ -473,18 +538,22 @@ export function Bar({ value, max, color, label }) {
 
 // ── ScoreRing — circular SVG score indicator ──────────────────────────────
 export function ScoreRing({ score, max=10, color }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === 'light';
   const sz=120, sw=7, r=(sz-sw)/2, circ=2*Math.PI*r, pct=score/max;
   return (
     <div style={{ position:'relative', width:sz, height:sz, margin:'0 auto' }}>
       <svg width={sz} height={sz} style={{ transform:'rotate(-90deg)' }}>
-        <circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={sw} />
+        <circle cx={sz/2} cy={sz/2} r={r} fill="none"
+          stroke={isLight ? 'rgba(31,24,78,0.1)' : 'rgba(255,255,255,0.1)'} strokeWidth={sw} />
         <circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={color} strokeWidth={sw}
           strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round" />
       </svg>
       <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
         alignItems:'center', justifyContent:'center' }}>
-        <div style={{ fontFamily:DA.dp, fontSize:32, fontWeight:900, color:'#fff', lineHeight:1 }}>{score}</div>
-        <div style={{ fontFamily:DA.bp, fontSize:11, color:DA.faint }}>/ {max}</div>
+        <div style={{ fontFamily:da.dp, fontSize:32, fontWeight:900, color:da.text, lineHeight:1 }}>{score}</div>
+        <div style={{ fontFamily:da.bp, fontSize:11, color:da.faint }}>/ {max}</div>
       </div>
     </div>
   );
@@ -494,21 +563,26 @@ export function ScoreRing({ score, max=10, color }) {
 // accent   → primary button background (use PAL[sec].accent)
 // textColor → primary button text (use PAL[sec].bg to avoid purple clash)
 export function Nav({ onBack, onNext, showBack=true, nextLabel='Next', accent, textColor }) {
-  const ac = accent   || DA.teal;
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === 'light';
+  const ac = accent   || da.teal;
   const tc = textColor || '#fff';
   return (
     <div style={{ display:'flex', gap:10, width:'100%', marginTop:8 }}>
       {showBack && (
         <button onClick={onBack} style={{ flex:1, padding:'14px', borderRadius:999,
-          background:'rgba(255,255,255,0.10)', border:'1.5px solid rgba(255,255,255,0.18)',
-          fontFamily:DA.bp, color:'rgba(255,255,255,0.75)', fontSize:15, fontWeight:700,
+          background: isLight ? 'rgba(31,24,78,0.08)' : 'rgba(255,255,255,0.10)',
+          border: `1.5px solid ${isLight ? 'rgba(31,24,78,0.16)' : 'rgba(255,255,255,0.18)'}`,
+          fontFamily:da.bp, color: isLight ? 'rgba(31,24,78,0.7)' : 'rgba(255,255,255,0.75)',
+          fontSize:15, fontWeight:700,
           display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
           <BackIcon size={13} /> Back
         </button>
       )}
       <button onClick={onNext} style={{ flex:1, padding:'14px', borderRadius:999,
         background: ac, border:'none',
-        fontFamily:DA.bp, color:tc, fontSize:15, fontWeight:800 }}>
+        fontFamily:da.bp, color:tc, fontSize:15, fontWeight:800 }}>
         <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
           {nextLabel}
           <ForwardIcon size={13} />
@@ -520,12 +594,13 @@ export function Nav({ onBack, onNext, showBack=true, nextLabel='Next', accent, t
 
 // ── PrimaryButton — full-width pill CTA ───────────────────────────────────
 export function PrimaryButton({ children, onClick, color, textColor, disabled, style={} }) {
+  const da = getDA(useTheme().theme);
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: '100%', padding: '16px', borderRadius: 999, border: 'none',
-      background: color || DA.teal,
-      fontFamily: DA.bp, fontWeight: 700, fontSize: 16,
-      color: textColor || DA.bg,
+      background: color || da.teal,
+      fontFamily: da.bp, fontWeight: 700, fontSize: 16,
+      color: textColor || DA_DARK.bg,
       opacity: disabled ? 0.45 : 1,
       transition: 'all .2s',
       ...style,
@@ -537,11 +612,15 @@ export function PrimaryButton({ children, onClick, color, textColor, disabled, s
 
 // ── GhostButton — full-width pill secondary CTA ───────────────────────────
 export function GhostButton({ children, onClick, style={} }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === 'light';
   return (
     <button onClick={onClick} style={{
       width: '100%', padding: '13px', borderRadius: 999,
-      background: 'transparent', border: '1.5px solid rgba(255,255,255,0.16)',
-      fontFamily: DA.bp, fontWeight: 600, fontSize: 14, color: DA.muted,
+      background: 'transparent',
+      border: `1.5px solid ${isLight ? 'rgba(31,24,78,0.16)' : 'rgba(255,255,255,0.16)'}`,
+      fontFamily: da.bp, fontWeight: 600, fontSize: 14, color: da.muted,
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
       ...style,
     }}>
@@ -581,13 +660,15 @@ export function Toast({ msg, onDone }) {
 
 // ── LoadingMosaic — 4-square animated spinner ─────────────────────────────
 export function LoadingMosaic() {
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <div style={{ position:'relative', width:96, height:96, flexShrink:0 }}>
       {[
-        { c:DA.amber, t:0,  l:0  },
-        { c:DA.teal,  t:0,  l:52 },
-        { c:DA.lime,  t:52, l:0  },
-        { c:DA.blue,  t:52, l:52 },
+        { c:da.amber, t:0,  l:0  },
+        { c:da.teal,  t:0,  l:52 },
+        { c:da.lime,  t:52, l:0  },
+        { c:da.blue,  t:52, l:52 },
       ].map((s, i) => (
         <div key={i} style={{ position:'absolute', top:s.t, left:s.l,
           width:44, height:44, background:s.c, borderRadius:8, opacity:.92,
@@ -595,7 +676,7 @@ export function LoadingMosaic() {
       ))}
       <div style={{ position:'absolute', top:'50%', left:'50%',
         transform:'translate(-50%,-50%)',
-        width:12, height:12, background:DA.bg, borderRadius:3, zIndex:10 }} />
+        width:12, height:12, background:da.bg, borderRadius:3, zIndex:10 }} />
     </div>
   );
 }

@@ -9,11 +9,14 @@ import {
   requestSharedFileFromServiceWorker,
   subscribeToShareTargetEvents,
 } from "./import/shareTargetClient";
-import { Shell, GhostButton, BackIcon, DA, PAL } from "./theme.jsx";
+import { Shell, GhostButton, BackIcon, DA, PAL, useTheme, getDA } from "./theme.jsx";
 
 const pal = PAL.upload;
 
 function UploadFallback({ onFile, busy }) {
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
   const inputId = "wrapchat-import-input";
   return (
     <>
@@ -35,10 +38,10 @@ function UploadFallback({ onFile, busy }) {
           cursor: busy ? "default" : "pointer",
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.3, color: "#fff" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.3, color: da.text }}>
           {busy ? "Opening your chat..." : "Choose your chat export"}
         </div>
-        <div style={{ marginTop: 10, fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.65 }}>
+        <div style={{ marginTop: 10, fontSize: 13, color: da.muted, lineHeight: 1.65 }}>
           Share your chat export here, or drop the file on this card.
         </div>
       </label>
@@ -130,8 +133,12 @@ export default function ImportRoute({ onComplete, onCancel }) {
     };
   }, [processFile]);
 
+  const { theme } = useTheme();
+  const da = getDA(theme);
+  const isLight = theme === "light";
+
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100svh", background: DA.bg }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100svh", background: da.bg }}>
       <Shell sec="upload" bg={pal.bg} scrollable={false} forceWaves>
         <div style={{ position:"absolute", top:"calc(33% + 4px)", left:0, right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"0 24px", zIndex:1 }}>
           <BrandLockup
@@ -143,15 +150,15 @@ export default function ImportRoute({ onComplete, onCancel }) {
         </div>
 
         <div style={{ position:"absolute", top:"calc(33% + 109px)", left:24, right:24, display:"flex", flexDirection:"column", gap:12 }}>
-          <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
-            <div style={{ fontSize:17, fontWeight:800, color:"#fff", letterSpacing:-0.3 }}>
+          <div style={{ background: isLight ? "rgba(31,24,78,0.08)" : "rgba(0,0,0,0.25)", borderRadius:24, padding:"28px 24px", textAlign:"center", width:"100%" }}>
+            <div style={{ fontSize:17, fontWeight:800, color:da.text, letterSpacing:-0.3 }}>
               {busy ? "Reading your chat..." : statusText}
             </div>
           </div>
 
           {!busy && (
           <>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.62)", lineHeight: 1.7, textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: da.muted, lineHeight: 1.7, textAlign: "center" }}>
               If sharing didn&apos;t bring the export in automatically, you can choose it here instead.
             </div>
             <UploadFallback onFile={file => processFile(file, "manual")} busy={busy} />
