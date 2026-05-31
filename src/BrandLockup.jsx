@@ -7,7 +7,7 @@ const DEFAULT_ACCENT = "#7A90FF";
 function LogoSVG({ size, accentColor }) {
   const { theme } = useTheme();
   const accent = accentColor || DEFAULT_ACCENT;
-  const bodyFill = theme === "light" ? "#B8C4FF" : "#fff";
+  const bodyFill = accentColor ? "#fff" : (theme === "light" ? "#B8C4FF" : "#fff");
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -85,7 +85,7 @@ export default function BrandLockup({
           style={{
             fontSize: titleSize,
             fontWeight: 800,
-            color: accentColor || (isLight ? "#1f184e" : "#fff"),
+            color: accentColor ? "#fff" : (isLight ? "#1f184e" : "#fff"),
             letterSpacing: titleLetterSpacing,
             lineHeight: 1,
             textAlign: "center",
