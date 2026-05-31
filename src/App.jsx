@@ -20,7 +20,7 @@ import {
   CREDIT_BUNDLES, QUICK_READ_TRIAL_CONFIG, REPORT_PACKS, REPORT_PACK_ORDER,
   canUserRunReports, deductCreditsAmount, estimateAnalysesLeft, getCreditBundleById,
   getBundleMatch, getPackCreditCost, getReportCreditCost, getTotalCreditCostBundled,
-  getUnlockedReportPacks, simulateCreditPurchase, unlockReportPacks,
+  consumeReportPack, getUnlockedReportPacks, simulateCreditPurchase, unlockReportPacks,
 } from "./reportCredits";
 import {
   buildDebugAnalysisExport, createAiDebugFileName, createAiRawDebugFileName,
@@ -1224,13 +1224,16 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         return;
       }
     }
-    if (consumePackIds.length && authedUser?.id) {
+    if (consumePackIds.length && authedUser?.id && !authedIsAdmin) {
       try {
-        const packUnlocks = await getUnlockedReportPacks(authedUser.id);
-        setUnlockedPackIds(packUnlocks);
-        cacheUnlockedPacks(authedUser.id, packUnlocks);
+        let updatedUnlocks = unlockedPackIds;
+        for (const packId of consumePackIds) {
+          updatedUnlocks = await consumeReportPack(authedUser.id, packId);
+        }
+        setUnlockedPackIds(updatedUnlocks);
+        cacheUnlockedPacks(authedUser.id, updatedUnlocks);
       } catch (error) {
-        console.error("Unlock refresh failed", error);
+        console.error("Pack consume failed", error);
       }
     }
     if (isQuickReadRun && !authedIsAdmin && !isOpenMode(activeAccessMode)) {

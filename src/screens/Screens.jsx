@@ -3850,7 +3850,7 @@ export function PackSelect({
                       </div>
                       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                         <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:13, fontWeight:700, color:da.faint }}>
-                          <strong style={{ fontSize:18, fontWeight:900, color:locked ? da.faint : da.text, marginRight:4 }}>{owned ? 1 : 0}</strong> left
+                          <strong style={{ fontSize:18, fontWeight:900, color:locked ? da.faint : da.text, marginRight:4 }}>{hideCredits || isOpenMode(accessMode) ? "∞" : (unlockedPackIds?.[id] ?? 0)}</strong> left
                         </div>
                         <button
                           type="button"

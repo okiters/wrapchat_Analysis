@@ -235,12 +235,12 @@ export async function deductCreditsAmount(userId, amount) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
-function packIdsToMap(packIds = []) {
+function packQuantityMap(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return {};
   return Object.fromEntries(
-    (Array.isArray(packIds) ? packIds : [])
-      .map(id => String(id || "").trim())
-      .filter(Boolean)
-      .map(id => [id, true])
+    Object.entries(data)
+      .filter(([k, v]) => k && Number.isInteger(Number(v)) && Number(v) > 0)
+      .map(([k, v]) => [String(k).trim(), Number(v)])
   );
 }
 
@@ -250,7 +250,7 @@ export async function getUnlockedReportPacks(userId) {
     p_user_id: userId,
   });
   if (error) throw error;
-  return packIdsToMap(data);
+  return packQuantityMap(data);
 }
 
 export async function unlockReportPacks(userId, packIds = []) {
@@ -272,8 +272,18 @@ export async function unlockReportPacks(userId, packIds = []) {
   return {
     balance: Number.isInteger(balance) ? balance : null,
     chargedCredits: Number.isInteger(chargedCredits) ? chargedCredits : 0,
-    unlockedPackIds: packIdsToMap(data?.unlocked_pack_ids),
+    unlockedPackIds: packQuantityMap(data?.unlocked_pack_ids),
   };
+}
+
+export async function consumeReportPack(userId, packId) {
+  if (!userId || !packId) return {};
+  const { data, error } = await supabase.rpc("consume_report_pack", {
+    p_user_id: userId,
+    p_pack_id: String(packId).trim(),
+  });
+  if (error) throw error;
+  return packQuantityMap(data);
 }
 
 export async function simulateCreditPurchase(userId, bundleId) {
