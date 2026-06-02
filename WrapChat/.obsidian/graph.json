@@ -1,0 +1,100 @@
+{
+  "collapse-filter": true,
+  "search": "",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": true,
+  "colorGroups": [
+    {
+      "query": "file:\"WrapChat\"",
+      "color": {
+        "a": 1,
+        "rgb": 5458615
+      }
+    },
+    {
+      "query": "file:\"Quick Read\" OR file:\"Vibe Pack\" OR file:\"Red Flags Pack\" OR file:\"Growth Report (Pack)\" OR file:\"Full Read\"",
+      "color": {
+        "a": 1,
+        "rgb": 1941109
+      }
+    },
+    {
+      "query": "file:\"QR —\"",
+      "color": {
+        "a": 1,
+        "rgb": 6527266
+      }
+    },
+    {
+      "query": "file:\"GW Duo —\"",
+      "color": {
+        "a": 1,
+        "rgb": 8353757
+      }
+    },
+    {
+      "query": "file:\"GW Group —\"",
+      "color": {
+        "a": 1,
+        "rgb": 6146725
+      }
+    },
+    {
+      "query": "file:\"LL —\"",
+      "color": {
+        "a": 1,
+        "rgb": 13915006
+      }
+    },
+    {
+      "query": "file:\"ER —\"",
+      "color": {
+        "a": 1,
+        "rgb": 15703847
+      }
+    },
+    {
+      "query": "file:\"TX —\"",
+      "color": {
+        "a": 1,
+        "rgb": 14830410
+      }
+    },
+    {
+      "query": "file:\"AC —\"",
+      "color": {
+        "a": 1,
+        "rgb": 14178864
+      }
+    },
+    {
+      "query": "file:\"GR —\"",
+      "color": {
+        "a": 1,
+        "rgb": 12219671
+      }
+    },
+    {
+      "query": "file:\"General Wrapped — Duo\" OR file:\"General Wrapped — Group\" OR file:\"Love Language Report\" OR file:\"Energy Report\" OR file:\"Toxicity Report\" OR file:\"Accountability Report\" OR file:\"Growth Report\"",
+      "color": {
+        "a": 1,
+        "rgb": 8947584
+      }
+    }
+  ],
+  "collapse-display": true,
+  "showArrow": false,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.518713248970312,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 1.8454028592076281,
+  "close": true
+}
