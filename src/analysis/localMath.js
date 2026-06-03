@@ -869,7 +869,7 @@ const MODE_META = {
     blurb: "Relationship status, toxicity, and warning signs.",
   },
 };
-export const DUO_CASUAL_SCREENS = 14;
+export const DUO_CASUAL_SCREENS = 15;
 export const DUO_REDFLAG_SCREENS = 7;
 export const GROUP_CASUAL_SCREENS = 17;
 export const GROUP_REDFLAG_SCREENS = 6;
@@ -1659,7 +1659,18 @@ export function buildQuizQuestions(quizData) {
     });
   }
 
-  // Q5 — Longest streak
+  // Q5 — Most used word
+  if (topWords.length >= 4) {
+    questions.push({
+      id: "top_word",
+      text: "What was their most used word?",
+      options: seededShuffle(topWords.slice(0, 4).map(w => w[0]), seed + 7),
+      correct: topWords[0][0],
+      layout: "grid",
+    });
+  }
+
+  // Q6 — Longest streak (last — hardest to remember)
   if (streak > 0) {
     const gap = Math.max(4, Math.ceil(streak * 0.25));
     const opts = [
@@ -1673,17 +1684,6 @@ export function buildQuizQuestions(quizData) {
       text: "What was their longest streak?",
       options: seededShuffle(opts, seed + 6).map(n => `${n} days`),
       correct: `${streak} days`,
-      layout: "grid",
-    });
-  }
-
-  // Q6 — Most used word
-  if (topWords.length >= 4) {
-    questions.push({
-      id: "top_word",
-      text: "What was their most used word?",
-      options: seededShuffle(topWords.slice(0, 4).map(w => w[0]), seed + 7),
-      correct: topWords[0][0],
       layout: "grid",
     });
   }

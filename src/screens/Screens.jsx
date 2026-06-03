@@ -60,7 +60,7 @@ import {
   applyAutomaticParticipantMerges, getReviewableMergeSuggestions,
   DUO_CASUAL_SCREENS, GROUP_CASUAL_SCREENS, cleanQuote,
   LOADING_STEPS, DUO_REDFLAG_SCREENS, GROUP_REDFLAG_SCREENS,
-  buildQuizQuestions,
+  buildQuizQuestions, normalizeRedFlags, normalizeTimeline,
 } from "../analysis/localMath";
 import { userFacingAnalysisError } from "../analysis/claudeClient";
 import {
@@ -550,14 +550,40 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
 }
 
 function Bar({ value, max, color, label, delay=0 }) {
-  const [w,setW]=useState(0);
-  useEffect(()=>{const t=setTimeout(()=>setW(Math.round((value/Math.max(max,1))*100)),120+delay);return()=>clearTimeout(t);},[value,max,delay]);
+  const [fill,      setFill]      = useState(0);
+  const [showLabel, setShowLabel] = useState(false);
+  const BAR_DURATION = 850;
+  useEffect(() => {
+    const start = SLIDE_MS + 80 + delay;
+    const t1 = setTimeout(() => setFill(value / Math.max(max, 1)), start);
+    const t2 = setTimeout(() => setShowLabel(true), start + BAR_DURATION + 40);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [value, max, delay]);
   const lbl = (label||"").split(" ")[0].slice(0,10);
+  const f   = fill > 0 ? fill : 1; // avoid divide-by-zero in counter-scale
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, width:"100%" }}>
       <div style={{ width:58, textAlign:"right", fontSize:13, color:"rgba(255,255,255,0.65)", flexShrink:0, fontWeight:600 }}>{lbl}</div>
       <div style={{ flex:1, minWidth:0, height:32, borderRadius:50, background:"rgba(0,0,0,0.2)", overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${w}%`, minWidth:w>0?"52px":"0", background:color, borderRadius:50, display:"flex", alignItems:"center", paddingLeft:12, fontSize:13, fontWeight:700, color:"#fff", transition:"width 0.9s cubic-bezier(.4,0,.2,1)", whiteSpace:"nowrap" }}>{value.toLocaleString()}</div>
+        <div style={{
+          height:"100%", width:"100%",
+          background:color, borderRadius:50,
+          display:"flex", alignItems:"center", paddingLeft:12,
+          fontSize:13, fontWeight:700, color:"#fff", whiteSpace:"nowrap",
+          transformOrigin:"left center",
+          transform:`scaleX(${fill})`,
+          transition: fill === 0 ? "none" : `transform ${BAR_DURATION}ms cubic-bezier(.2,0,.1,1)`,
+        }}>
+          {/* counter-scale keeps text undistorted; opacity fades in only after bar settles */}
+          <span style={{
+            display:"inline-block",
+            transform:`scaleX(${1/f})`,
+            opacity: showLabel ? 1 : 0,
+            transition: showLabel ? "opacity 0.28s ease" : "none",
+          }}>
+            {value.toLocaleString()}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -737,14 +763,31 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
   const toxicityBreakdown = s.toxicityBreakdown;
   const attrMoment = (ai?.memorableMoments || []).find(m => m.quote && m.people?.length >= 1 && m.read) ?? null;
   const casualScreens = [
-    // Card 1 — Ghost Award (GuessCard when skewed)
-    <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("The Ghost Award", 1, !s.ghostEqual)}>
+    // Card 1 — Who's more obsessed (animated bars, smooth opener)
+    <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("Who's more obsessed?", 1)}>
+      <T>{t("Who's more obsessed?")}</T>
+      <div style={{width:"100%",marginTop:16}}>
+        <Bar value={s.msgCounts[0]} max={mMax} color="#E06030" label={s.names[0]} />
+        <Bar value={s.msgCounts[1]} max={mMax} color="#4A90D4" label={s.names[1]} delay={160} />
+      </div>
+      <Sub mt={14}>{t("{pct}% of all messages came from {name}.", { pct: pct0, name: s.names[0] })}</Sub>
+      {(() => {
+        const name = s.names[pct0>=50?0:1];
+        const q = pick(t("quips.duo.obsessed", { name }), `duo-obsessed|${s.names.join("|")}|${s.totalMessages}|${name}|${pct0}`);
+        return <Quip>{q}</Quip>;
+      })()}
+      <Nav back={back} next={next} showBack={false} />
+    </Shell>,
+
+    // Card 2 — Ghost Award (GuessCard when skewed; if balanced, conv starter becomes interactive on card 6)
+    <Shell sec="roast" prog={2} total={TOTAL} feedback={feedback("The Ghost Award", 2, !s.ghostEqual)}>
       {s.ghostEqual ? (
         <>
           <T>{t("Response times")}</T>
           <Big>{t("Balanced")}</Big>
           <Sub>{t("{name} avg reply:", { name: s.names[0] })} <strong style={{color:"#fff"}}>{s.ghostAvg[0]}</strong>&nbsp;&nbsp;{t("{name} avg reply:", { name: s.names[1] })} <strong style={{color:"#fff"}}>{s.ghostAvg[1]}</strong></Sub>
           {(() => { const q = pick(t("quips.duo.responseBalanced"), `duo-response-balanced|${s.names.join("|")}|${s.totalMessages}|${s.ghostAvg.join("|")}`); return <Quip>{q}</Quip>; })()}
+          <Nav back={back} next={next} />
         </>
       ) : (
         <GuessCard
@@ -752,6 +795,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
           options={s.names}
           correctAnswer={s.ghostName}
           confidenceValid={true}
+          back={back}
+          next={next}
           revealContent={
             <>
               <T>{t("The Ghost Award")}</T>
@@ -763,11 +808,10 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
           }
         />
       )}
-      <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    // Card 2 — Your longest streak
-    <Shell sec="lovely" prog={2} total={TOTAL} feedback={feedback("Your longest streak", 2)}>
+    // Card 3 — Your longest streak
+    <Shell sec="lovely" prog={3} total={TOTAL} feedback={feedback("Your longest streak", 3)}>
       <T>{t("Your longest streak")}</T>
       <Big>{t("{count} days", { count: s.streak })}</Big>
       <Sub>{t("Texted every single day for {count} days straight.", { count: s.streak })}</Sub>
@@ -784,16 +828,16 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 3 — The Kindest One
-    <Shell sec="lovely" prog={3} total={TOTAL} feedback={feedback("The Kindest One", 3)}>
+    // Card 4 — The Kindest One
+    <Shell sec="lovely" prog={4} total={TOTAL} feedback={feedback("The Kindest One", 4)}>
       <T>{t("The Kindest One")}</T>
       <Big>{aiLoading ? "..." : (ai?.kindestPerson || "—")}</Big>
       <AICard label={t("The sweetest moment")} value={ai?.sweetMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 4 — Top 3 most active months
-    <Shell sec="lovely" prog={4} total={TOTAL} feedback={feedback("Top 3 most active months", 4)}>
+    // Card 5 — Top 3 most active months
+    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("Top 3 most active months", 5)}>
       <T>{t("Top 3 most active months")}</T>
       <div style={{display:"flex",gap:10,marginTop:16,width:"100%",justifyContent:"center"}}>
         {s.topMonths.map((m,i)=><MonthBadge key={i} month={m[0]} count={m[1]} medal={["🥇","🥈","🥉"][i]} />)}
@@ -802,28 +846,47 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 5 — Who always reaches out first?
-    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("Who always reaches out first?", 5)}>
-      <T>{t("Who always reaches out first?")}</T>
-      <Big>{s.convStarter}</Big>
-      <Sub>{t("Started {pct} of all conversations.", { pct: s.convStarterPct })}</Sub>
-      {(() => {
-        const q = pick(t("quips.duo.convStarter", { name: s.convStarter }), `duo-conv-starter|${s.names.join("|")}|${s.totalMessages}|${s.convStarter}|${s.convStarterPct}`);
-        return <Quip>{q}</Quip>;
-      })()}
-      <Nav back={back} next={next} />
+    // Card 6 — Who always reaches out first?
+    // GuessCard when ghost is balanced (prioritise ghost as the interactive card; fall back here)
+    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("Who always reaches out first?", 6)}>
+      {s.ghostEqual ? (
+        <GuessCard
+          question={t("Who reaches out first?")}
+          options={s.names}
+          correctAnswer={s.convStarter}
+          confidenceValid={true}
+          back={back}
+          next={next}
+          revealContent={
+            <>
+              <T>{t("Who always reaches out first?")}</T>
+              <Big>{s.convStarter}</Big>
+              <Sub>{t("Started {pct} of all conversations.", { pct: s.convStarterPct })}</Sub>
+              {(() => { const q = pick(t("quips.duo.convStarter", { name: s.convStarter }), `duo-conv-starter|${s.names.join("|")}|${s.totalMessages}|${s.convStarter}|${s.convStarterPct}`); return <Quip>{q}</Quip>; })()}
+            </>
+          }
+        />
+      ) : (
+        <>
+          <T>{t("Who always reaches out first?")}</T>
+          <Big>{s.convStarter}</Big>
+          <Sub>{t("Started {pct} of all conversations.", { pct: s.convStarterPct })}</Sub>
+          {(() => { const q = pick(t("quips.duo.convStarter", { name: s.convStarter }), `duo-conv-starter|${s.names.join("|")}|${s.totalMessages}|${s.convStarter}|${s.convStarterPct}`); return <Quip>{q}</Quip>; })()}
+          <Nav back={back} next={next} />
+        </>
+      )}
     </Shell>,
 
-    // Card 6 — The Funny One
-    <Shell sec="funny" prog={6} total={TOTAL} feedback={feedback("The Funny One", 6)}>
+    // Card 7 — The Funny One
+    <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("The Funny One", 7)}>
       <T>{t("The Funny One")}</T>
       <Big>{aiLoading?"...":(ai?.funniestPerson||s.names[0])}</Big>
       <AICard label={t("Drops lines like")} value={ai?.funniestReason} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 7 — Spirit emojis
-    <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("Spirit emojis", 7)}>
+    // Card 8 — Spirit emojis
+    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Spirit emojis", 8)}>
       <T>{t("Spirit emojis")}</T>
       <div style={{display:"flex",gap:0,marginTop:16,width:"100%",justifyContent:"space-around"}}>
         {[0,1].map(i=>(
@@ -837,8 +900,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 8 — Your Language (Top 10 Words + Signature Phrases merged)
-    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Your language", 8)}>
+    // Card 9 — Your Language (Top 10 Words + Signature Phrases merged)
+    <Shell sec="funny" prog={9} total={TOTAL} feedback={feedback("Your language", 9)}>
       <T>{t("Your language")}</T>
       <Words words={s.topWords} bigrams={s.topBigrams} />
       <div style={{display:"flex",gap:"1rem",marginTop:16,width:"100%",justifyContent:"center"}}>
@@ -853,24 +916,24 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 9 — What you actually talk about
-    <Shell sec="ai" prog={9} total={TOTAL} feedback={feedback("What you actually talk about", 9)}>
+    // Card 10 — What you actually talk about
+    <Shell sec="ai" prog={10} total={TOTAL} feedback={feedback("What you actually talk about", 10)}>
       <T>{t("What you actually talk about")}</T>
       <AICard label={t("Biggest topic")} value={ai?.biggestTopic} loading={aiLoading} />
       <AICard label={t("Most tense moment")} value={ai?.tensionMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 10 — The Drama Report
-    <Shell sec="ai" prog={10} total={TOTAL} feedback={feedback("The Drama Report", 10)}>
+    // Card 11 — The Drama Report
+    <Shell sec="ai" prog={11} total={TOTAL} feedback={feedback("The Drama Report", 11)}>
       <T>{t("The Drama Report")}</T>
       <Big>{aiLoading?"...":(ai?.dramaStarter||s.names[0])}</Big>
       <AICard label={t("How they do it")} value={ai?.dramaContext} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 11 — Time of Day (new)
-    <Shell sec="stats" prog={11} total={TOTAL} feedback={feedback("Time of day", 11)}>
+    // Card 12 — Time of Day
+    <Shell sec="stats" prog={12} total={TOTAL} feedback={feedback("Time of day", 12)}>
       <T>{t("Time of day")}</T>
       {ai?.timeOfDay ? (
         <>
@@ -893,28 +956,33 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 12 — A moment from the chat (Attribution — new)
-    <Shell sec="ai" prog={12} total={TOTAL} feedback={feedback("A moment from the chat", 12)}>
+    // Card 13 — A moment from the chat (Attribution)
+    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("A moment from the chat", 13)}>
       {aiLoading && !attrMoment ? (
         <>
           <T>{t("A moment from the chat")}</T>
           <div style={{marginTop:24}}><Dots /></div>
         </>
-      ) : (
+      ) : attrMoment ? (
         <AttributionCard
-          quote={attrMoment?.quote || ""}
+          quote={attrMoment.quote}
           participants={s.names}
-          correctSender={attrMoment?.people?.[0] || s.names[0]}
-          contextParagraph={attrMoment?.read || attrMoment?.title || ""}
-          isSensitive={!attrMoment}
+          correctSender={attrMoment.people[0]}
+          contextParagraph={attrMoment.read || attrMoment.title || ""}
+          isSensitive={false}
           label={t("Who said this?")}
         />
+      ) : (
+        <>
+          <T>{t("A moment from the chat")}</T>
+          <AICard label={t("Most memorable moment")} value={ai?.memorableMoments?.[0]?.read || ai?.sweetMoment} loading={aiLoading} />
+        </>
       )}
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 13 — Chat vibe (moved to second-to-last)
-    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("Chat vibe", 13)}>
+    // Card 14 — Chat vibe
+    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("Chat vibe", 14)}>
       <T>{t("Chat vibe")}</T>
       <div style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("A chaotic, wholesome connection."))}
@@ -924,8 +992,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 14 — What's really going on (moved to last)
-    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("What's really going on", 14)}>
+    // Card 15 — What's really going on (last)
+    <Shell sec="ai" prog={15} total={TOTAL} feedback={feedback("What's really going on", 15)}>
       <T>{t("What's really going on")}</T>
       <AICard label={t(relationshipReadTitle)} value={ai?.relationshipSummary} loading={aiLoading} />
       <Nav back={back} next={next} nextLabel="See summary" />
@@ -1564,12 +1632,16 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
     </Shell>,
 
     // Card 3 — Guess who apologises more (new — GuessCard)
+    // onReveal auto-advances to card 4 which shows the full context
     <Shell sec="toxicity" prog={3} total={TOXICITY_SCREENS} feedback={feedback("Guess who apologises more", 3, ai?.apologyGuessThreshold)}>
       <GuessCard
         question={t("Who do you think apologises more?")}
         options={[personAName, personBName]}
         correctAnswer={ai?.apologiesLeader?.name || ""}
         confidenceValid={ai?.apologyGuessThreshold ?? false}
+        onReveal={next}
+        back={back}
+        next={next}
         revealContent={
           <>
             <T>{t("Who apologises more")}</T>
@@ -1577,7 +1649,6 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
           </>
         }
       />
-      <Nav back={back} next={next} />
     </Shell>,
 
     // Card 4 — Who apologises more (detailed context)
@@ -1596,15 +1667,20 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
           <T>{t("A moment from the conflict")}</T>
           <div style={{ marginTop:24 }}><Dots /></div>
         </>
-      ) : (
+      ) : ai?.heavyAttributionQuote?.quote ? (
         <AttributionCard
-          quote={ai?.heavyAttributionQuote?.quote || ""}
+          quote={ai.heavyAttributionQuote.quote}
           participants={[personAName, personBName]}
-          correctSender={ai?.heavyAttributionQuote?.person || ""}
-          contextParagraph={ai?.heavyAttributionQuote?.contextParagraph || ""}
-          isSensitive={ai?.heavyAttributionQuote?.isSensitive || !ai?.heavyAttributionQuote?.quote}
+          correctSender={ai.heavyAttributionQuote.person || ""}
+          contextParagraph={ai.heavyAttributionQuote.contextParagraph || ""}
+          isSensitive={ai.heavyAttributionQuote.isSensitive}
           label={t("A moment from the conflict")}
         />
+      ) : (
+        <>
+          <T>{t("A moment from the conflict")}</T>
+          <AICard label={t("Conflict pattern")} value={ai?.conflictPattern} loading={loading} />
+        </>
       )}
       <Nav back={back} next={next} />
     </Shell>,
@@ -1617,12 +1693,16 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
     </Shell>,
 
     // Card 7 — Guess who steers the emotional tone (new — GuessCard)
+    // onReveal auto-advances to card 8 which shows the full power dynamic
     <Shell sec="toxicity" prog={7} total={TOXICITY_SCREENS} feedback={feedback("Guess who steers the tone", 7, powerGuessValid)}>
       <GuessCard
         question={t("Who seems to steer the emotional tone?")}
         options={[personAName, personBName]}
         correctAnswer={powerHolderName}
         confidenceValid={powerGuessValid}
+        onReveal={next}
+        back={back}
+        next={next}
         revealContent={
           <>
             <T>{t("Power balance")}</T>
@@ -1630,7 +1710,6 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
           </>
         }
       />
-      <Nav back={back} next={next} />
     </Shell>,
 
     // Card 8 — Power balance (detailed context)
@@ -1689,12 +1768,16 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
     </Shell>,
 
     // Card 2 — Guess A's love language (new — GuessCard)
+    // onReveal auto-advances to card 3 which shows the full language + examples
     <Shell sec="lovelang" prog={2} total={LOVELANG_SCREENS} feedback={feedback("Guess A's love language", 2, ai?.loveLanguageGuessValid)}>
       <GuessCard
         question={loading ? "…" : t("Which love language describes {name}?", { name: personAName })}
         options={guessOptions}
         correctAnswer={langA}
         confidenceValid={(ai?.loveLanguageGuessValid ?? false) && guessOptions.length >= 2}
+        onReveal={next}
+        back={back}
+        next={next}
         revealContent={
           <>
             <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
@@ -1702,7 +1785,6 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
           </>
         }
       />
-      <Nav back={back} next={next} />
     </Shell>,
 
     // Card 3 — Person A's love language (existing)
@@ -1764,15 +1846,20 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
           <T>{t("How it shows")}</T>
           <div style={{ marginTop:24 }}><Dots /></div>
         </>
-      ) : (
+      ) : ai?.mostLovingMomentAttribution?.quote ? (
         <AttributionCard
-          quote={ai?.mostLovingMomentAttribution?.quote || ""}
+          quote={ai.mostLovingMomentAttribution.quote}
           participants={[personAName, personBName]}
-          correctSender={ai?.mostLovingMomentAttribution?.people?.[0] || ""}
-          contextParagraph={ai?.mostLovingMomentAttribution?.read || ai?.mostLovingMomentAttribution?.title || ""}
-          isSensitive={!ai?.mostLovingMomentAttribution?.quote}
+          correctSender={ai.mostLovingMomentAttribution.people?.[0] || ""}
+          contextParagraph={ai.mostLovingMomentAttribution.read || ai.mostLovingMomentAttribution.title || ""}
+          isSensitive={false}
           label={t("Who showed love here?")}
         />
+      ) : (
+        <>
+          <T>{t("How it shows")}</T>
+          <AICard label={t("Most loving moment")} value={ai?.mostLovingMoment} loading={loading} />
+        </>
       )}
       <Nav back={back} next={next} />
     </Shell>,
@@ -1835,12 +1922,16 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
     </Shell>,
 
     // Card 4 — Guess Who Changed More (new — GuessCard)
+    // onReveal auto-advances to card 5 which shows the full explanation
     <Shell sec="growth" prog={4} total={GROWTH_SCREENS} feedback={feedback("Guess who changed more", 4, ai?.growthGuessThreshold)}>
       <GuessCard
         question={t("Who do you think changed more?")}
         options={[personAName, personBName]}
         correctAnswer={ai?.whoChangedMore || ""}
         confidenceValid={ai?.growthGuessThreshold ?? false}
+        onReveal={next}
+        back={back}
+        next={next}
         revealContent={
           <>
             <T>{t("Who changed more")}</T>
@@ -1848,7 +1939,6 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
           </>
         }
       />
-      <Nav back={back} next={next} />
     </Shell>,
 
     // Card 5 — How they changed (detailed follow-up to the guess)
@@ -1886,15 +1976,20 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
           <T>{t("The message that shifted everything")}</T>
           <div style={{marginTop:24}}><Dots /></div>
         </>
-      ) : (
+      ) : ai?.messageAtTurningPoint?.quote ? (
         <AttributionCard
-          quote={ai?.messageAtTurningPoint?.quote || ""}
+          quote={ai.messageAtTurningPoint.quote}
           participants={[personAName, personBName]}
-          correctSender={ai?.messageAtTurningPoint?.person || ""}
-          contextParagraph={ai?.messageAtTurningPoint?.contextParagraph || ""}
-          isSensitive={ai?.messageAtTurningPoint?.isSensitive || !ai?.messageAtTurningPoint?.quote}
+          correctSender={ai.messageAtTurningPoint.person || ""}
+          contextParagraph={ai.messageAtTurningPoint.contextParagraph || ""}
+          isSensitive={ai.messageAtTurningPoint.isSensitive}
           label={t("The message that shifted everything")}
         />
+      ) : (
+        <>
+          <T>{t("The message that shifted everything")}</T>
+          <AICard label={t("What the turning point looked like")} value={ai?.trajectoryDetail || ai?.arcSummary} loading={loading} />
+        </>
       )}
       <Nav back={back} next={next} />
     </Shell>,
@@ -1978,6 +2073,8 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
         options={[personAName, personBName]}
         correctAnswer={promiseLeader}
         confidenceValid={ai?.promiseGuessThreshold ?? false}
+        back={back}
+        next={next}
         revealContent={
           <>
             <T>{t("More promises made")}</T>
@@ -1985,7 +2082,6 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
           </>
         }
       />
-      <Nav back={back} next={next} />
     </Shell>,
 
     // Card 3 — Person A's accountability
@@ -2057,15 +2153,20 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
           <T>{t("The promise that changed things")}</T>
           <div style={{ marginTop:24 }}><Dots /></div>
         </>
-      ) : (
+      ) : ai?.promiseThatMattered?.quote ? (
         <AttributionCard
-          quote={ai?.promiseThatMattered?.quote || ""}
+          quote={ai.promiseThatMattered.quote}
           participants={[personAName, personBName]}
-          correctSender={ai?.promiseThatMattered?.person || ""}
-          contextParagraph={ai?.promiseThatMattered?.contextParagraph || ""}
-          isSensitive={ai?.promiseThatMattered?.isSensitive || !ai?.promiseThatMattered?.quote}
+          correctSender={ai.promiseThatMattered.person || ""}
+          contextParagraph={ai.promiseThatMattered.contextParagraph || ""}
+          isSensitive={ai.promiseThatMattered.isSensitive}
           label={t("Who made this promise?")}
         />
+      ) : (
+        <>
+          <T>{t("The promise that changed things")}</T>
+          <AICard label={t("Most notable promise")} value={ai?.notableKept?.promise || ai?.overallVerdict} loading={loading} />
+        </>
       )}
       <Nav back={back} next={next} />
     </Shell>,
@@ -2150,6 +2251,8 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
         options={[personAName, personBName]}
         correctAnswer={energyLeader}
         confidenceValid={ai?.energyGuessValid ?? false}
+        back={back}
+        next={next}
         revealContent={
           <>
             <T>{t("More positive presence")}</T>
@@ -2157,7 +2260,6 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
           </>
         }
       />
-      <Nav back={back} next={next} />
     </Shell>,
 
     // Card 5 — The Dynamic (new)
@@ -2212,15 +2314,20 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
           <T>{t("The charge")}</T>
           <div style={{ marginTop:24 }}><Dots /></div>
         </>
-      ) : (
+      ) : ai?.chargeAttribution?.quote ? (
         <AttributionCard
-          quote={ai?.chargeAttribution?.quote || ""}
+          quote={ai.chargeAttribution.quote}
           participants={[personAName, personBName]}
-          correctSender={ai?.chargeAttribution?.people?.[0] || ""}
-          contextParagraph={ai?.chargeAttribution?.read || ai?.chargeAttribution?.title || ""}
-          isSensitive={!ai?.chargeAttribution?.quote}
+          correctSender={ai.chargeAttribution.people?.[0] || ""}
+          contextParagraph={ai.chargeAttribution.read || ai.chargeAttribution.title || ""}
+          isSensitive={false}
           label={t("Who changed the room's energy?")}
         />
+      ) : (
+        <>
+          <T>{t("The charge")}</T>
+          <AICard label={t("Most energising moment")} value={ai?.mostEnergising} loading={loading} />
+        </>
       )}
       <Nav back={back} next={next} />
     </Shell>,
@@ -7833,183 +7940,191 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
     }, 1200);
   }
 
-  const containerStyle = {
+  // Finale palette — matches General Wrapped summary page
+  const BG      = "#5E1228";
+  const ACCENT  = "#F08EBF";
+  const INNER   = "rgba(255,255,255,0.09)";
+  const BORDER  = "rgba(255,255,255,0.12)";
+  const PRIMARY = "#fff";
+  const DIM     = "rgba(255,255,255,0.55)";
+  const DIMMER  = "rgba(255,255,255,0.35)";
+
+  // Stable outer shell — top-anchored so layout never shifts between phases
+  const shell = {
     minHeight: "100dvh",
-    background: "#0C0C14",
+    background: BG,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    padding: "24px 20px 40px",
+    padding: "0 20px 56px",
     boxSizing: "border-box",
   };
-  const cardStyle = {
+  // Fixed-width column — always the same horizontal footprint
+  const col = {
     width: "100%",
     maxWidth: 420,
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
     gap: 20,
+    paddingTop: 52,
   };
 
-  // Loading
-  if (quizPhase === "loading") {
-    return (
-      <div style={containerStyle}>
-        <div style={{ color:"rgba(255,255,255,0.45)", fontSize:14 }}>Loading quiz…</div>
-      </div>
-    );
-  }
+  // Shared wordmark header
+  const wordmark = (
+    <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:DIMMER, textAlign:"center" }}>
+      WrapChat
+    </div>
+  );
 
-  // Error
-  if (quizPhase === "error" || !questions.length) {
-    return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ fontSize:22, fontWeight:800, color:"#fff", textAlign:"center" }}>Quiz not found</div>
-          <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center" }}>This link may have expired or been removed.</div>
-          <button type="button" onClick={onJoin} className="wc-btn" style={{ marginTop:8, padding:"13px 28px", borderRadius:999, background:"#7F5BB0", color:"#fff", fontSize:15, fontWeight:700, fontFamily:"inherit", border:"none", cursor:"pointer" }}>
-            {t("Try WrapChat")}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Shared CTA button
+  const ctaBtn = (label, onClick) => (
+    <button type="button" onClick={onClick} className="wc-btn" style={{
+      width:"100%", padding:"16px 20px", borderRadius:999,
+      background:ACCENT, border:"none", color:BG,
+      fontSize:16, fontWeight:800, cursor:"pointer",
+      fontFamily:"inherit", letterSpacing:0.1,
+    }}>
+      {label}
+    </button>
+  );
 
   const names = quizRow?.quiz_data?.names || [];
   const total = quizRow?.quiz_data?.totalMessages || 0;
 
-  // Intro
+  // ── Loading ──
+  if (quizPhase === "loading") {
+    return (
+      <div style={shell}>
+        <div style={col}>
+          {wordmark}
+          <div style={{ textAlign:"center", color:DIM, fontSize:14, paddingTop:40 }}>Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error ──
+  if (quizPhase === "error" || !questions.length) {
+    return (
+      <div style={shell}>
+        <div style={col}>
+          {wordmark}
+          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"28px 24px", textAlign:"center", display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ fontSize:20, fontWeight:800, color:PRIMARY }}>Quiz not found</div>
+            <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>This link may have expired or been removed.</div>
+          </div>
+          {ctaBtn(t("Try WrapChat"), onJoin)}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Intro ──
   if (quizPhase === "intro") {
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
-            WrapChat
-          </div>
+      <div style={shell}>
+        <div style={col}>
+          {wordmark}
           <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:22, fontWeight:800, color:"#fff", lineHeight:1.3, letterSpacing:-0.5 }}>
+            <div style={{ fontSize:26, fontWeight:800, color:PRIMARY, lineHeight:1.25, letterSpacing:-0.5 }}>
               {names.join(" & ")}
             </div>
             {total > 0 && (
-              <div style={{ fontSize:13, color:"rgba(255,255,255,0.38)", marginTop:4 }}>
+              <div style={{ fontSize:13, color:DIMMER, marginTop:6 }}>
                 {total.toLocaleString()} messages analysed
               </div>
             )}
           </div>
-          <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"20px 20px", width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:18, fontWeight:800, color:"#fff", lineHeight:1.35, marginBottom:8 }}>
+          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"24px 22px", textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
+            <div style={{ fontSize:20, fontWeight:800, color:PRIMARY, lineHeight:1.35 }}>
               Think you know this chat?
             </div>
-            <div style={{ fontSize:14, color:"rgba(255,255,255,0.50)", lineHeight:1.55 }}>
+            <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>
               {questions.length} questions · takes about a minute
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setQuizPhase("question")}
-            className="wc-btn"
-            style={{ width:"100%", padding:"15px 20px", borderRadius:999, background:"#7F5BB0", color:"#fff", fontSize:16, fontWeight:800, fontFamily:"inherit", border:"none", cursor:"pointer", letterSpacing:0.1 }}
-          >
-            Start the quiz →
-          </button>
+          {ctaBtn("Start the quiz →", () => setQuizPhase("question"))}
         </div>
       </div>
     );
   }
 
-  // Question
+  // ── Question ──
   if (quizPhase === "question") {
     const q = questions[step];
     const isGrid = q.layout === "grid";
+    const progress = (step + 1) / questions.length;
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          {/* Progress */}
-          <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
-            <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", fontWeight:600, textAlign:"center" }}>
-              {step + 1} of {questions.length}
+      <div style={shell}>
+        <div style={col}>
+          {wordmark}
+          {/* Progress bar */}
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:DIMMER, textAlign:"center", letterSpacing:"0.04em" }}>
+              {step + 1} / {questions.length}
             </div>
-            <div style={{ width:"100%", height:3, background:"rgba(255,255,255,0.10)", borderRadius:999 }}>
-              <div style={{ width:`${((step + 1) / questions.length) * 100}%`, height:"100%", background:"#7F5BB0", borderRadius:999, transition:"width 0.3s" }} />
+            <div style={{ width:"100%", height:4, background:"rgba(255,255,255,0.12)", borderRadius:999 }}>
+              <div style={{ width:`${progress * 100}%`, height:"100%", background:ACCENT, borderRadius:999, transition:"width 0.35s cubic-bezier(.4,0,.2,1)" }} />
             </div>
           </div>
-
-          {/* Question */}
-          <div style={{ fontSize:20, fontWeight:800, color:"#fff", textAlign:"center", lineHeight:1.35, letterSpacing:-0.3 }}>
-            {q.text}
-          </div>
-
-          {/* Options */}
-          <div style={{
-            display: isGrid ? "grid" : "flex",
-            gridTemplateColumns: isGrid ? "1fr 1fr" : undefined,
-            flexDirection: isGrid ? undefined : "column",
-            gap: 10,
-            width: "100%",
-          }}>
-            {q.options.map(option => {
-              let state = "idle";
-              if (locked) {
-                if (option === q.correct) state = picked === option ? "correct" : "correct-other";
-                else if (option === picked) state = "wrong";
-              }
-              return (
-                <QuizOptionButton
-                  key={option}
-                  label={option}
-                  state={state}
-                  layout={q.layout}
-                  onClick={() => handlePick(option)}
-                />
-              );
-            })}
+          {/* Question card */}
+          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"24px 22px", display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ fontSize:20, fontWeight:800, color:PRIMARY, textAlign:"center", lineHeight:1.35, letterSpacing:-0.3 }}>
+              {q.text}
+            </div>
+            <div style={{
+              display: isGrid ? "grid" : "flex",
+              gridTemplateColumns: isGrid ? "1fr 1fr" : undefined,
+              flexDirection: isGrid ? undefined : "column",
+              gap: 10,
+            }}>
+              {q.options.map(option => {
+                let state = "idle";
+                if (locked) {
+                  if (option === q.correct) state = picked === option ? "correct" : "correct-other";
+                  else if (option === picked) state = "wrong";
+                }
+                return (
+                  <QuizOptionButton
+                    key={option}
+                    label={option}
+                    state={state}
+                    layout={q.layout}
+                    onClick={() => handlePick(option)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Score
+  // ── Score ──
   const labelIndex = Math.min(Math.floor((score / questions.length) * QUIZ_SCORE_LABELS.length), QUIZ_SCORE_LABELS.length - 1);
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
-          WrapChat
-        </div>
-
-        {/* Score badge */}
-        <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:64, fontWeight:900, color:"#fff", lineHeight:1, letterSpacing:-2 }}>
-            {score}<span style={{ fontSize:32, color:"rgba(255,255,255,0.35)", fontWeight:700 }}>/{questions.length}</span>
+    <div style={shell}>
+      <div style={col}>
+        {wordmark}
+        {/* Score */}
+        <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"32px 24px", textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ fontSize:72, fontWeight:900, color:PRIMARY, lineHeight:1, letterSpacing:-3 }}>
+            {score}<span style={{ fontSize:36, color:DIMMER, fontWeight:700 }}>/{questions.length}</span>
           </div>
-          <div style={{ fontSize:15, color:"rgba(255,255,255,0.65)", marginTop:10, lineHeight:1.5 }}>
+          <div style={{ fontSize:15, color:DIM, lineHeight:1.55 }}>
             {QUIZ_SCORE_LABELS[labelIndex]}
           </div>
         </div>
-
-        {/* Teaser stat */}
+        {/* Teaser */}
         {total > 0 && (
-          <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.09)", borderRadius:16, padding:"14px 18px", width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:13, color:"rgba(255,255,255,0.45)", lineHeight:1.55 }}>
-              This chat has <strong style={{ color:"#fff" }}>{total.toLocaleString()}</strong> messages between {names.join(" and ")}. Curious what your own chat reveals?
+          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:20, padding:"16px 20px", textAlign:"center" }}>
+            <div style={{ fontSize:13, color:DIM, lineHeight:1.6 }}>
+              This chat has <strong style={{ color:PRIMARY }}>{total.toLocaleString()}</strong> messages between {names.join(" and ")}. Curious what your own chat reveals?
             </div>
           </div>
         )}
-
-        {/* Primary CTA */}
-        <button
-          type="button"
-          onClick={onJoin}
-          className="wc-btn"
-          style={{ width:"100%", padding:"15px 20px", borderRadius:999, background:"#7F5BB0", color:"#fff", fontSize:16, fontWeight:800, fontFamily:"inherit", border:"none", cursor:"pointer", letterSpacing:0.1 }}
-        >
-          Analyse your own chat — free
-        </button>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.28)", textAlign:"center", marginTop:-8 }}>
-          No account needed to start
-        </div>
+        {ctaBtn("Analyse your own chat — free", onJoin)}
       </div>
     </div>
   );

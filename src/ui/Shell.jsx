@@ -918,12 +918,28 @@ export function GearIcon({ size = 15 }) {
 // When confidenceValid is false the guess phase is skipped entirely
 // and revealContent renders directly (flat mode, no fake drama).
 // ─────────────────────────────────────────────────────────────────
-export function GuessCard({ question, options = [], correctAnswer, revealContent, confidenceValid = true, onReveal }) {
+export function GuessCard({ question, options = [], correctAnswer, revealContent, confidenceValid = true, onReveal, back, next: nextFn }) {
   const p = useContext(SectionPaletteContext) || PAL.upload;
-  const [picked, setPicked] = useState(null);   // null | option string
-  const [phase, setPhase] = useState("guess");  // "guess" | "locking" | "revealed"
+  const [picked, setPicked] = useState(null);
+  const [phase, setPhase] = useState("guess");
 
-  if (!confidenceValid) return revealContent ?? null;
+  // Shared nav button styles — inlined since GhostButton/PrimaryButton live in theme.jsx
+  const navRow  = { display:"flex", gap:10, marginTop:8, width:"100%" };
+  const backBtn = { flex:1, padding:"13px 18px", borderRadius:999, background:"rgba(255,255,255,0.07)", border:"1.5px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.72)", fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit" };
+  const nextBtn = { flex:1, padding:"13px 18px", borderRadius:999, background:p.accent, border:"none", color:p.bg, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"inherit" };
+
+  // Flat mode — data not strong enough to guess, show revealContent + full nav
+  if (!confidenceValid) {
+    return (
+      <>
+        {revealContent ?? null}
+        <div data-share-hide style={navRow}>
+          {back   && <button type="button" onClick={back}   className="wc-btn" style={backBtn}>← Back</button>}
+          {nextFn && <button type="button" onClick={nextFn} className="wc-btn" style={nextBtn}>Next ▶</button>}
+        </div>
+      </>
+    );
+  }
 
   function handlePick(option) {
     if (phase !== "guess") return;
@@ -935,11 +951,20 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
     }, 820);
   }
 
+  // Revealed — show content; if onReveal auto-advances, skip nav
   if (phase === "revealed") {
     return (
-      <div style={{ width: "100%", animation: `wcFadeIn 320ms cubic-bezier(.2,0,.1,1) both` }}>
-        {revealContent}
-      </div>
+      <>
+        <div style={{ width: "100%", animation: `wcFadeIn 320ms cubic-bezier(.2,0,.1,1) both` }}>
+          {revealContent}
+        </div>
+        {!onReveal && (
+          <div data-share-hide style={navRow}>
+            {back   && <button type="button" onClick={back}   className="wc-btn" style={backBtn}>← Back</button>}
+            {nextFn && <button type="button" onClick={nextFn} className="wc-btn" style={nextBtn}>Next ▶</button>}
+          </div>
+        )}
+      </>
     );
   }
 
@@ -958,17 +983,12 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
         alignItems: "center",
         gap: 18,
       }}>
-        {/* eyebrow */}
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: p.accent, alignSelf: "flex-start" }}>
           Make your guess
         </div>
-
-        {/* question */}
         <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", lineHeight: 1.35, textAlign: "center", letterSpacing: -0.3 }}>
           {question}
         </div>
-
-        {/* option buttons */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
           {options.map(option => {
             const isCorrect = option === correctAnswer;
@@ -988,22 +1008,10 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
                 disabled={isLocking}
                 className="wc-btn"
                 style={{
-                  width: "100%",
-                  padding: "13px 18px",
-                  borderRadius: 999,
-                  border,
-                  background: bg,
-                  color,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  cursor: isLocking ? "default" : "pointer",
-                  fontFamily: "inherit",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  transition: "background 0.25s, border-color 0.25s, color 0.2s",
-                  letterSpacing: 0.1,
+                  width: "100%", padding: "13px 18px", borderRadius: 999, border, background: bg, color,
+                  fontSize: 15, fontWeight: 700, cursor: isLocking ? "default" : "pointer",
+                  fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 8, transition: "background 0.25s, border-color 0.25s, color 0.2s", letterSpacing: 0.1,
                 }}
               >
                 {option}
@@ -1012,6 +1020,10 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
             );
           })}
         </div>
+      </div>
+      {/* Back only during guess — no Next, answer is required to advance */}
+      <div data-share-hide style={navRow}>
+        {back && <button type="button" onClick={back} className="wc-btn" style={backBtn}>← Back</button>}
       </div>
     </div>
   );

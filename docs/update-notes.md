@@ -8,6 +8,49 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ---
 
+## v3.2 — Interactive reports, Chat Memory Quiz, and Finale redesign
+**Files:** `src/ui/Shell.jsx`, `src/screens/Screens.jsx`, `src/analysis/aiAnalysis.js`, `src/analysis/localMath.js`, `analysis-test/aiDebugHelpers.js`, `src/App.jsx`, `supabase/migrations/20260603130000_quiz_challenges.sql`
+
+### GuessCard + AttributionCard — new interactive UI primitives
+Two new reusable components added to `src/ui/Shell.jsx`. `GuessCard` implements a three-phase guess-before-reveal mechanic: guess → 820ms correct/wrong button feedback → reveal. `confidenceValid` prop gates the interactive mode; when false, renders flat content directly. `onReveal` callback supports auto-advance to the following card. Nav is now owned internally by GuessCard: only a Back button is shown during the guess phase — answering is required to advance. `AttributionCard` implements a "Who Said This?" mechanic with hidden sender, name buttons, and a correct/wrong reveal showing sender + context. `isSensitive` flag suppresses the guessing mechanic for harmful content and renders a plain moment card instead.
+
+### AI schema extensions — all four prompt builders
+`analysis-test/aiDebugHelpers.js` extended with new JSON fields across all pipelines. Core A / Connection Digest: `timeOfDay` (peak hour + daypart per person + contrast), `loveLanguageIntro`, `loveMiss` (description + quote + persons), `loveMissUnspoken`, `energyDynamic`, `guessThresholds` (`loveLanguageGuessValid`, `energyGuessValid`). Growth Digest: `personAArc`, `personBArc`, `turningPoint`, `messageAtTurningPoint` (quote + person + contextParagraph), `growthGuessThreshold`. Core B / Risk Digest: `whatStillHere`, `heavyAttributionQuote` (quote + person + contextParagraph + `isSensitive`), `apologyGuessThreshold`, `powerGuessThreshold`, `reliabilityArc`, `promiseThatMattered`, `promiseGuessThreshold`. `src/analysis/aiAnalysis.js` updated with four new normalisers (`normalizeAttributionQuote`, `normalizeTimeOfDay`, `normalizeLoveMiss`, `normalizeGuessThresholds`) and all five `derive*` functions pass new fields through. Boolean coercion handles Claude's string `"true"` output for all threshold flags.
+
+### General Wrapped Duo — restructured (17 → 15 cards)
+`DUO_CASUAL_SCREENS` 17 → 15. "Who's more obsessed?" restored as card 1 with animated bars. Ghost Award (card 2) converted to GuessCard when reply times are skewed; when balanced, "Who reaches out first?" (card 6) becomes the GuessCard instead — one interactive card always fires in the opening sequence. Removed: The Last Word, Novelist vs Texter, Media & Links. Merged: Top 10 Words + Signature Phrases → "Your Language" (card 9). Added: Time of Day (card 12) showing peak hours per person with contrast sentence. Added: A Moment from the Chat (card 13) — AttributionCard using a memorable moment with quote; falls back to AICard for old results without new schema fields. Reordered ending: Chat Vibe → 14, What's Really Going On → 15.
+
+### Growth Report — expanded (5 → 10 cards)
+`GROWTH_SCREENS` 5 → 10. Added: Person A's Arc (card 2), Person B's Arc (card 3). Added: Guess Who Changed More (card 4) — GuessCard gated by `growthGuessThreshold`; auto-advances to card 5 on answer. Renamed "Who changed more" → "How they changed" (card 5) as the detailed follow-up. Added: The Turning Point (card 7) — approximate period; graceful fallback when undetectable. Added: The Message That Shifted Everything (card 8) — AttributionCard using `messageAtTurningPoint`; falls back to trajectory detail. Trajectory and The Arc renumbered to 9–10.
+
+### Energy Report — expanded (6 → 10 cards)
+`ENERGY_SCREENS` 6 → 10. Added: Guess Who Lifts the Chat More (card 4) — GuessCard gated by `energyGuessValid`; winner = higher `netScore`; wording softened from "more positive presence" to "who lifts the chat more?". Added: The Dynamic (card 5) — `energyDynamic` sentence about the pair's combined energy. Most Energising and Most Draining reordered to 6–7. Added: Energy by Time (card 8) — peak hours per person from `timeOfDay` data. Added: The Charge (card 9) — AttributionCard using a funny/signature memorable moment; falls back to Most Energising text. Energy Compatibility closing card → 10.
+
+### Love Language Report — expanded (5 → 10 cards)
+`LOVELANG_SCREENS` 5 → 10. Added: Love Languages in This Chat (card 1) — `loveLanguageIntro` overview. Added: Guess A's Love Language (card 2) — GuessCard using both detected languages as options; requires 2 distinct options; auto-advances on answer. Person A/B cards → 3–4. Added: The Miss (card 6) — `loveMiss` description + italic quote + persons direction arrow. Added: The Unspoken Moment (card 7) — `loveMissUnspoken`. Most Loving Moment → card 8. Added: How It Shows (card 9) — AttributionCard using a care/sweet memorable moment; falls back to Most Loving Moment text. Compatibility ScoreRing moved to card 10 (closing).
+
+### Accountability Report — expanded (7 → 10 cards)
+`ACCOUNTA_SCREENS` 7 → 10. Added: Guess Who Made More Promises (card 2) — GuessCard gated by `promiseGuessThreshold`; winner = higher promise `total`. Added: The Reliability Arc (card 6) — `reliabilityArc` sentence: did reliability improve or decline over time? Added: The Promise That Changed Things (card 8) — AttributionCard using `promiseThatMattered`; falls back to most notable kept promise text. Report now ends on the kept promise card.
+
+### Toxicity Report — redesigned (7 → 10 cards)
+`TOXICITY_SCREENS` 7 → 10. Card 1 redesigned: ScoreRing removed from opening — the number now lands after all the evidence, not before it. Added: Guess Who Apologises More (card 3) — GuessCard gated by `apologyGuessThreshold`; auto-advances to the full context card. Red Flag Moments list replaced with A Moment from the Conflict (card 5) — AttributionCard using `heavyAttributionQuote`; `isSensitive` flag suppresses guessing for harmful content; falls back to Conflict Pattern text. Added: Guess Who Steers the Emotional Tone (card 7) — GuessCard gated by `powerGuessThreshold` plus a "Balanced" guard that disables the guess when no clear holder exists; auto-advances to full detail. Added: What's Still Here (card 9) — prevents the report ending as a pure indictment. ScoreRing moved to The Verdict (card 10, closing).
+
+### Finale — redesigned
+`vibeOneLiner` promoted to hero position above the stat grid. Names + message count metadata line added at top. Challenge card added: "Challenge a friend" section with "Send the challenge" button — calls `createQuizChallenge()`, uses Web Share API when available, falls back to clipboard copy with toast. Challenge card hidden during screenshot shares (`data-share-hide`) and suppressed in Red Flags mode. Quiz teaser copy: "Chat Memory Quiz — 6 questions about this chat."
+
+### Chat Memory Quiz — Phase 9
+Full quiz challenge system for viral sharing. `buildQuizQuestions(quizData)` in `localMath.js` generates 6 questions from local stats using a deterministic seeded shuffle (no AI required). Questions: Who sent more messages, Who takes longer to reply, Spirit emoji (2×2 grid), Signature phrase, Most used word (2×2 grid), Longest streak (hardest, last). New `quiz_challenges` Supabase table with public anon read RLS — migration at `supabase/migrations/20260603130000_quiz_challenges.sql`. `ChatMemoryQuiz` standalone component uses the finale palette (`#5E1228` background, `#F08EBF` accent) and a top-anchored fixed-width layout so all phases have a consistent column position. URL detection in `App.jsx` initialises `phase = "quiz"` from pathname before auth effects fire; auth routing fully bypassed. `onJoin` transitions from quiz score screen → auth → Quick Read trial.
+
+### Bar animation fix
+Bar fill now starts after `SLIDE_MS + 80 + delay` ms — previously started at 120ms, competing with the 480ms card slide animation. Switched from CSS `width` transition (layout reflow per frame) to `transform: scaleX()` (GPU compositor thread). Numbers inside bars fade in separately after the fill settles via a `showLabel` state and opacity transition.
+
+### Bug fixes
+- `normalizeRedFlags` and `normalizeTimeline` used throughout `Screens.jsx` but never imported — caused `ReferenceError` in Safari/production; both now explicitly imported from `localMath.js`
+- All AttributionCard usages: when quote data is absent (old saved results), cards now show a meaningful fallback AICard instead of an empty label-only placeholder
+- GuessCards that auto-advance no longer show a redundant intermediate reveal page before the full-detail card — user sees 820ms button feedback then slides directly to the next card
+
+---
+
 ## v3.1 — Animation system overhaul + auth/upload frame unification
 **Files:** `src/App.jsx`, `src/theme.jsx`
 
