@@ -85,6 +85,7 @@ import {
   getUserCredits, postAuthPhaseForUser, shouldShowQuickReadIntro, parseCreditBalance,
   ENERGY_SCREENS, FeedbackSheet,
   TRIAL_SCREENS, TOXICITY_SCREENS, LOVELANG_SCREENS, GROWTH_SCREENS, ACCOUNTA_SCREENS,
+  ChatMemoryQuiz, fetchQuizChallenge,
 } from "./screens/Screens";
 
 function isAdminUser(user) {
@@ -102,8 +103,14 @@ const ADMIN_EMAILS = Array.from(new Set(
 
 
 
+function getQuizIdFromUrl() {
+  const m = window.location.pathname.match(/^\/quiz\/([a-zA-Z0-9-]+)$/);
+  return m ? m[1] : null;
+}
+
 export default function App({ pendingImportedChat = null, onPendingImportedChatConsumed = () => {} }) {
-  const [phase,            setPhase]            = useState("auth");
+  const [quizId,           setQuizId]           = useState(() => getQuizIdFromUrl());
+  const [phase,            setPhase]            = useState(() => getQuizIdFromUrl() ? "quiz" : "auth");
   const [authedUser,       setAuthedUser]       = useState(null);
   const [credits,          setCredits]          = useState(null);
   const [quickReadAvailable, setQuickReadAvailable] = useState(false);
@@ -398,6 +405,8 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
   // Check for an existing session on mount and listen for auth changes
   useEffect(() => {
+    // Quiz mode bypasses auth routing entirely — the quiz is public
+    if (quizId) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthedUser(session?.user || null);
       if (session?.user) {
@@ -2069,6 +2078,22 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       onDebugDownloadRaw={downloadRawAiDebugExport}
     />
   );
+  // ── Quiz mode — fully public, bypasses all auth/report routing ──
+  if (phase === "quiz" && quizId) {
+    return withUiLanguage(
+      <ChatMemoryQuiz
+        quizId={quizId}
+        onJoin={() => {
+          setQuizId(null);
+          window.history.pushState({}, "", "/");
+          setStep(0); setDir("fwd");
+          setPhase("auth");
+          setSid(s => s + 1);
+        }}
+      />
+    );
+  }
+
   if (phase === "loading") return withUiLanguage(<Loading math={math} reportType={reportType} reportTypes={selectedReportTypes} loadingIndex={loadingReportIndex} />);
 
   // ── Trial report routing ──

@@ -60,6 +60,7 @@ import {
   applyAutomaticParticipantMerges, getReviewableMergeSuggestions,
   DUO_CASUAL_SCREENS, GROUP_CASUAL_SCREENS, cleanQuote,
   LOADING_STEPS, DUO_REDFLAG_SCREENS, GROUP_REDFLAG_SCREENS,
+  buildQuizQuestions,
 } from "../analysis/localMath";
 import { userFacingAnalysisError } from "../analysis/claudeClient";
 import {
@@ -78,6 +79,7 @@ import {
   SCREEN_CONTENT_STYLE, SCREEN_HEADER_BLOCK_STYLE, SCREEN_HEADER_CONTROL_TOP,
   LEGAL_VERSION, TERMS_OF_SERVICE_TEXT, PRIVACY_POLICY_TEXT,
   SharePicker, Shell, GearIcon, getReportLaunchSec,
+  GuessCard, AttributionCard,
 } from "../ui/Shell";
 
 
@@ -733,23 +735,10 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
   const toxicityReport = ai?.toxicityReport || s.toxicityReport;
   const toxicityLevel = chatHealthLabel(ai?.chatHealthScore) || s.toxicityLevel;
   const toxicityBreakdown = s.toxicityBreakdown;
+  const attrMoment = (ai?.memorableMoments || []).find(m => m.quote && m.people?.length >= 1 && m.read) ?? null;
   const casualScreens = [
-    <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("Who's more obsessed?", 1)}>
-      <T>{t("Who's more obsessed?")}</T>
-      <div style={{width:"100%",marginTop:16}}>
-        <Bar value={s.msgCounts[0]} max={mMax} color="#E06030" label={s.names[0]} />
-        <Bar value={s.msgCounts[1]} max={mMax} color="#4A90D4" label={s.names[1]} delay={160} />
-      </div>
-      <Sub mt={14}>{t("{pct}% of all messages came from {name}.", { pct: pct0, name: s.names[0] })}</Sub>
-      {(() => {
-      const name = s.names[pct0>=50?0:1];
-      const q = pick(t("quips.duo.obsessed", { name }), `duo-obsessed|${s.names.join("|")}|${s.totalMessages}|${name}|${pct0}`);
-      return <Quip>{q}</Quip>;
-    })()}
-      <Nav back={back} next={next} showBack={false} />
-    </Shell>,
-
-    <Shell sec="roast" prog={2} total={TOTAL} feedback={feedback("The Ghost Award", 2, !s.ghostEqual)}>
+    // Card 1 — Ghost Award (GuessCard when skewed)
+    <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("The Ghost Award", 1, !s.ghostEqual)}>
       {s.ghostEqual ? (
         <>
           <T>{t("Response times")}</T>
@@ -758,29 +747,27 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
           {(() => { const q = pick(t("quips.duo.responseBalanced"), `duo-response-balanced|${s.names.join("|")}|${s.totalMessages}|${s.ghostAvg.join("|")}`); return <Quip>{q}</Quip>; })()}
         </>
       ) : (
-        <>
-          <T>{t("The Ghost Award")}</T>
-          <Big>{s.ghostName}</Big>
-          <Sub>{t("{name} avg reply:", { name: s.names[0] })} <strong style={{color:"#fff"}}>{s.ghostAvg[0]}</strong>&nbsp;&nbsp;{t("{name} avg reply:", { name: s.names[1] })} <strong style={{color:"#fff"}}>{s.ghostAvg[1]}</strong></Sub>
-          <AICard label={t("What's really going on")} value={ai?.ghostContext} loading={aiLoading} />
-          {(() => { const q = pick(t("quips.duo.ghost", { name: s.ghostName }), `duo-ghost|${s.names.join("|")}|${s.totalMessages}|${s.ghostName}|${s.ghostAvg.join("|")}`); return <Quip>{q}</Quip>; })()}
-        </>
+        <GuessCard
+          question={t("Who ghosts longer?")}
+          options={s.names}
+          correctAnswer={s.ghostName}
+          confidenceValid={true}
+          revealContent={
+            <>
+              <T>{t("The Ghost Award")}</T>
+              <Big>{s.ghostName}</Big>
+              <Sub>{t("{name} avg reply:", { name: s.names[0] })} <strong style={{color:"#fff"}}>{s.ghostAvg[0]}</strong>&nbsp;&nbsp;{t("{name} avg reply:", { name: s.names[1] })} <strong style={{color:"#fff"}}>{s.ghostAvg[1]}</strong></Sub>
+              <AICard label={t("What's really going on")} value={ai?.ghostContext} loading={aiLoading} />
+              {(() => { const q = pick(t("quips.duo.ghost", { name: s.ghostName }), `duo-ghost|${s.names.join("|")}|${s.totalMessages}|${s.ghostName}|${s.ghostAvg.join("|")}`); return <Quip>{q}</Quip>; })()}
+            </>
+          }
+        />
       )}
-      <Nav back={back} next={next} />
+      <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    <Shell sec="roast" prog={3} total={TOTAL} feedback={feedback("The Last Word", 3)}>
-      <T>{t("The Last Word")}</T>
-      <Big>{s.convKiller}</Big>
-      <Sub>{t("Sends the last message that nobody replies to — {count} times.", { count: s.convKillerCount })}</Sub>
-      {(() => {
-      const q = pick(t("quips.duo.lastWord", { name: s.convKiller }), `duo-last-word|${s.names.join("|")}|${s.totalMessages}|${s.convKiller}|${s.convKillerCount}`);
-      return <Quip>{q}</Quip>;
-    })()}
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    <Shell sec="lovely" prog={4} total={TOTAL} feedback={feedback("Your longest streak", 4)}>
+    // Card 2 — Your longest streak
+    <Shell sec="lovely" prog={2} total={TOTAL} feedback={feedback("Your longest streak", 2)}>
       <T>{t("Your longest streak")}</T>
       <Big>{t("{count} days", { count: s.streak })}</Big>
       <Sub>{t("Texted every single day for {count} days straight.", { count: s.streak })}</Sub>
@@ -797,14 +784,16 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("The Kindest One", 5)}>
+    // Card 3 — The Kindest One
+    <Shell sec="lovely" prog={3} total={TOTAL} feedback={feedback("The Kindest One", 3)}>
       <T>{t("The Kindest One")}</T>
       <Big>{aiLoading ? "..." : (ai?.kindestPerson || "—")}</Big>
       <AICard label={t("The sweetest moment")} value={ai?.sweetMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("Top 3 most active months", 7)}>
+    // Card 4 — Top 3 most active months
+    <Shell sec="lovely" prog={4} total={TOTAL} feedback={feedback("Top 3 most active months", 4)}>
       <T>{t("Top 3 most active months")}</T>
       <div style={{display:"flex",gap:10,marginTop:16,width:"100%",justifyContent:"center"}}>
         {s.topMonths.map((m,i)=><MonthBadge key={i} month={m[0]} count={m[1]} medal={["🥇","🥈","🥉"][i]} />)}
@@ -813,25 +802,28 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={7} total={TOTAL} feedback={feedback("Who always reaches out first?", 6)}>
+    // Card 5 — Who always reaches out first?
+    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("Who always reaches out first?", 5)}>
       <T>{t("Who always reaches out first?")}</T>
       <Big>{s.convStarter}</Big>
       <Sub>{t("Started {pct} of all conversations.", { pct: s.convStarterPct })}</Sub>
       {(() => {
-      const q = pick(t("quips.duo.convStarter", { name: s.convStarter }), `duo-conv-starter|${s.names.join("|")}|${s.totalMessages}|${s.convStarter}|${s.convStarterPct}`);
-      return <Quip>{q}</Quip>;
-    })()}
+        const q = pick(t("quips.duo.convStarter", { name: s.convStarter }), `duo-conv-starter|${s.names.join("|")}|${s.totalMessages}|${s.convStarter}|${s.convStarterPct}`);
+        return <Quip>{q}</Quip>;
+      })()}
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("The Funny One", 8)}>
+    // Card 6 — The Funny One
+    <Shell sec="funny" prog={6} total={TOTAL} feedback={feedback("The Funny One", 6)}>
       <T>{t("The Funny One")}</T>
       <Big>{aiLoading?"...":(ai?.funniestPerson||s.names[0])}</Big>
       <AICard label={t("Drops lines like")} value={ai?.funniestReason} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="funny" prog={9} total={TOTAL} feedback={feedback("Spirit emojis", 9)}>
+    // Card 7 — Spirit emojis
+    <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("Spirit emojis", 7)}>
       <T>{t("Spirit emojis")}</T>
       <div style={{display:"flex",gap:0,marginTop:16,width:"100%",justifyContent:"space-around"}}>
         {[0,1].map(i=>(
@@ -845,14 +837,10 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="funny" prog={10} total={TOTAL} feedback={feedback("Top 10 most used words", 10)}>
-      <T>{t("Top 10 most used words")}</T>
+    // Card 8 — Your Language (Top 10 Words + Signature Phrases merged)
+    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Your language", 8)}>
+      <T>{t("Your language")}</T>
       <Words words={s.topWords} bigrams={s.topBigrams} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    <Shell sec="funny" prog={11} total={TOTAL} feedback={feedback("Signature phrases", 11)}>
-      <T>{t("Signature phrases")}</T>
       <div style={{display:"flex",gap:"1rem",marginTop:16,width:"100%",justifyContent:"center"}}>
         {[0,1].map(i=>(
           <div key={i} style={{background:"rgba(255,255,255,0.08)",padding:"14px 18px",borderRadius:12,textAlign:"center",flex:1}}>
@@ -861,83 +849,85 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
           </div>
         ))}
       </div>
-      <Sub>{t("The phrases that define each of you.")}</Sub>
+      <Sub>{t("The words and phrases that define this chat.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="stats" prog={12} total={TOTAL} feedback={feedback("Message length", 12)}>
-      {(() => {
-        const diff = Math.abs(s.avgMsgLen[0] - s.avgMsgLen[1]);
-        const ratio = Math.max(...s.avgMsgLen) / Math.max(Math.min(...s.avgMsgLen), 1);
-        const isSimilar = diff < 15 || ratio < 1.3;
-        const novelist = s.names[nov];
-        const texter   = s.names[nov===0?1:0];
-        return <>
-          <T>{t(isSimilar ? "Message length" : "The Novelist vs The Texter")}</T>
-          <div style={{display:"flex",gap:0,marginTop:16,width:"100%",justifyContent:"space-around",alignItems:"center"}}>
-            {[0,1].map(i=>(
-              <div key={i} style={{textAlign:"center"}}>
-                <div style={{fontSize:36,fontWeight:800,color:"#fff"}}>{s.avgMsgLen[i]}</div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{t("avg chars")}</div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:1}}>max {(s.maxMsgLen?.[i] ?? 0).toLocaleString()}</div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:4}}>{s.names[i]}</div>
-              </div>
-            ))}
-          </div>
-          {(() => {
-            const q = isSimilar
-              ? pick(t("quips.duo.messageLengthSimilar"), `duo-msg-length-similar|${s.names.join("|")}|${s.totalMessages}|${s.avgMsgLen.join("|")}|${s.maxMsgLen?.join("|") || ""}`)
-              : pick(t("quips.duo.messageLengthDifferent", { novelist, texter }), `duo-msg-length-different|${s.names.join("|")}|${s.totalMessages}|${novelist}|${texter}|${s.avgMsgLen.join("|")}|${s.maxMsgLen?.join("|") || ""}`);
-            return <Quip>{q}</Quip>;
-          })()}
-        </>;
-      })()}
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    <Shell sec="stats" prog={13} total={TOTAL} feedback={feedback("Media and links", 13)}>
-      <T>{t("Media and links")}</T>
-      <div style={{width:"100%",marginTop:16}}>
-        <div style={{fontSize:11,color:"rgba(255,255,255,0.38)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.07em"}}>{t("Photos & videos")}</div>
-        <Bar value={s.mediaCounts[0]} max={Math.max(...s.mediaCounts,1)} color="#3ABDA0" label={s.names[0]} />
-        <Bar value={s.mediaCounts[1]} max={Math.max(...s.mediaCounts,1)} color="#4A90D4" label={s.names[1]} delay={160} />
-        <div style={{fontSize:11,color:"rgba(255,255,255,0.38)",margin:"16px 0 8px",textTransform:"uppercase",letterSpacing:"0.07em"}}>{t("Voice memos")}</div>
-        <Bar value={s.voiceCounts[0]} max={Math.max(...s.voiceCounts,1)} color="#C880F0" label={s.names[0]} />
-        <Bar value={s.voiceCounts[1]} max={Math.max(...s.voiceCounts,1)} color="#9050D0" label={s.names[1]} delay={160} />
-        <div style={{fontSize:11,color:"rgba(255,255,255,0.38)",margin:"16px 0 8px",textTransform:"uppercase",letterSpacing:"0.07em"}}>{t("Links shared")}</div>
-        <Bar value={s.linkCounts[0]} max={Math.max(...s.linkCounts,1)} color="#3ABDA0" label={s.names[0]} />
-        <Bar value={s.linkCounts[1]} max={Math.max(...s.linkCounts,1)} color="#4A90D4" label={s.names[1]} delay={160} />
-      </div>
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("What you actually talk about", 14)}>
+    // Card 9 — What you actually talk about
+    <Shell sec="ai" prog={9} total={TOTAL} feedback={feedback("What you actually talk about", 9)}>
       <T>{t("What you actually talk about")}</T>
       <AICard label={t("Biggest topic")} value={ai?.biggestTopic} loading={aiLoading} />
       <AICard label={t("Most tense moment")} value={ai?.tensionMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={15} total={TOTAL} feedback={feedback("The Drama Report", 15)}>
+    // Card 10 — The Drama Report
+    <Shell sec="ai" prog={10} total={TOTAL} feedback={feedback("The Drama Report", 10)}>
       <T>{t("The Drama Report")}</T>
       <Big>{aiLoading?"...":(ai?.dramaStarter||s.names[0])}</Big>
       <AICard label={t("How they do it")} value={ai?.dramaContext} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={16} total={TOTAL} feedback={feedback("What's really going on", 16)}>
-      <T>{t("What's really going on")}</T>
-      <AICard label={t(relationshipReadTitle)} value={ai?.relationshipSummary} loading={aiLoading} />
+    // Card 11 — Time of Day (new)
+    <Shell sec="stats" prog={11} total={TOTAL} feedback={feedback("Time of day", 11)}>
+      <T>{t("Time of day")}</T>
+      {ai?.timeOfDay ? (
+        <>
+          <div style={{display:"flex",gap:0,marginTop:16,width:"100%",justifyContent:"space-around",alignItems:"flex-start"}}>
+            {[ai.timeOfDay.personA, ai.timeOfDay.personB].map((p, i) => (
+              <div key={i} style={{textAlign:"center"}}>
+                <div style={{fontSize:36,fontWeight:800,color:"#fff"}}>{p?.peakHour || "—"}</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{p?.peakDaypart || ""}</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:4}}>{p?.name || s.names[i]}</div>
+              </div>
+            ))}
+          </div>
+          {ai.timeOfDay.contrast && <Sub mt={14}>{ai.timeOfDay.contrast}</Sub>}
+        </>
+      ) : aiLoading ? (
+        <div style={{marginTop:24}}><Dots /></div>
+      ) : (
+        <Sub mt={14}>{t("Not enough data to show.")}</Sub>
+      )}
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={17} total={TOTAL} feedback={feedback("Chat vibe", 17)}>
+    // Card 12 — A moment from the chat (Attribution — new)
+    <Shell sec="ai" prog={12} total={TOTAL} feedback={feedback("A moment from the chat", 12)}>
+      {aiLoading && !attrMoment ? (
+        <>
+          <T>{t("A moment from the chat")}</T>
+          <div style={{marginTop:24}}><Dots /></div>
+        </>
+      ) : (
+        <AttributionCard
+          quote={attrMoment?.quote || ""}
+          participants={s.names}
+          correctSender={attrMoment?.people?.[0] || s.names[0]}
+          contextParagraph={attrMoment?.read || attrMoment?.title || ""}
+          isSensitive={!attrMoment}
+          label={t("Who said this?")}
+        />
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 13 — Chat vibe (moved to second-to-last)
+    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("Chat vibe", 13)}>
       <T>{t("Chat vibe")}</T>
       <div style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("A chaotic, wholesome connection."))}
       </div>
       <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
       <Sub mt={14}>{t("Powered by AI — your messages never left your device.")}</Sub>
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 14 — What's really going on (moved to last)
+    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("What's really going on", 14)}>
+      <T>{t("What's really going on")}</T>
+      <AICard label={t(relationshipReadTitle)} value={ai?.relationshipSummary} loading={aiLoading} />
       <Nav back={back} next={next} nextLabel="See summary" />
     </Shell>,
   ];
@@ -1534,26 +1524,29 @@ export function TrialFinale({ back, credits = null, userId = null, onPaymentComi
   );
 }
 
-export const TOXICITY_SCREENS = 7;
+export const TOXICITY_SCREENS = 10;
 export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
   const resultLang = normalizeUiLangCode(ai?.displayLanguage || "en");
   const reportControl = (value) => translateControlValue(resultLang, value);
+  const personAName = ai?.healthScores?.[0]?.name || s.names[0] || "Person A";
+  const personBName = ai?.healthScores?.[1]?.name || s.names[1] || s.names[0] || "Person B";
+  const powerHolderName = reportControl(ai?.powerHolder || "");
+  const powerGuessValid = (ai?.powerGuessThreshold ?? false) && !!powerHolderName && powerHolderName !== reportControl("Balanced");
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "toxicity", cardIndex, cardTitle } : null
   );
   const screens = [
-    <Shell sec="toxicity" prog={1} total={TOXICITY_SCREENS} feedback={feedback("Chat Health Score", 1)}>
-      <T>{t("Chat Health Score")}</T>
-      <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
-        <ScoreRing score={loading ? 0 : (ai?.chatHealthScore || 5)} max={10} size={130} color="#E04040" />
-      </div>
-      <Sub mt={12}>{t("Out of 10 — based on conflict patterns, communication style, and overall dynamic.")}</Sub>
-      <AICard label={t("Verdict")} value={ai?.verdict} loading={loading} />
+    // Card 1 — Chat health intro (score ring removed — it lands at the end after evidence)
+    <Shell sec="toxicity" prog={1} total={TOXICITY_SCREENS} feedback={feedback("Chat health", 1)}>
+      <T>{t("Chat health")}</T>
+      <AICard label={t("Overall read")} value={ai?.verdict} loading={loading} />
+      <Sub mt={8}>{t("Based on conflict patterns, communication style, and overall dynamic.")}</Sub>
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
+    // Card 2 — Individual health scores
     <Shell sec="toxicity" prog={2} total={TOXICITY_SCREENS} feedback={feedback("Individual health scores", 2)}>
       <T>{t("Individual health scores")}</T>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, marginTop:16 }}>
@@ -1570,7 +1563,25 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="toxicity" prog={3} total={TOXICITY_SCREENS} feedback={feedback("Who apologises more", 3)}>
+    // Card 3 — Guess who apologises more (new — GuessCard)
+    <Shell sec="toxicity" prog={3} total={TOXICITY_SCREENS} feedback={feedback("Guess who apologises more", 3, ai?.apologyGuessThreshold)}>
+      <GuessCard
+        question={t("Who do you think apologises more?")}
+        options={[personAName, personBName]}
+        correctAnswer={ai?.apologiesLeader?.name || ""}
+        confidenceValid={ai?.apologyGuessThreshold ?? false}
+        revealContent={
+          <>
+            <T>{t("Who apologises more")}</T>
+            <Big>{loading ? "…" : (ai?.apologiesLeader?.name || "—")}</Big>
+          </>
+        }
+      />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 4 — Who apologises more (detailed context)
+    <Shell sec="toxicity" prog={4} total={TOXICITY_SCREENS} feedback={feedback("Who apologises more", 4)}>
       <T>{t("Who apologises more")}</T>
       <Big>{loading ? "…" : (ai?.apologiesLeader?.name || s.names[0])}</Big>
       <AICard label={`${(loading?"…":ai?.apologiesLeader?.name) || s.names[0]} — context`} value={ai?.apologiesLeader?.context} loading={loading} />
@@ -1578,37 +1589,67 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="toxicity" prog={4} total={TOXICITY_SCREENS} feedback={feedback("Red flag moments", 4)}>
-      <T>{t("Red flag moments")}</T>
-      {loading
-        ? <div style={{ display:"flex", justifyContent:"center", padding:"20px 0" }}><Dots /></div>
-        : <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:8 }}>
-            {(ai?.redFlagMoments||[]).map((m, i) => (
-              <div key={i} style={{ background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
-                <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:6 }}>{m.date} • {m.person}</div>
-                <div style={{ fontSize:14, fontWeight:700, color:"#fff", marginBottom:4 }}>{m.description}</div>
-                {m.quote && <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", fontStyle:"italic" }}>"{m.quote}"</div>}
-              </div>
-            ))}
-          </div>
-      }
+    // Card 5 — A moment from the conflict (replaces Red Flag Moments list — AttributionCard)
+    <Shell sec="toxicity" prog={5} total={TOXICITY_SCREENS} feedback={feedback("A moment from the conflict", 5)}>
+      {aiLoading && !ai?.heavyAttributionQuote ? (
+        <>
+          <T>{t("A moment from the conflict")}</T>
+          <div style={{ marginTop:24 }}><Dots /></div>
+        </>
+      ) : (
+        <AttributionCard
+          quote={ai?.heavyAttributionQuote?.quote || ""}
+          participants={[personAName, personBName]}
+          correctSender={ai?.heavyAttributionQuote?.person || ""}
+          contextParagraph={ai?.heavyAttributionQuote?.contextParagraph || ""}
+          isSensitive={ai?.heavyAttributionQuote?.isSensitive || !ai?.heavyAttributionQuote?.quote}
+          label={t("A moment from the conflict")}
+        />
+      )}
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="toxicity" prog={5} total={TOXICITY_SCREENS} feedback={feedback("Conflict pattern", 5)}>
+    // Card 6 — Conflict pattern
+    <Shell sec="toxicity" prog={6} total={TOXICITY_SCREENS} feedback={feedback("Conflict pattern", 6)}>
       <T>{t("Conflict pattern")}</T>
       <AICard label={t("How arguments unfold")} value={ai?.conflictPattern} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="toxicity" prog={6} total={TOXICITY_SCREENS} feedback={feedback("Power balance", 6)}>
+    // Card 7 — Guess who steers the emotional tone (new — GuessCard)
+    <Shell sec="toxicity" prog={7} total={TOXICITY_SCREENS} feedback={feedback("Guess who steers the tone", 7, powerGuessValid)}>
+      <GuessCard
+        question={t("Who seems to steer the emotional tone?")}
+        options={[personAName, personBName]}
+        correctAnswer={powerHolderName}
+        confidenceValid={powerGuessValid}
+        revealContent={
+          <>
+            <T>{t("Power balance")}</T>
+            <Big>{loading ? "…" : (powerHolderName || t("Balanced"))}</Big>
+          </>
+        }
+      />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 8 — Power balance (detailed context)
+    <Shell sec="toxicity" prog={8} total={TOXICITY_SCREENS} feedback={feedback("Power balance", 8)}>
       <T>{t("Power balance")}</T>
       <Big>{loading ? "…" : reportControl(ai?.powerHolder || t("Balanced"))}</Big>
       <AICard label={t("Power dynamic")} value={ai?.powerBalance} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="toxicity" prog={7} total={TOXICITY_SCREENS} feedback={feedback("The verdict", 7)}>
+    // Card 9 — What's still here (new)
+    <Shell sec="toxicity" prog={9} total={TOXICITY_SCREENS} feedback={feedback("What's still here", 9)}>
+      <T>{t("What's still here")}</T>
+      <AICard label={t("What remained through it all")} value={ai?.whatStillHere} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 10 — The verdict (score ring lives here — after all the evidence)
+    <Shell sec="toxicity" prog={10} total={TOXICITY_SCREENS} feedback={feedback("The verdict", 10)}>
       <T>{t("The verdict")}</T>
       <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
         <ScoreRing score={loading ? 0 : (ai?.chatHealthScore||5)} max={10} size={130} color="#E04040" />
@@ -1623,47 +1664,121 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
 }
 
 // ─────────────────────────────────────────────────────────────────
-// LOVE LANGUAGE REPORT SCREENS  (5 cards)
+// LOVE LANGUAGE REPORT SCREENS  (10 cards)
 // ─────────────────────────────────────────────────────────────────
-export const LOVELANG_SCREENS = 5;
+export const LOVELANG_SCREENS = 10;
 export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
   const resultLang = normalizeUiLangCode(ai?.displayLanguage || "en");
   const reportControl = (value) => translateControlValue(resultLang, value);
-  const personATitle = `${ai?.personA?.name || s.names[0]}'s love language`;
-  const personBTitle = `${ai?.personB?.name || s.names[1] || s.names[0]}'s love language`;
+  const personAName = ai?.personA?.name || s.names[0] || "Person A";
+  const personBName = ai?.personB?.name || s.names[1] || s.names[0] || "Person B";
+  const langA = reportControl(ai?.personA?.language || "");
+  const langB = reportControl(ai?.personB?.language || "");
+  const guessOptions = [...new Set([langA, langB].filter(Boolean))];
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "lovelang", cardIndex, cardTitle } : null
   );
   const screens = [
-    <Shell sec="lovelang" prog={1} total={LOVELANG_SCREENS} feedback={feedback(personATitle, 1)}>
-      <T>{loading ? "…" : t("{name}'s love language", { name: ai?.personA?.name || s.names[0] })}</T>
-      <Big>{loading ? "…" : reportControl(ai?.personA?.language || "—")}</Big>
-      <AICard label={t("How they show it")} value={ai?.personA?.examples} loading={loading} />
+    // Card 1 — Love languages in this chat (intro — new)
+    <Shell sec="lovelang" prog={1} total={LOVELANG_SCREENS} feedback={feedback("Love languages in this chat", 1)}>
+      <T>{t("Love languages in this chat")}</T>
+      <AICard label={t("The overall pattern")} value={ai?.loveLanguageIntro} loading={loading} />
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    <Shell sec="lovelang" prog={2} total={LOVELANG_SCREENS} feedback={feedback(personBTitle, 2)}>
-      <T>{loading ? "…" : t("{name}'s love language", { name: ai?.personB?.name || s.names[1]||s.names[0] })}</T>
-      <Big>{loading ? "…" : reportControl(ai?.personB?.language || "—")}</Big>
+    // Card 2 — Guess A's love language (new — GuessCard)
+    <Shell sec="lovelang" prog={2} total={LOVELANG_SCREENS} feedback={feedback("Guess A's love language", 2, ai?.loveLanguageGuessValid)}>
+      <GuessCard
+        question={loading ? "…" : t("Which love language describes {name}?", { name: personAName })}
+        options={guessOptions}
+        correctAnswer={langA}
+        confidenceValid={(ai?.loveLanguageGuessValid ?? false) && guessOptions.length >= 2}
+        revealContent={
+          <>
+            <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
+            <Big>{loading ? "…" : (langA || "—")}</Big>
+          </>
+        }
+      />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 3 — Person A's love language (existing)
+    <Shell sec="lovelang" prog={3} total={LOVELANG_SCREENS} feedback={feedback(`${personAName}'s love language`, 3)}>
+      <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
+      <Big>{loading ? "…" : (langA || "—")}</Big>
+      <AICard label={t("How they show it")} value={ai?.personA?.examples} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 4 — Person B's love language (existing)
+    <Shell sec="lovelang" prog={4} total={LOVELANG_SCREENS} feedback={feedback(`${personBName}'s love language`, 4)}>
+      <T>{loading ? "…" : t("{name}'s love language", { name: personBName })}</T>
+      <Big>{loading ? "…" : (langB || "—")}</Big>
       <AICard label={t("How they show it")} value={ai?.personB?.examples} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovelang" prog={3} total={LOVELANG_SCREENS} feedback={feedback("The language gap", 3)}>
+    // Card 5 — The language gap (existing)
+    <Shell sec="lovelang" prog={5} total={LOVELANG_SCREENS} feedback={feedback("The language gap", 5)}>
       <T>{t("The language gap")}</T>
       <AICard label={t("Do they speak the same language?")} value={ai?.mismatch} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovelang" prog={4} total={LOVELANG_SCREENS} feedback={feedback("Most loving moment", 4)}>
+    // Card 6 — The Miss (new)
+    <Shell sec="lovelang" prog={6} total={LOVELANG_SCREENS} feedback={feedback("The miss", 6)}>
+      <T>{t("The miss")}</T>
+      <AICard label={t("What happened")} value={ai?.loveMiss?.description} loading={loading} />
+      {!loading && ai?.loveMiss?.quote && (
+        <div style={{ fontSize:14, fontStyle:"italic", color:"rgba(255,255,255,0.80)", lineHeight:1.6, borderLeft:"3px solid rgba(240,142,191,0.5)", paddingLeft:14, marginTop:4 }}>
+          "{ai.loveMiss.quote}"
+        </div>
+      )}
+      {!loading && ai?.loveMiss?.persons?.length >= 2 && (
+        <Sub mt={8}>{ai.loveMiss.persons.join(" → ")}</Sub>
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 7 — The Unspoken Moment (new)
+    <Shell sec="lovelang" prog={7} total={LOVELANG_SCREENS} feedback={feedback("The unspoken moment", 7)}>
+      <T>{t("The unspoken moment")}</T>
+      <AICard label={t("What wasn't said")} value={ai?.loveMissUnspoken} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 8 — Most loving moment (existing)
+    <Shell sec="lovelang" prog={8} total={LOVELANG_SCREENS} feedback={feedback("Most loving moment", 8)}>
       <T>{t("Most loving moment")}</T>
       <AICard label={t("The moment")} value={ai?.mostLovingMoment} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovelang" prog={5} total={LOVELANG_SCREENS} feedback={feedback("Love language compatibility", 5)}>
+    // Card 9 — How it shows (new — AttributionCard)
+    <Shell sec="lovelang" prog={9} total={LOVELANG_SCREENS} feedback={feedback("How it shows", 9)}>
+      {aiLoading && !ai?.mostLovingMomentAttribution ? (
+        <>
+          <T>{t("How it shows")}</T>
+          <div style={{ marginTop:24 }}><Dots /></div>
+        </>
+      ) : (
+        <AttributionCard
+          quote={ai?.mostLovingMomentAttribution?.quote || ""}
+          participants={[personAName, personBName]}
+          correctSender={ai?.mostLovingMomentAttribution?.people?.[0] || ""}
+          contextParagraph={ai?.mostLovingMomentAttribution?.read || ai?.mostLovingMomentAttribution?.title || ""}
+          isSensitive={!ai?.mostLovingMomentAttribution?.quote}
+          label={t("Who showed love here?")}
+        />
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 10 — Love language compatibility (closing — ScoreRing moved to end)
+    <Shell sec="lovelang" prog={10} total={LOVELANG_SCREENS} feedback={feedback("Love language compatibility", 10)}>
       <T>{t("Love language compatibility")}</T>
       <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
         <ScoreRing score={loading ? 0 : (ai?.compatibilityScore||5)} max={10} size={130} color="#F08EBF" />
@@ -1676,9 +1791,9 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
 }
 
 // ─────────────────────────────────────────────────────────────────
-// GROWTH REPORT SCREENS  (5 cards)
+// GROWTH REPORT SCREENS  (10 cards)
 // ─────────────────────────────────────────────────────────────────
-export const GROWTH_SCREENS = 5;
+export const GROWTH_SCREENS = 10;
 export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
@@ -1689,7 +1804,10 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "growth", cardIndex, cardTitle } : null
   );
+  const personAName = ai?.personAName || s.names[0] || "Person A";
+  const personBName = ai?.personBName || s.names[1] || s.names[0] || "Person B";
   const screens = [
+    // Card 1 — Then vs Now
     <Shell sec="growth" prog={1} total={GROWTH_SCREENS} feedback={feedback("Then vs Now", 1)}>
       <T>{t("Then vs Now")}</T>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10, marginTop:16 }}>
@@ -1702,28 +1820,95 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    <Shell sec="growth" prog={2} total={GROWTH_SCREENS} feedback={feedback("Who changed more", 2)}>
-      <T>{t("Who changed more")}</T>
-      <Big>{loading ? "…" : (ai?.whoChangedMore||"—")}</Big>
-      <AICard label={t("How they changed")} value={ai?.whoChangedHow} loading={loading} />
+    // Card 2 — Person A's Arc (new)
+    <Shell sec="growth" prog={2} total={GROWTH_SCREENS} feedback={feedback("Person A's arc", 2)}>
+      <T>{loading ? "…" : t("{name}'s arc", { name: personAName })}</T>
+      <AICard label={t("How they changed")} value={ai?.personAArc} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="growth" prog={3} total={GROWTH_SCREENS} feedback={feedback("What changed in the chat", 3)}>
+    // Card 3 — Person B's Arc (new)
+    <Shell sec="growth" prog={3} total={GROWTH_SCREENS} feedback={feedback("Person B's arc", 3)}>
+      <T>{loading ? "…" : t("{name}'s arc", { name: personBName })}</T>
+      <AICard label={t("How they changed")} value={ai?.personBArc} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 4 — Guess Who Changed More (new — GuessCard)
+    <Shell sec="growth" prog={4} total={GROWTH_SCREENS} feedback={feedback("Guess who changed more", 4, ai?.growthGuessThreshold)}>
+      <GuessCard
+        question={t("Who do you think changed more?")}
+        options={[personAName, personBName]}
+        correctAnswer={ai?.whoChangedMore || ""}
+        confidenceValid={ai?.growthGuessThreshold ?? false}
+        revealContent={
+          <>
+            <T>{t("Who changed more")}</T>
+            <Big>{loading ? "…" : (ai?.whoChangedMore || "—")}</Big>
+          </>
+        }
+      />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 5 — How they changed (detailed follow-up to the guess)
+    <Shell sec="growth" prog={5} total={GROWTH_SCREENS} feedback={feedback("How they changed", 5)}>
+      <T>{t("How they changed")}</T>
+      <AICard label={t("The shift")} value={ai?.whoChangedHow} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 6 — What changed in the chat
+    <Shell sec="growth" prog={6} total={GROWTH_SCREENS} feedback={feedback("What changed in the chat", 6)}>
       <T>{t("What changed in the chat")}</T>
       <AICard label={t("Topics that appeared")} value={ai?.topicsAppeared} loading={loading} />
       <AICard label={t("Topics that faded")} value={ai?.topicsDisappeared} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="growth" prog={4} total={GROWTH_SCREENS} feedback={feedback("Relationship trajectory", 4)}>
+    // Card 7 — The Turning Point (new)
+    <Shell sec="growth" prog={7} total={GROWTH_SCREENS} feedback={feedback("The turning point", 7)}>
+      <T>{t("The turning point")}</T>
+      {ai?.turningPoint ? (
+        <Big>{loading ? "…" : ai.turningPoint}</Big>
+      ) : aiLoading ? (
+        <div style={{marginTop:24}}><Dots /></div>
+      ) : (
+        <Sub mt={14}>{t("No clear turning point detected.")}</Sub>
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 8 — The Message That Shifted Everything (new — AttributionCard)
+    <Shell sec="growth" prog={8} total={GROWTH_SCREENS} feedback={feedback("The message that shifted everything", 8)}>
+      {aiLoading && !ai?.messageAtTurningPoint ? (
+        <>
+          <T>{t("The message that shifted everything")}</T>
+          <div style={{marginTop:24}}><Dots /></div>
+        </>
+      ) : (
+        <AttributionCard
+          quote={ai?.messageAtTurningPoint?.quote || ""}
+          participants={[personAName, personBName]}
+          correctSender={ai?.messageAtTurningPoint?.person || ""}
+          contextParagraph={ai?.messageAtTurningPoint?.contextParagraph || ""}
+          isSensitive={ai?.messageAtTurningPoint?.isSensitive || !ai?.messageAtTurningPoint?.quote}
+          label={t("The message that shifted everything")}
+        />
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 9 — Relationship trajectory
+    <Shell sec="growth" prog={9} total={GROWTH_SCREENS} feedback={feedback("Relationship trajectory", 9)}>
       <T>{t("Relationship trajectory")}</T>
       <Big>{loading ? "…" : (resultLang === "en" ? (trajMap[ai?.trajectory] || ai?.trajectory || "—") : reportControl(ai?.trajectory || "—"))}</Big>
       <AICard label={t("What the data shows")} value={ai?.trajectoryDetail} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="growth" prog={5} total={GROWTH_SCREENS} feedback={feedback("The arc", 5)}>
+    // Card 10 — The arc (closing)
+    <Shell sec="growth" prog={10} total={GROWTH_SCREENS} feedback={feedback("The arc", 10)}>
       <T>{t("The arc")}</T>
       <AICard label={t("Overall read")} value={ai?.arcSummary} loading={loading} />
       <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
@@ -1733,9 +1918,9 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACCOUNTABILITY REPORT SCREENS  (7 cards)
+// ACCOUNTABILITY REPORT SCREENS  (10 cards)
 // ─────────────────────────────────────────────────────────────────
-export const ACCOUNTA_SCREENS = 7;
+export const ACCOUNTA_SCREENS = 10;
 
 function hasPromiseMoment(moment) {
   const person = String(moment?.person || "").toLowerCase();
@@ -1763,12 +1948,14 @@ export function PromiseMomentCard({ moment, emptyText }) {
 export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
-  const personATitle = `${ai?.personA?.name || s.names[0]}'s accountability`;
-  const personBTitle = `${ai?.personB?.name || s.names[1] || s.names[0]}'s accountability`;
+  const personAName = ai?.personA?.name || s.names[0] || "Person A";
+  const personBName = ai?.personB?.name || s.names[1] || s.names[0] || "Person B";
+  const promiseLeader = (ai?.personA?.total ?? 0) >= (ai?.personB?.total ?? 0) ? personAName : personBName;
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "accounta", cardIndex, cardTitle } : null
   );
   const screens = [
+    // Card 1 — Promises made
     <Shell sec="accounta" prog={1} total={ACCOUNTA_SCREENS} feedback={feedback("Promises made", 1)}>
       <T>{t("Promises made")}</T>
       <div style={{ width:"100%", display:"flex", gap:12, marginTop:16, justifyContent:"center" }}>
@@ -1784,8 +1971,26 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    <Shell sec="accounta" prog={2} total={ACCOUNTA_SCREENS} feedback={feedback(personATitle, 2)}>
-      <T>{loading ? "…" : t("{name}'s accountability", { name: ai?.personA?.name || s.names[0] })}</T>
+    // Card 2 — Guess who made more promises (new — GuessCard)
+    <Shell sec="accounta" prog={2} total={ACCOUNTA_SCREENS} feedback={feedback("Guess who made more promises", 2, ai?.promiseGuessThreshold)}>
+      <GuessCard
+        question={t("Who do you think made more promises?")}
+        options={[personAName, personBName]}
+        correctAnswer={promiseLeader}
+        confidenceValid={ai?.promiseGuessThreshold ?? false}
+        revealContent={
+          <>
+            <T>{t("More promises made")}</T>
+            <Big>{loading ? "…" : promiseLeader}</Big>
+          </>
+        }
+      />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 3 — Person A's accountability
+    <Shell sec="accounta" prog={3} total={ACCOUNTA_SCREENS} feedback={feedback(`${personAName}'s accountability`, 3)}>
+      <T>{loading ? "…" : t("{name}'s accountability", { name: personAName })}</T>
       <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
         <ScoreRing score={loading ? 0 : (ai?.personA?.score||5)} max={10} size={120} color="#6AB4F0" />
       </div>
@@ -1803,8 +2008,9 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={3} total={ACCOUNTA_SCREENS} feedback={feedback(personBTitle, 3)}>
-      <T>{loading ? "…" : t("{name}'s accountability", { name: ai?.personB?.name || s.names[1]||s.names[0] })}</T>
+    // Card 4 — Person B's accountability
+    <Shell sec="accounta" prog={4} total={ACCOUNTA_SCREENS} feedback={feedback(`${personBName}'s accountability`, 4)}>
+      <T>{loading ? "…" : t("{name}'s accountability", { name: personBName })}</T>
       <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
         <ScoreRing score={loading ? 0 : (ai?.personB?.score||5)} max={10} size={120} color="#6AB4F0" />
       </div>
@@ -1822,20 +2028,50 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={4} total={ACCOUNTA_SCREENS} feedback={feedback("Fair comparison", 4)}>
+    // Card 5 — Fair comparison
+    <Shell sec="accounta" prog={5} total={ACCOUNTA_SCREENS} feedback={feedback("Fair comparison", 5)}>
       <T>{t("Fair comparison")}</T>
       <AICard label={t("Both sides")} value={ai?.comparison} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={5} total={ACCOUNTA_SCREENS} feedback={feedback("Follow-through pattern", 5)}>
+    // Card 6 — The Reliability Arc (new)
+    <Shell sec="accounta" prog={6} total={ACCOUNTA_SCREENS} feedback={feedback("The reliability arc", 6)}>
+      <T>{t("The reliability arc")}</T>
+      <AICard label={t("Did reliability change over time?")} value={ai?.reliabilityArc} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 7 — Follow-through pattern
+    <Shell sec="accounta" prog={7} total={ACCOUNTA_SCREENS} feedback={feedback("Follow-through pattern", 7)}>
       <T>{t("Follow-through pattern")}</T>
       <AICard label={t("Pattern")} value={ai?.followThroughPattern} loading={loading} />
       <AICard label={t("Evidence strength")} value={ai?.evidenceQuality} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={6} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable broken promise", 6)}>
+    // Card 8 — The Promise That Changed Things (new — AttributionCard)
+    <Shell sec="accounta" prog={8} total={ACCOUNTA_SCREENS} feedback={feedback("The promise that changed things", 8)}>
+      {aiLoading && !ai?.promiseThatMattered ? (
+        <>
+          <T>{t("The promise that changed things")}</T>
+          <div style={{ marginTop:24 }}><Dots /></div>
+        </>
+      ) : (
+        <AttributionCard
+          quote={ai?.promiseThatMattered?.quote || ""}
+          participants={[personAName, personBName]}
+          correctSender={ai?.promiseThatMattered?.person || ""}
+          contextParagraph={ai?.promiseThatMattered?.contextParagraph || ""}
+          isSensitive={ai?.promiseThatMattered?.isSensitive || !ai?.promiseThatMattered?.quote}
+          label={t("Who made this promise?")}
+        />
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 9 — Most notable broken promise
+    <Shell sec="accounta" prog={9} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable broken promise", 9)}>
       <T>{t("Most notable broken promise")}</T>
       {loading
         ? <div style={{ display:"flex", justifyContent:"center", padding:"20px 0" }}><Dots /></div>
@@ -1844,7 +2080,8 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="accounta" prog={7} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable kept promise", 7)}>
+    // Card 10 — Most notable kept promise (closing)
+    <Shell sec="accounta" prog={10} total={ACCOUNTA_SCREENS} feedback={feedback("Most notable kept promise", 10)}>
       <T>{t("Most notable kept promise")}</T>
       {loading
         ? <div style={{ display:"flex", justifyContent:"center", padding:"20px 0" }}><Dots /></div>
@@ -1857,20 +2094,22 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ENERGY REPORT SCREENS  (6 cards)
+// ENERGY REPORT SCREENS  (10 cards)
 // ─────────────────────────────────────────────────────────────────
-export const ENERGY_SCREENS = 6;
+export const ENERGY_SCREENS = 10;
 export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
   const resultLang = normalizeUiLangCode(ai?.displayLanguage || "en");
   const reportControl = (value) => translateControlValue(resultLang, value);
-  const personATitle = `${ai?.personA?.name || s.names[0]}'s energy`;
-  const personBTitle = `${ai?.personB?.name || s.names[1] || s.names[0]}'s energy`;
+  const personAName = ai?.personA?.name || s.names[0] || "Person A";
+  const personBName = ai?.personB?.name || s.names[1] || s.names[0] || "Person B";
+  const energyLeader = (ai?.personA?.netScore ?? 0) >= (ai?.personB?.netScore ?? 0) ? personAName : personBName;
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "energy", cardIndex, cardTitle } : null
   );
   const screens = [
+    // Card 1 — Net energy scores
     <Shell sec="energy" prog={1} total={ENERGY_SCREENS} feedback={feedback("Net energy scores", 1)}>
       <T>{t("Net energy scores")}</T>
       <div style={{ width:"100%", display:"flex", gap:16, marginTop:16, justifyContent:"center" }}>
@@ -1886,35 +2125,108 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
-    <Shell sec="energy" prog={2} total={ENERGY_SCREENS} feedback={feedback(personATitle, 2)}>
-      <T>{loading ? "…" : t("{name}'s energy", { name: ai?.personA?.name || s.names[0] })}</T>
+    // Card 2 — Person A's energy
+    <Shell sec="energy" prog={2} total={ENERGY_SCREENS} feedback={feedback(`${personAName}'s energy`, 2)}>
+      <T>{loading ? "…" : t("{name}'s energy", { name: personAName })}</T>
       <AICard label={t("Positive energy")} value={ai?.personA?.goodNews} loading={loading} />
       <AICard label={t("Draining patterns")} value={ai?.personA?.venting} loading={loading} />
       {!loading && ai?.personA?.hypeQuote && <Quip>"{ai.personA.hypeQuote}"</Quip>}
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="energy" prog={3} total={ENERGY_SCREENS} feedback={feedback(personBTitle, 3)}>
-      <T>{loading ? "…" : t("{name}'s energy", { name: ai?.personB?.name || s.names[1]||s.names[0] })}</T>
+    // Card 3 — Person B's energy
+    <Shell sec="energy" prog={3} total={ENERGY_SCREENS} feedback={feedback(`${personBName}'s energy`, 3)}>
+      <T>{loading ? "…" : t("{name}'s energy", { name: personBName })}</T>
       <AICard label={t("Positive energy")} value={ai?.personB?.goodNews} loading={loading} />
       <AICard label={t("Draining patterns")} value={ai?.personB?.venting} loading={loading} />
       {!loading && ai?.personB?.hypeQuote && <Quip>"{ai.personB.hypeQuote}"</Quip>}
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="energy" prog={4} total={ENERGY_SCREENS} feedback={feedback("Most energising moment", 4)}>
+    // Card 4 — Guess who brings more positive energy (new — GuessCard)
+    <Shell sec="energy" prog={4} total={ENERGY_SCREENS} feedback={feedback("Guess who lifts the chat more", 4, ai?.energyGuessValid)}>
+      <GuessCard
+        question={t("Who lifts the chat more?")}
+        options={[personAName, personBName]}
+        correctAnswer={energyLeader}
+        confidenceValid={ai?.energyGuessValid ?? false}
+        revealContent={
+          <>
+            <T>{t("More positive presence")}</T>
+            <Big>{loading ? "…" : energyLeader}</Big>
+          </>
+        }
+      />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 5 — The Dynamic (new)
+    <Shell sec="energy" prog={5} total={ENERGY_SCREENS} feedback={feedback("The dynamic", 5)}>
+      <T>{t("The dynamic")}</T>
+      <AICard label={t("What happens when these two energies meet")} value={ai?.energyDynamic} loading={loading} />
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 6 — Most energising moment
+    <Shell sec="energy" prog={6} total={ENERGY_SCREENS} feedback={feedback("Most energising moment", 6)}>
       <T>{t("Most energising moment")}</T>
       <AICard label={t("The moment")} value={ai?.mostEnergising} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="energy" prog={5} total={ENERGY_SCREENS} feedback={feedback("Most draining moment", 5)}>
+    // Card 7 — Most draining moment
+    <Shell sec="energy" prog={7} total={ENERGY_SCREENS} feedback={feedback("Most draining moment", 7)}>
       <T>{t("Most draining moment")}</T>
       <AICard label={t("The moment")} value={ai?.mostDraining} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="energy" prog={6} total={ENERGY_SCREENS} feedback={feedback("Energy compatibility", 6)}>
+    // Card 8 — Energy by Time (new)
+    <Shell sec="energy" prog={8} total={ENERGY_SCREENS} feedback={feedback("Energy by time", 8)}>
+      <T>{t("Energy by time")}</T>
+      {ai?.timeOfDay ? (
+        <>
+          <div style={{ display:"flex", gap:0, marginTop:16, width:"100%", justifyContent:"space-around", alignItems:"flex-start" }}>
+            {[ai.timeOfDay.personA, ai.timeOfDay.personB].map((p, i) => (
+              <div key={i} style={{ textAlign:"center" }}>
+                <div style={{ fontSize:36, fontWeight:800, color:"#fff" }}>{p?.peakHour || "—"}</div>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", marginTop:2 }}>{p?.peakDaypart || ""}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4 }}>{p?.name || s.names[i]}</div>
+              </div>
+            ))}
+          </div>
+          {ai.timeOfDay.contrast && <Sub mt={14}>{ai.timeOfDay.contrast}</Sub>}
+        </>
+      ) : aiLoading ? (
+        <div style={{ marginTop:24 }}><Dots /></div>
+      ) : (
+        <Sub mt={14}>{t("Not enough data to show.")}</Sub>
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 9 — The Charge (new — AttributionCard)
+    <Shell sec="energy" prog={9} total={ENERGY_SCREENS} feedback={feedback("The charge", 9)}>
+      {aiLoading && !ai?.chargeAttribution ? (
+        <>
+          <T>{t("The charge")}</T>
+          <div style={{ marginTop:24 }}><Dots /></div>
+        </>
+      ) : (
+        <AttributionCard
+          quote={ai?.chargeAttribution?.quote || ""}
+          participants={[personAName, personBName]}
+          correctSender={ai?.chargeAttribution?.people?.[0] || ""}
+          contextParagraph={ai?.chargeAttribution?.read || ai?.chargeAttribution?.title || ""}
+          isSensitive={!ai?.chargeAttribution?.quote}
+          label={t("Who changed the room's energy?")}
+        />
+      )}
+      <Nav back={back} next={next} />
+    </Shell>,
+
+    // Card 10 — Energy compatibility (closing)
+    <Shell sec="energy" prog={10} total={ENERGY_SCREENS} feedback={feedback("Energy compatibility", 10)}>
       <T>{t("Energy compatibility")}</T>
       <div style={{ width:"100%", display:"flex", gap:12, marginTop:16, justifyContent:"center" }}>
         {(loading ? s.names.slice(0,2).map(n=>({name:n,netScore:5})) : [ai?.personA,ai?.personB].filter(Boolean)).map((p, i) => (
@@ -1960,6 +2272,27 @@ export function PremiumFinale({ s, restart, back, reportType, fromHistory = fals
 export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, resultId, fromHistory = false }) {
   const t = useT();
   const closeResults = useContext(CloseResultsContext);
+  const share = useContext(ShareResultsContext);
+  const [quizBusy,  setQuizBusy]  = useState(false);
+  const [quizToast, setQuizToast] = useState("");
+
+  async function handleSendChallenge() {
+    if (quizBusy || !resultId) return;
+    setQuizBusy(true);
+    setQuizToast("");
+    const url = await createQuizChallenge(resultId, s, ai?.signaturePhrase);
+    setQuizBusy(false);
+    if (!url) { setQuizToast("Couldn't create link — try again."); return; }
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: `I wrapped our chat — can you beat my score? 🎯`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setQuizToast("Link copied!");
+        setTimeout(() => setQuizToast(""), 2500);
+      }
+    } catch { setQuizToast("Link ready — check your clipboard."); setTimeout(() => setQuizToast(""), 2500); }
+  }
   const feedback = resultId && (mode === "redflags" || ai?.vibeOneLiner)
     ? { resultId, reportType: mode === "redflags" ? "toxicity" : "general", cardIndex: prog, cardTitle: mode === "redflags" ? "Red flags, unwrapped." : (s.isGroup ? "Your group, unwrapped." : "Your chat, unwrapped.") }
     : null;
@@ -1998,16 +2331,85 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
           {label:"Spirit emojis",value:s.spiritEmoji.join(" ")},
           {label:"Best streak",value:t("{count} days", { count: s.streak })},
         ]);
+  const title = mode === "redflags"
+    ? t("Red flags, unwrapped.")
+    : (s.isGroup ? t("Your group, unwrapped.") : t("Your chat, unwrapped."));
+  const synthesis = !aiLoading && ai?.vibeOneLiner ? ai.vibeOneLiner : null;
   return (
     <Shell sec="finale" prog={prog} total={total} feedback={feedback} shareType="summary">
-      <T s={24}>{t(mode === "redflags" ? "Red flags, unwrapped." : (s.isGroup?"Your group, unwrapped.":"Your chat, unwrapped."))}</T>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:16,width:"100%"}}>
-        {cells.map((c,i)=><Cell key={i} label={t(c.label)} value={c.value} />)}
+      {/* Names + count — small header */}
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.38)", fontWeight:600, letterSpacing:"0.04em", textAlign:"center" }}>
+        {s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}
       </div>
-      {!aiLoading&&ai?.vibeOneLiner&&(
-        <div style={{background:"rgba(0,0,0,0.2)",borderRadius:20,padding:"14px 18px",width:"100%",fontSize:14,fontStyle:"italic",color:"rgba(255,255,255,0.75)",textAlign:"center",lineHeight:1.6,fontWeight:500}}>"{ai.vibeOneLiner}"</div>
+
+      {/* Main title */}
+      <T s={22}>{title}</T>
+
+      {/* Synthesis line — vibeOneLiner promoted to hero */}
+      {synthesis && (
+        <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"14px 18px", width:"100%", fontSize:14, fontStyle:"italic", color:"rgba(255,255,255,0.82)", textAlign:"center", lineHeight:1.65, fontWeight:500 }}>
+          "{synthesis}"
+        </div>
       )}
-      <div data-share-hide style={{display:"flex",gap:10,marginTop:20,width:"100%"}}>
+
+      {/* Stats grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, width:"100%" }}>
+        {cells.map((c,i) => <Cell key={i} label={t(c.label)} value={c.value} />)}
+      </div>
+
+      {/* Challenge card — casual mode only */}
+      {mode !== "redflags" && (
+        <div data-share-hide style={{
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          borderRadius: 20,
+          padding: "16px 18px",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}>
+          <div style={{ fontSize:14, fontWeight:800, color:"#fff", letterSpacing:-0.2 }}>
+            {t("Challenge a friend")}
+          </div>
+          <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55 }}>
+            {t("Think they'd guess the same results? Share your wrapped and find out.")}
+          </div>
+          <button
+            type="button"
+            onClick={handleSendChallenge}
+            disabled={quizBusy || !resultId}
+            className="wc-btn"
+            style={{
+              padding: "11px 20px",
+              borderRadius: 999,
+              border: "none",
+              background: PAL.finale.accent,
+              color: PAL.finale.bg,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: quizBusy || !resultId ? "wait" : "pointer",
+              fontFamily: "inherit",
+              alignSelf: "flex-start",
+              letterSpacing: 0.1,
+              opacity: !resultId ? 0.5 : 1,
+            }}
+          >
+            {quizBusy ? t("Creating link…") : t("Send the challenge")}
+          </button>
+          {quizToast && (
+            <div style={{ fontSize:12, color:"rgba(80,220,120,0.90)", fontWeight:600, animation:"wcFadeIn 200ms both" }}>
+              {quizToast}
+            </div>
+          )}
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.28)", marginTop:2 }}>
+            {t("Chat Memory Quiz — 6 questions about this chat.")}
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div data-share-hide style={{ display:"flex", gap:10, width:"100%" }}>
         <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
         {fromHistory
           ? <PrimaryButton onClick={closeResults} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("My Results")}</PrimaryButton>
@@ -7307,6 +7709,309 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
       {mainInnerContent}
     </Shell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// QUIZ CHALLENGE — data helpers
+// ─────────────────────────────────────────────────────────────────
+
+export async function fetchQuizChallenge(quizId) {
+  try {
+    const { data, error } = await supabase
+      .from("quiz_challenges")
+      .select("id, quiz_data, result_id, created_at")
+      .eq("id", quizId)
+      .single();
+    if (error || !data) return null;
+    return data;
+  } catch { return null; }
+}
+
+export async function createQuizChallenge(resultId, mathData, signaturePhrase) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const quizData = {
+      names:           mathData.names          || [],
+      isGroup:         mathData.isGroup        || false,
+      msgCounts:       mathData.msgCounts      || [],
+      ghostName:       mathData.ghostName      || "",
+      ghostAvg:        mathData.ghostAvg       || [],
+      spiritEmoji:     mathData.spiritEmoji    || [],
+      signatureWord:   mathData.signatureWord  || [],
+      signaturePhrase: Array.isArray(signaturePhrase) ? signaturePhrase : [],
+      streak:          mathData.streak         || 0,
+      topWords:        (mathData.topWords      || []).slice(0, 6),
+      totalMessages:   mathData.totalMessages  || 0,
+    };
+    const { data, error } = await supabase
+      .from("quiz_challenges")
+      .insert({ result_id: resultId || null, created_by: user.id, quiz_data: quizData })
+      .select("id")
+      .single();
+    if (error || !data) return null;
+    return `${window.location.origin}/quiz/${data.id}`;
+  } catch { return null; }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CHAT MEMORY QUIZ — standalone screen (no Shell chrome)
+// ─────────────────────────────────────────────────────────────────
+
+const QUIZ_SCORE_LABELS = ["Did you even read these messages? 😅", "A few lucky guesses.", "Getting warmer.", "Pretty solid.", "You know this chat well.", "You know this chat inside out. 🎯"];
+
+function QuizOptionButton({ label, state, layout, onClick }) {
+  const isGrid = layout === "grid";
+  let bg     = "rgba(255,255,255,0.07)";
+  let border = "1.5px solid rgba(255,255,255,0.14)";
+  let color  = "rgba(255,255,255,0.88)";
+  if (state === "correct")         { bg = "rgba(80,220,120,0.18)"; border = "1.5px solid rgba(80,220,120,0.55)"; color = "#fff"; }
+  if (state === "wrong")           { bg = "rgba(255,80,80,0.15)";  border = "1.5px solid rgba(255,80,80,0.45)";  color = "#fff"; }
+  if (state === "correct-other")   { bg = "rgba(80,220,120,0.09)"; border = "1.5px solid rgba(80,220,120,0.30)"; color = "rgba(255,255,255,0.55)"; }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={state !== "idle"}
+      className="wc-btn"
+      style={{
+        padding: isGrid ? "18px 8px" : "14px 18px",
+        borderRadius: isGrid ? 16 : 999,
+        border,
+        background: bg,
+        color,
+        fontSize: isGrid ? 28 : 15,
+        fontWeight: isGrid ? 400 : 700,
+        cursor: state !== "idle" ? "default" : "pointer",
+        fontFamily: "inherit",
+        textAlign: "center",
+        transition: "background 0.22s, border-color 0.22s",
+        lineHeight: 1.3,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function ChatMemoryQuiz({ quizId, onJoin }) {
+  const t = useT();
+  const [quizPhase, setQuizPhase] = useState("loading");
+  const [quizRow,   setQuizRow]   = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [step,      setStep]      = useState(0);
+  const [picked,    setPicked]    = useState(null);
+  const [locked,    setLocked]    = useState(false);
+  const [score,     setScore]     = useState(0);
+
+  useEffect(() => {
+    if (!quizId) { setQuizPhase("error"); return; }
+    fetchQuizChallenge(quizId).then(row => {
+      if (!row) { setQuizPhase("error"); return; }
+      setQuizRow(row);
+      setQuestions(buildQuizQuestions(row.quiz_data || {}));
+      setQuizPhase("intro");
+    });
+  }, [quizId]);
+
+  function handlePick(option) {
+    if (locked) return;
+    const q = questions[step];
+    const correct = option === q.correct;
+    setPicked(option);
+    setLocked(true);
+    if (correct) setScore(s => s + 1);
+    setTimeout(() => {
+      if (step + 1 >= questions.length) {
+        setQuizPhase("score");
+      } else {
+        setStep(s => s + 1);
+        setPicked(null);
+        setLocked(false);
+      }
+    }, 1200);
+  }
+
+  const containerStyle = {
+    minHeight: "100dvh",
+    background: "#0C0C14",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px 20px 40px",
+    boxSizing: "border-box",
+  };
+  const cardStyle = {
+    width: "100%",
+    maxWidth: 420,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 20,
+  };
+
+  // Loading
+  if (quizPhase === "loading") {
+    return (
+      <div style={containerStyle}>
+        <div style={{ color:"rgba(255,255,255,0.45)", fontSize:14 }}>Loading quiz…</div>
+      </div>
+    );
+  }
+
+  // Error
+  if (quizPhase === "error" || !questions.length) {
+    return (
+      <div style={containerStyle}>
+        <div style={cardStyle}>
+          <div style={{ fontSize:22, fontWeight:800, color:"#fff", textAlign:"center" }}>Quiz not found</div>
+          <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", textAlign:"center" }}>This link may have expired or been removed.</div>
+          <button type="button" onClick={onJoin} className="wc-btn" style={{ marginTop:8, padding:"13px 28px", borderRadius:999, background:"#7F5BB0", color:"#fff", fontSize:15, fontWeight:700, fontFamily:"inherit", border:"none", cursor:"pointer" }}>
+            {t("Try WrapChat")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const names = quizRow?.quiz_data?.names || [];
+  const total = quizRow?.quiz_data?.totalMessages || 0;
+
+  // Intro
+  if (quizPhase === "intro") {
+    return (
+      <div style={containerStyle}>
+        <div style={cardStyle}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
+            WrapChat
+          </div>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:22, fontWeight:800, color:"#fff", lineHeight:1.3, letterSpacing:-0.5 }}>
+              {names.join(" & ")}
+            </div>
+            {total > 0 && (
+              <div style={{ fontSize:13, color:"rgba(255,255,255,0.38)", marginTop:4 }}>
+                {total.toLocaleString()} messages analysed
+              </div>
+            )}
+          </div>
+          <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"20px 20px", width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:18, fontWeight:800, color:"#fff", lineHeight:1.35, marginBottom:8 }}>
+              Think you know this chat?
+            </div>
+            <div style={{ fontSize:14, color:"rgba(255,255,255,0.50)", lineHeight:1.55 }}>
+              {questions.length} questions · takes about a minute
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setQuizPhase("question")}
+            className="wc-btn"
+            style={{ width:"100%", padding:"15px 20px", borderRadius:999, background:"#7F5BB0", color:"#fff", fontSize:16, fontWeight:800, fontFamily:"inherit", border:"none", cursor:"pointer", letterSpacing:0.1 }}
+          >
+            Start the quiz →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Question
+  if (quizPhase === "question") {
+    const q = questions[step];
+    const isGrid = q.layout === "grid";
+    return (
+      <div style={containerStyle}>
+        <div style={cardStyle}>
+          {/* Progress */}
+          <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:8 }}>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", fontWeight:600, textAlign:"center" }}>
+              {step + 1} of {questions.length}
+            </div>
+            <div style={{ width:"100%", height:3, background:"rgba(255,255,255,0.10)", borderRadius:999 }}>
+              <div style={{ width:`${((step + 1) / questions.length) * 100}%`, height:"100%", background:"#7F5BB0", borderRadius:999, transition:"width 0.3s" }} />
+            </div>
+          </div>
+
+          {/* Question */}
+          <div style={{ fontSize:20, fontWeight:800, color:"#fff", textAlign:"center", lineHeight:1.35, letterSpacing:-0.3 }}>
+            {q.text}
+          </div>
+
+          {/* Options */}
+          <div style={{
+            display: isGrid ? "grid" : "flex",
+            gridTemplateColumns: isGrid ? "1fr 1fr" : undefined,
+            flexDirection: isGrid ? undefined : "column",
+            gap: 10,
+            width: "100%",
+          }}>
+            {q.options.map(option => {
+              let state = "idle";
+              if (locked) {
+                if (option === q.correct) state = picked === option ? "correct" : "correct-other";
+                else if (option === picked) state = "wrong";
+              }
+              return (
+                <QuizOptionButton
+                  key={option}
+                  label={option}
+                  state={state}
+                  layout={q.layout}
+                  onClick={() => handlePick(option)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Score
+  const labelIndex = Math.min(Math.floor((score / questions.length) * QUIZ_SCORE_LABELS.length), QUIZ_SCORE_LABELS.length - 1);
+  return (
+    <div style={containerStyle}>
+      <div style={cardStyle}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>
+          WrapChat
+        </div>
+
+        {/* Score badge */}
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:64, fontWeight:900, color:"#fff", lineHeight:1, letterSpacing:-2 }}>
+            {score}<span style={{ fontSize:32, color:"rgba(255,255,255,0.35)", fontWeight:700 }}>/{questions.length}</span>
+          </div>
+          <div style={{ fontSize:15, color:"rgba(255,255,255,0.65)", marginTop:10, lineHeight:1.5 }}>
+            {QUIZ_SCORE_LABELS[labelIndex]}
+          </div>
+        </div>
+
+        {/* Teaser stat */}
+        {total > 0 && (
+          <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.09)", borderRadius:16, padding:"14px 18px", width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.45)", lineHeight:1.55 }}>
+              This chat has <strong style={{ color:"#fff" }}>{total.toLocaleString()}</strong> messages between {names.join(" and ")}. Curious what your own chat reveals?
+            </div>
+          </div>
+        )}
+
+        {/* Primary CTA */}
+        <button
+          type="button"
+          onClick={onJoin}
+          className="wc-btn"
+          style={{ width:"100%", padding:"15px 20px", borderRadius:999, background:"#7F5BB0", color:"#fff", fontSize:16, fontWeight:800, fontFamily:"inherit", border:"none", cursor:"pointer", letterSpacing:0.1 }}
+        >
+          Analyse your own chat — free
+        </button>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.28)", textAlign:"center", marginTop:-8 }}>
+          No account needed to start
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -907,3 +907,288 @@ export function GearIcon({ size = 15 }) {
     </svg>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────
+// GUESS CARD — Guess Before Reveal interactive mechanic.
+//
+// Two phases:
+//   "guess"    — question + tappable option buttons
+//   "revealed" — full reveal content fades in
+//
+// When confidenceValid is false the guess phase is skipped entirely
+// and revealContent renders directly (flat mode, no fake drama).
+// ─────────────────────────────────────────────────────────────────
+export function GuessCard({ question, options = [], correctAnswer, revealContent, confidenceValid = true, onReveal }) {
+  const p = useContext(SectionPaletteContext) || PAL.upload;
+  const [picked, setPicked] = useState(null);   // null | option string
+  const [phase, setPhase] = useState("guess");  // "guess" | "locking" | "revealed"
+
+  if (!confidenceValid) return revealContent ?? null;
+
+  function handlePick(option) {
+    if (phase !== "guess") return;
+    setPicked(option);
+    setPhase("locking");
+    setTimeout(() => {
+      setPhase("revealed");
+      onReveal?.();
+    }, 820);
+  }
+
+  if (phase === "revealed") {
+    return (
+      <div style={{ width: "100%", animation: `wcFadeIn 320ms cubic-bezier(.2,0,.1,1) both` }}>
+        {revealContent}
+      </div>
+    );
+  }
+
+  const isLocking = phase === "locking";
+
+  return (
+    <div className="wc-fadeup-2" style={{ width: "100%" }}>
+      <div style={{
+        background: p.inner,
+        border: `1.5px solid ${p.accent}70`,
+        borderRadius: 24,
+        padding: "20px 20px 22px",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 18,
+      }}>
+        {/* eyebrow */}
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: p.accent, alignSelf: "flex-start" }}>
+          Make your guess
+        </div>
+
+        {/* question */}
+        <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", lineHeight: 1.35, textAlign: "center", letterSpacing: -0.3 }}>
+          {question}
+        </div>
+
+        {/* option buttons */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+          {options.map(option => {
+            const isCorrect = option === correctAnswer;
+            const isChosen  = option === picked;
+            let bg     = "rgba(255,255,255,0.07)";
+            let border = "1.5px solid rgba(255,255,255,0.14)";
+            let color  = "rgba(255,255,255,0.85)";
+            let icon   = null;
+            if (isLocking && isChosen && isCorrect)  { bg = "rgba(80,220,120,0.18)"; border = "1.5px solid rgba(80,220,120,0.55)"; color = "#fff"; icon = "✓"; }
+            if (isLocking && isChosen && !isCorrect) { bg = "rgba(255,80,80,0.15)";  border = "1.5px solid rgba(255,80,80,0.45)";  color = "#fff"; icon = "✗"; }
+            if (isLocking && !isChosen && isCorrect) { bg = "rgba(80,220,120,0.10)"; border = "1.5px solid rgba(80,220,120,0.35)"; color = "rgba(255,255,255,0.6)"; }
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handlePick(option)}
+                disabled={isLocking}
+                className="wc-btn"
+                style={{
+                  width: "100%",
+                  padding: "13px 18px",
+                  borderRadius: 999,
+                  border,
+                  background: bg,
+                  color,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: isLocking ? "default" : "pointer",
+                  fontFamily: "inherit",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "background 0.25s, border-color 0.25s, color 0.2s",
+                  letterSpacing: 0.1,
+                }}
+              >
+                {option}
+                {icon && <span style={{ fontSize: 13, opacity: 0.9 }}>{icon}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ATTRIBUTION CARD — Who Said This? interactive mechanic.
+//
+// Two phases:
+//   "hidden"   — quote shown, sender hidden, two name buttons
+//   "revealed" — sender + timestamp + context paragraph fades in
+//
+// When isSensitive is true the guessing mechanic is suppressed:
+// the card renders as a plain moment card with no hidden sender.
+// ─────────────────────────────────────────────────────────────────
+export function AttributionCard({ quote, participants = [], correctSender, contextParagraph, isSensitive = false, label = "Who said this?" }) {
+  const p = useContext(SectionPaletteContext) || PAL.upload;
+  const [picked, setPicked] = useState(null);
+  const [phase, setPhase] = useState("hidden"); // "hidden" | "locking" | "revealed"
+
+  function handlePick(name) {
+    if (phase !== "hidden") return;
+    setPicked(name);
+    setPhase("locking");
+    setTimeout(() => setPhase("revealed"), 780);
+  }
+
+  // Soft mode — sensitive content shown as a plain moment card
+  if (isSensitive) {
+    return (
+      <div className="wc-fadeup-2" style={{
+        background: p.inner,
+        border: `1.5px solid ${p.accent}70`,
+        borderRadius: 24,
+        padding: "20px 20px 22px",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: p.accent }}>
+          {label}
+        </div>
+        {quote && (
+          <div style={{ fontSize: 15, fontStyle: "italic", color: "rgba(255,255,255,0.90)", lineHeight: 1.6, borderLeft: `3px solid ${p.accent}60`, paddingLeft: 14 }}>
+            "{quote}"
+          </div>
+        )}
+        {contextParagraph && (
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.6 }}>
+            {contextParagraph}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (phase === "revealed") {
+    const isCorrect = picked === correctSender;
+    return (
+      <div style={{ width: "100%", animation: `wcFadeIn 320ms cubic-bezier(.2,0,.1,1) both`, display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* result badge */}
+        <div style={{
+          padding: "8px 16px",
+          borderRadius: 999,
+          background: isCorrect ? "rgba(80,220,120,0.15)" : "rgba(255,80,80,0.12)",
+          border: `1px solid ${isCorrect ? "rgba(80,220,120,0.40)" : "rgba(255,80,80,0.35)"}`,
+          color: isCorrect ? "#6EE8A0" : "#FF8080",
+          fontSize: 13,
+          fontWeight: 700,
+          textAlign: "center",
+          width: "100%",
+          letterSpacing: 0.1,
+        }}>
+          {isCorrect ? `Correct — ${correctSender} said it` : `Actually — ${correctSender} said it`}
+        </div>
+
+        {/* full card with context */}
+        <div style={{
+          background: p.inner,
+          border: `1.5px solid ${p.accent}70`,
+          borderRadius: 24,
+          padding: "20px 20px 22px",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: p.accent }}>
+            {label}
+          </div>
+          {quote && (
+            <div style={{ fontSize: 15, fontStyle: "italic", color: "rgba(255,255,255,0.90)", lineHeight: 1.6, borderLeft: `3px solid ${p.accent}60`, paddingLeft: 14 }}>
+              "{quote}"
+            </div>
+          )}
+          <div style={{ fontSize: 13, fontWeight: 700, color: p.accent }}>
+            — {correctSender}
+          </div>
+          {contextParagraph && (
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.60)", lineHeight: 1.6, marginTop: 2 }}>
+              {contextParagraph}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const isLocking = phase === "locking";
+
+  return (
+    <div className="wc-fadeup-2" style={{
+      background: p.inner,
+      border: `1.5px solid ${p.accent}70`,
+      borderRadius: 24,
+      padding: "20px 20px 22px",
+      width: "100%",
+      display: "flex",
+      flexDirection: "column",
+      gap: 16,
+    }}>
+      {/* eyebrow */}
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: p.accent }}>
+        {label}
+      </div>
+
+      {/* hidden quote */}
+      {quote && (
+        <div style={{ fontSize: 15, fontStyle: "italic", color: "rgba(255,255,255,0.90)", lineHeight: 1.6, borderLeft: `3px solid ${p.accent}60`, paddingLeft: 14 }}>
+          "{quote}"
+        </div>
+      )}
+
+      {/* who sent this prompt */}
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.50)", textAlign: "center", fontWeight: 600 }}>
+        Who sent this?
+      </div>
+
+      {/* name buttons */}
+      <div style={{ display: "flex", gap: 10, width: "100%" }}>
+        {participants.slice(0, 2).map(name => {
+          const isCorrect = name === correctSender;
+          const isChosen  = name === picked;
+          let bg     = "rgba(255,255,255,0.07)";
+          let border = "1.5px solid rgba(255,255,255,0.14)";
+          let color  = "rgba(255,255,255,0.85)";
+          if (isLocking && isChosen && isCorrect)  { bg = "rgba(80,220,120,0.18)"; border = "1.5px solid rgba(80,220,120,0.55)"; color = "#fff"; }
+          if (isLocking && isChosen && !isCorrect) { bg = "rgba(255,80,80,0.15)";  border = "1.5px solid rgba(255,80,80,0.45)";  color = "#fff"; }
+          if (isLocking && !isChosen && isCorrect) { bg = "rgba(80,220,120,0.10)"; border = "1.5px solid rgba(80,220,120,0.35)"; color = "rgba(255,255,255,0.55)"; }
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => handlePick(name)}
+              disabled={isLocking}
+              className="wc-btn"
+              style={{
+                flex: 1,
+                padding: "12px 10px",
+                borderRadius: 999,
+                border,
+                background: bg,
+                color,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: isLocking ? "default" : "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.25s, border-color 0.25s, color 0.2s",
+                letterSpacing: 0.1,
+              }}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

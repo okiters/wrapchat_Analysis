@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Snapshot — Current Cards & Structure.md",
+                "file": "Analysis — Features & Report Redesign.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Snapshot — Current Cards & Structure"
+              "title": "Analysis — Features & Report Redesign"
             }
           }
         ]
@@ -183,6 +183,7 @@
   "active": "9f5c57796cb3c78e",
   "lastOpenFiles": [
     "Snapshot — Current Cards & Structure.md",
+    "The-direction-of-the-change.md",
     "Analysis — Report Balance & UX.md",
     "Analysis — Features & Report Redesign.md",
     "ER — Person A's Energy.md",

@@ -846,6 +846,44 @@ export function normalizePromiseMoment(item) {
   };
 }
 
+export function normalizeAttributionQuote(item) {
+  const safe = item && typeof item === "object" ? item : {};
+  return {
+    quote: strOr(safe.quote),
+    person: strOr(safe.person),
+    contextParagraph: strOr(safe.contextParagraph),
+    isSensitive: Boolean(safe.isSensitive === true || safe.isSensitive === "true"),
+  };
+}
+
+export function normalizeTimeOfDay(item) {
+  const safe = item && typeof item === "object" ? item : {};
+  const personA = safe.personA && typeof safe.personA === "object" ? safe.personA : {};
+  const personB = safe.personB && typeof safe.personB === "object" ? safe.personB : {};
+  return {
+    personA: { name: strOr(personA.name), peakHour: strOr(personA.peakHour), peakDaypart: strOr(personA.peakDaypart) },
+    personB: { name: strOr(personB.name), peakHour: strOr(personB.peakHour), peakDaypart: strOr(personB.peakDaypart) },
+    contrast: strOr(safe.contrast),
+  };
+}
+
+export function normalizeLoveMiss(item) {
+  const safe = item && typeof item === "object" ? item : {};
+  return {
+    description: strOr(safe.description),
+    quote: strOr(safe.quote),
+    persons: Array.isArray(safe.persons) ? safe.persons.map(s => strOr(s)).filter(Boolean) : [],
+  };
+}
+
+export function normalizeGuessThresholds(item) {
+  const safe = item && typeof item === "object" ? item : {};
+  return {
+    loveLanguageGuessValid: safe.loveLanguageGuessValid === true || safe.loveLanguageGuessValid === "true",
+    energyGuessValid: safe.energyGuessValid === true || safe.energyGuessValid === "true",
+  };
+}
+
 // Normalize schema-critical enum values that Claude may translate despite instructions.
 // Maps common translations back to canonical English control tokens so the app's
 // UI mappings (arrowMap, trajMap, love-language labels) keep working.
@@ -1022,6 +1060,12 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       mostEnergising: strOr(shared.mostEnergising),
       mostDraining: strOr(shared.mostDraining),
       energyCompatibility: strOr(shared.energyCompatibility),
+      timeOfDay: normalizeTimeOfDay(shared.timeOfDay),
+      loveLanguageIntro: strOr(shared.loveLanguageIntro),
+      loveMiss: normalizeLoveMiss(shared.loveMiss),
+      loveMissUnspoken: strOr(shared.loveMissUnspoken),
+      energyDynamic: strOr(shared.energyDynamic),
+      guessThresholds: normalizeGuessThresholds(shared.guessThresholds),
       memorableMoments: normalizeMemorableMoments(shared.memorableMoments),
       growth: {
         thenDepth: strOr(growth.thenDepth),
@@ -1034,6 +1078,11 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
         trajectory: normalizeTrajectory(strOr(growth.trajectory)),
         trajectoryDetail: strOr(growth.trajectoryDetail),
         arcSummary: strOr(growth.arcSummary),
+        personAArc: strOr(growth.personAArc),
+        personBArc: strOr(growth.personBArc),
+        turningPoint: strOr(growth.turningPoint),
+        messageAtTurningPoint: normalizeAttributionQuote(growth.messageAtTurningPoint),
+        growthGuessThreshold: growth.growthGuessThreshold === true || growth.growthGuessThreshold === "true",
       },
     },
   };
@@ -1106,6 +1155,10 @@ export function normalizeCoreAnalysisB(raw, math, relationshipType, relationship
         powerBalance: strOr(toxicity.powerBalance),
         powerHolder: strOr(toxicity.powerHolder, "Balanced"),
         verdict: strOr(toxicity.verdict),
+        whatStillHere: strOr(toxicity.whatStillHere),
+        heavyAttributionQuote: normalizeAttributionQuote(toxicity.heavyAttributionQuote),
+        apologyGuessThreshold: toxicity.apologyGuessThreshold === true || toxicity.apologyGuessThreshold === "true",
+        powerGuessThreshold: toxicity.powerGuessThreshold === true || toxicity.powerGuessThreshold === "true",
       },
       accountability: {
         notableBroken: normalizePromiseMoment(accountability.notableBroken),
@@ -1114,6 +1167,9 @@ export function normalizeCoreAnalysisB(raw, math, relationshipType, relationship
         followThroughPattern: strOr(accountability.followThroughPattern),
         evidenceQuality: strOr(accountability.evidenceQuality),
         overallVerdict: strOr(accountability.overallVerdict),
+        reliabilityArc: strOr(accountability.reliabilityArc),
+        promiseThatMattered: normalizeAttributionQuote(accountability.promiseThatMattered),
+        promiseGuessThreshold: accountability.promiseGuessThreshold === true || accountability.promiseGuessThreshold === "true",
       },
     },
   };
@@ -1183,6 +1239,7 @@ export function deriveGeneralReportFromCore(core, math, relationshipType) {
     insideJoke: shared.insideJoke,
     hypePersonReason: shared.hypePersonReason,
     memorableMoments: shared.memorableMoments,
+    timeOfDay: shared.timeOfDay,
   }, relationshipType, core);
 }
 
@@ -1209,6 +1266,10 @@ export function deriveEnergyReportFromCore(core, math, relationshipType) {
     mostEnergising: shared.mostEnergising,
     mostDraining: shared.mostDraining,
     compatibility: shared.energyCompatibility,
+    energyDynamic: shared.energyDynamic,
+    timeOfDay: shared.timeOfDay,
+    energyGuessValid: shared.guessThresholds?.energyGuessValid ?? false,
+    chargeAttribution: shared.memorableMoments?.find(m => m.type === "funny" || m.type === "signature") ?? null,
   }, relationshipType, core);
 }
 
@@ -1245,12 +1306,17 @@ export function deriveToxicityReportFromCore(core, math, relationshipType) {
     powerBalance: toxicity.powerBalance,
     powerHolder: toxicity.powerHolder,
     verdict: toxicity.verdict,
+    whatStillHere: toxicity.whatStillHere,
+    heavyAttributionQuote: toxicity.heavyAttributionQuote,
+    apologyGuessThreshold: toxicity.apologyGuessThreshold ?? false,
+    powerGuessThreshold: toxicity.powerGuessThreshold ?? false,
   }, relationshipType, core);
 }
 
 export function deriveLoveLangReportFromCore(core, math, relationshipType) {
   const [personA, personB] = pickCorePairA(core, math);
   const shared = core?.shared || {};
+  const careAttribution = shared.memorableMoments?.find(m => m.type === "care" || m.type === "sweet") ?? null;
   return attachReportMeta({
     personA: {
       name: personA.name,
@@ -1268,13 +1334,19 @@ export function deriveLoveLangReportFromCore(core, math, relationshipType) {
     },
     mismatch: shared.loveLanguageMismatch,
     mostLovingMoment: shared.mostLovingMoment,
+    mostLovingMomentAttribution: careAttribution,
     compatibilityScore: shared.compatibilityScore,
     compatibilityRead: shared.compatibilityRead,
+    loveLanguageIntro: shared.loveLanguageIntro,
+    loveMiss: shared.loveMiss,
+    loveMissUnspoken: shared.loveMissUnspoken,
+    loveLanguageGuessValid: shared.guessThresholds?.loveLanguageGuessValid ?? false,
   }, relationshipType, core);
 }
 
 export function deriveGrowthReportFromCore(core, math, relationshipType) {
   const growth = core?.shared?.growth || {};
+  const names = math?.names || [];
   return attachReportMeta({
     thenDepth: growth.thenDepth,
     nowDepth: growth.nowDepth,
@@ -1286,6 +1358,13 @@ export function deriveGrowthReportFromCore(core, math, relationshipType) {
     trajectory: growth.trajectory,
     trajectoryDetail: growth.trajectoryDetail,
     arcSummary: growth.arcSummary,
+    personAArc: growth.personAArc,
+    personBArc: growth.personBArc,
+    personAName: names[0] || "",
+    personBName: names[1] || "",
+    turningPoint: growth.turningPoint,
+    messageAtTurningPoint: growth.messageAtTurningPoint,
+    growthGuessThreshold: growth.growthGuessThreshold ?? false,
   }, relationshipType, core);
 }
 
@@ -1315,6 +1394,9 @@ export function deriveAccountaReportFromCore(core, math, relationshipType) {
     followThroughPattern: accountability.followThroughPattern,
     evidenceQuality: accountability.evidenceQuality,
     overallVerdict: accountability.overallVerdict,
+    reliabilityArc: accountability.reliabilityArc,
+    promiseThatMattered: accountability.promiseThatMattered,
+    promiseGuessThreshold: accountability.promiseGuessThreshold ?? false,
   }, relationshipType, core);
 }
 

@@ -403,4 +403,376 @@ One AI card labeled "Overall read" — the AI's closing summary of the full arc 
 
 ---
 
+---
+
+## AI Prompt Pipelines
+
+Every report type is fed by one of four pipelines. Each pipeline makes a single Claude API call and returns a JSON object. The results are cached per chat session — if two reports share a family, the second one reuses the first call's output without calling Claude again.
+
+---
+
+### Pipeline map
+
+| Report | Family | Pipeline used |
+|---|---|---|
+| General Wrapped | Connection | Core A or Connection Digest |
+| Love Language | Connection | Core A or Connection Digest |
+| Energy | Connection | Core A or Connection Digest |
+| Growth | Growth | Growth Digest |
+| Toxicity | Risk | Core B or Risk Digest |
+| Accountability | Risk | Core B or Risk Digest |
+| Quick Read | Trial | Trial Prompt (standalone) |
+
+---
+
+### Shared base system prompt — `buildAnalystSystemPrompt`
+
+All pipelines except Trial start with this base. It sets 9 hard priority rules that override everything else:
+
+1. **Relationship label** — never override the user-selected type (partner, friend, family, ex, colleague, other); never infer from tone or emoji
+2. **Funny attribution** — keyboard mashes and laugh reactions (😂 lol lmao 💀) belong to the audience, not the performer; the funny person is whoever sent the line that triggered the reaction
+3. **Direction of actions** — the actor is always the sender of that exact message line, never reversed
+4. **Signature phrases** — must be actual repeated text phrases, never emojis alone, never keyboard mashes
+5. **Drama scope** — dramaStarter considers all drama in the chat including third-party dramas, not just direct conflict between participants
+6. **Translation** — never translate quoted messages; reproduce all quotes exactly in their original language
+7. **Geography** — never claim participants live in different cities/countries unless explicitly stated in the chat
+8. **Specificity** — prefer real names, recurring people, places, repeated situations, and actual phrasing over generic observations
+9. **Controlled interpretation** — may compress clearly supported patterns into short reads, but never infer motives, inner states, diagnoses, or emotional certainty
+
+General rules appended after the 9 priorities:
+- Be conservative before singling out one person; prefer Tie, Shared, Balanced, or None clearly identified when evidence is mixed
+- Keep tone honest but not cruel, mocking, or absolute
+- Avoid repetitive wording across fields — if two answers overlap, make them distinct in angle
+- Return ONLY valid JSON with no markdown fences or explanation outside the JSON
+- Never embed literal newline characters inside a JSON string value
+
+Conditional blocks appended based on context:
+- **Relationship context block** — if a relationship type is selected, appended as: "RELATIONSHIP CONTEXT: {description}. Frame all analysis, tone, and language accordingly."
+- **Language instruction** — if output language is not English, full block instructing Claude to write natively in that language, listing all control tokens that must NOT be translated (love language names, depthChange values, trajectory values, energy type values, name fields)
+
+---
+
+### Writing style layer — `CORE_A_WRITING_STYLE`
+
+Added on top of the base for all Connection and Growth pipeline calls. Defines the voice and structure for every free-text field:
+
+**Voice:** Warm, perceptive, lightly playful. Slightly ironic when the chat supports it. Emotionally aware but grounded in actual behavior. Should feel like "you were already thinking this, now someone said it clearly."
+
+**Specificity rule:** Use real names, recurring topics, repeated situations, places, timing patterns, or short exact quotes. Every insight must feel like it belongs only to this chat.
+
+**Pattern focus:** Identify the recurring pattern or dynamic behind behavior. Assign soft roles when clearly supported (the planner, the therapist friend, the chaos-bringer, the one who disappears). Do not force roles if evidence is weak.
+
+**Coined micro-phrases:** When natural, compress a pattern into a short memorable phrase (e.g., "natural ghosting", "emotional admin", "accidental disappearing act"). Use sparingly.
+
+**Field structure:** specific observation + recurring pattern or concrete moment + short interpretation.
+
+**Tone control — banned:** therapy language, diagnosis, advice, moralizing, over-explaining, "this shows that", "it seems like", "overall", "in general", "the analysis suggests".
+
+**Compression:** One strong sentence beats two weak generic ones. No filler or repeated ideas.
+
+**Anti-generic rule:** Before finalizing any field, check whether it could fit another random chat. If yes, rewrite with specific evidence.
+
+**Anti-repetition rules:**
+- sweetMoment and mostLovingMoment must describe different events
+- tensionMoment and dramaContext must describe different events
+- vibeOneLiner and relationshipSummary must not be near-identical
+- toxicityReport and groupDynamic must not paraphrase each other
+- Each evidenceTimeline entry must reference a distinct event
+- No two fields anywhere should describe the same moment or quote the same line
+
+**Moment extraction:** For funny, sweet, tension, signature, vibe, or memorable fields — prefer one concrete scene from evidence windows over a broad summary. Shape: what happened + exact phrase or recurring detail + short interpretation.
+
+**Quote rule:** Short exact quotes only when they make the insight more recognizable. Never invent quotes. Never translate quotes. One quote per field maximum.
+
+**Date rule:** For all date-bearing fields — use approximate period descriptions only (early on, a few months in, mid-chat, recently, toward the end). Never write a specific calendar date, month name, day number, or year.
+
+---
+
+### Connection pipeline — Core A (`prepareCoreAnalysisARequest`)
+
+**Used by:** General Wrapped, Love Language, Energy (via `generateCoreAnalysisA`)
+
+**Claude role:** "a sharp, observant chat analyst building a canonical core-analysis object that later reports will reuse"
+
+**Max tokens:** 3200
+
+**Message sampling:** Event windows from across full history (scored and selected by importance) + early contiguous snapshot (first 16-18% of messages) + late contiguous snapshot (last 16-18%). Early/late snapshots used only for growth fields. Event windows used for all other fields.
+
+**Additional system prompt rules beyond base + writing style:**
+- Window format: chat delivered as isolated windows separated by ━━━ headers; never connect or combine events from different windows unless messages explicitly link them
+- Speaker attribution: every line is `[timestamp] SpeakerName: body` — name before the colon is always and only the sender
+- Funny attribution: laugh reaction from person B after person A's line = person A is funny, never person B
+- All name fields return ONLY the person's first name
+- People array follows provided name order for the first N participants (up to 2 for duo, up to 6 for group)
+- Memorable moments: 3–6 entries, each from a different window, different exchange; quote field must be exact string from windows or empty string; date field must be approximate period only
+
+**JSON schema returned:**
+
+```
+{
+  "schemaVersion": number,
+  "meta": {
+    "confidenceNote": "1 sentence",
+    "dominantTone": "short phrase"
+  },
+  "people": [
+    {
+      "name": "first name",
+      "summaryRole": "1 short phrase",
+      "careStyle": {
+        "language": "Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed",
+        "languageEmoji": "1 emoji",
+        "examples": ["sentence 1", "sentence 2"],
+        "score": 1-10
+      },
+      "energy": {
+        "netScore": 1-10,
+        "type": "net positive / mixed / net draining",
+        "goodNews": "1 sentence",
+        "venting": "1 sentence or 'minimal venting'",
+        "hypeQuote": "short real quote"
+      }
+    }
+  ],
+  "shared": {
+    "vibeOneLiner": "1 memorable sentence",
+    "biggestTopic": "1 sentence naming the specific recurring thing",
+    "ghostContext": "1 sentence explaining the slower replier's pattern",
+    "funniestPerson": "first name or 'None clearly identified'",
+    "funniestReason": "the exact line or move that got the reaction, under 20 words",
+    "dramaStarter": "first name / 'Shared' / 'None clearly identified'",
+    "dramaContext": "1 sentence with one concrete moment",
+    "signaturePhrases": ["phrase person 1 uses", "phrase person 2 uses"],
+    "relationshipStatus": "duo only: short label or 'None clearly identified'",
+    "relationshipStatusWhy": "1 sentence",
+    "statusEvidence": "1 short line with concrete example",
+    "toxicPerson": "first name / 'Tie' / 'None clearly identified'",
+    "toxicReason": "1 sentence",
+    "toxicityReport": "1 sentence balanced summary",
+    "redFlags": [{ "title": "2-4 word label", "detail": "1 sentence", "evidence": "quote or example" }],
+    "evidenceTimeline": [{ "date": "approximate period", "title": "short headline", "detail": "1 sentence with quote" }],
+    "relationshipSummary": "1 sentence — what's actually going on between them",
+    "groupDynamic": "1 sentence — group energy read",
+    "tensionMoment": "1 sentence — trigger + how it played out + real quote",
+    "kindestPerson": "first name or 'None clearly identified'",
+    "sweetMoment": "1 sentence — name + what they said or did + why it landed",
+    "mostMissed": "group only: first name or 'None clearly identified'",
+    "insideJoke": "group only: 1 sentence naming the recurring reference",
+    "hypePersonReason": "group only: 1 sentence with a real example",
+    "loveLanguageMismatch": "1 sentence",
+    "mostLovingMoment": "1 sentence",
+    "compatibilityScore": 1-10,
+    "compatibilityRead": "1 sentence",
+    "mostEnergising": "1 sentence with the line that best captures it",
+    "mostDraining": "1 sentence with the line that best illustrates it",
+    "energyCompatibility": "1 sentence",
+    "growth": {
+      "thenDepth": "1 sentence",
+      "nowDepth": "1 sentence",
+      "depthChange": "deeper / shallower / about the same",
+      "whoChangedMore": "first name or 'Both equally'",
+      "whoChangedHow": "1 sentence with evidence",
+      "topicsAppeared": "topics new in the recent period",
+      "topicsDisappeared": "topics that faded",
+      "trajectory": "closer / drifting / stable",
+      "trajectoryDetail": "1 sentence",
+      "arcSummary": "1 punchy sentence"
+    },
+    "memorableMoments": [
+      {
+        "type": "funny | sweet | awkward | chaotic | signature | tension | care | conflict",
+        "date": "approximate period",
+        "people": ["first name"],
+        "title": "2-5 word card title",
+        "quote": "short exact quote or empty string",
+        "setup": "1 sentence: what was happening",
+        "read": "1 sentence: WrapChat-style interpretation"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Connection pipeline — Connection Digest (`prepareConnectionDigestRequest`)
+
+**Used by:** General Wrapped, Love Language, Energy when cached Core A is not available and only connection fields are needed
+
+**Claude role:** "a sharp, observant chat analyst building a compact connection digest for relationship, love-language, and energy reports"
+
+**Max tokens:** 3200
+
+**Message sampling:** Event windows only (no early/late growth snapshots)
+
+**Key difference from Core A:** Explicitly scoped to connection fields only. Does NOT generate growth, evidence timelines, red-flag lists, accountability, or long status explanations. Most fields must be compact and direct. Optional energy focus variant: when energyFocus is true, uses a different sample text builder and adds: "ENERGY QUOTES: Choose quotes that clearly reflect the emotional tone. For positive energy examples, avoid sexual, sarcastic, awkward, or irrelevant messages."
+
+**JSON schema returned:** Same shape as Core A but growth fields are not requested — people array has careStyle + energy per person, shared has all connection fields but no growth or redFlags.
+
+---
+
+### Growth pipeline — Growth Digest (`prepareGrowthDigestRequest`)
+
+**Used by:** Growth Report only (via `generateGrowthDigest`)
+
+**Claude role:** "a sharp chat analyst building a compact growth digest"
+
+**Max tokens:** 3200
+
+**Message sampling — unique to this pipeline:** Three separate text blocks sent in user content:
+- Early snapshot: contiguous excerpt from the start of chat (16% of total messages)
+- Bridge windows: three contiguous excerpts at 25%, 50%, and 75% through the chat (24–32 messages each)
+- Recent snapshot: contiguous excerpt from the end of chat (16% of total messages)
+
+**Additional system prompt rules:**
+- Scope restricted to relationship evolution over time only — no funny moments, kindness, inside jokes, energy, red flags, accountability, timelines, or relationship labels
+- Compare early snapshot, bridge windows, and recent snapshot to read how conversation changed
+- Growth voice: describe change as a lived rhythm, not a formal timeline — focus on texture changes (faster/slower, warmer/flatter, more casual/more careful)
+- If evidence for change is mixed, prefer "about the same" or "stable" over forcing a dramatic arc
+
+**JSON schema returned:**
+
+```
+{
+  "schemaVersion": number,
+  "meta": {
+    "confidenceNote": "1 sentence",
+    "dominantTone": "short phrase naming the overall arc"
+  },
+  "people": [],
+  "shared": {
+    "growth": {
+      "thenDepth": "1 sentence — early conversation style and topics",
+      "nowDepth": "1 sentence — recent conversation style and topics",
+      "depthChange": "deeper / shallower / about the same",
+      "whoChangedMore": "first name or 'Both equally'",
+      "whoChangedHow": "1 sentence with evidence",
+      "topicsAppeared": "1 sentence — topics new in recent period",
+      "topicsDisappeared": "1 sentence — topics that faded",
+      "trajectory": "closer / drifting / stable",
+      "trajectoryDetail": "1 sentence — overall arc based on evidence",
+      "arcSummary": "1 sharp sentence capturing the full arc"
+    }
+  }
+}
+```
+
+---
+
+### Risk pipeline — Core B (`prepareCoreAnalysisBRequest`)
+
+**Used by:** Toxicity, Accountability (via `generateCoreAnalysisB`)
+
+**Claude role:** "a careful risk, conflict, and accountability analyst building the canonical core-b object"
+
+**Max tokens:** 2600
+
+**Message sampling:** Event windows from across full history (scored and selected by importance)
+
+**Additional system prompt rules beyond base:**
+- Scope: toxicity, health scores, apology patterns, conflict patterns, power balance, red flag moments, and accountability
+- Be conservative: one or two examples do not prove a stable pattern; if balance is mixed, prefer Balanced/Tie/None clearly identified
+- Accountability: count only concrete commitments with a clear actor and action; vague wishes like "we should hang out sometime" are not promises; a promise is BROKEN only if there is clear evidence it was never fulfilled or explicitly backed out; a delayed but fulfilled promise is KEPT; never combine two separate events into one story
+- People array covers the first 2 participants only (regardless of group size)
+
+**JSON schema returned:**
+
+```
+{
+  "schemaVersion": number,
+  "meta": {
+    "confidenceNote": "1 sentence",
+    "dominantTone": "short phrase naming overall tension level"
+  },
+  "people": [
+    {
+      "name": "first name",
+      "health": {
+        "score": 1-10,
+        "detail": "1 sentence — behaviours driving their health score",
+        "apologyCount": number,
+        "apologyContext": "1 sentence — how and when they tend to apologise"
+      },
+      "accountability": {
+        "total": number,
+        "kept": number,
+        "broken": number,
+        "score": 1-10,
+        "detail": "1 sentence — pattern of how they handle commitments"
+      }
+    }
+  ],
+  "shared": {
+    "toxicity": {
+      "chatHealthScore": 1-10,
+      "healthScores": [{ "name": "first name", "score": 1-10, "detail": "1 sentence" }],
+      "apologiesLeader": { "name": "first name or None clearly identified", "count": number, "context": "1 sentence" },
+      "apologiesOther": { "name": "first name or None clearly identified", "count": number, "context": "1 sentence" },
+      "redFlagMoments": [{ "date": "approximate period", "person": "first name", "description": "what happened", "quote": "short real quote" }],
+      "conflictPattern": "1 sentence",
+      "powerBalance": "1 sentence",
+      "powerHolder": "first name or 'Balanced'",
+      "verdict": "1 punchy sentence"
+    },
+    "accountability": {
+      "notableBroken": { "person": "first name or None clearly identified", "promise": "what they said they'd do", "date": "approximate period", "outcome": "what happened or didn't" },
+      "notableKept": { "person": "first name or None clearly identified", "promise": "what they committed to", "date": "approximate period", "outcome": "how they followed through" },
+      "overallVerdict": "1 sentence"
+    }
+  }
+}
+```
+
+---
+
+### Risk pipeline — Risk Digest (`prepareRiskDigestRequest`)
+
+**Used by:** Toxicity, Accountability when cached Core B is not available and only risk fields are needed
+
+**Claude role:** "a careful risk, conflict, and accountability analyst building a compact risk digest"
+
+**Max tokens:** 2600
+
+**Key difference from Core B:** More compact field descriptions (1 short sentence vs 1 sentence). Adds three extra accountability fields not present in Core B: `comparison` (comparing both people's follow-through fairly), `followThroughPattern` (real pattern around kept/delayed/dropped commitments), `evidenceQuality` (whether promise evidence is strong, mixed, thin, or mostly casual). Optional accountability focus variant: when accountabilityFocus is true, adds extra rules prioritising concrete promise, follow-through, delay, cancellation, apology, and excuse windows.
+
+**Risk voice rule added:** Keep outputs careful but still human. Avoid courtroom language unless chat is clearly severe. Do not make one person the villain from one or two examples. Use grounded phrasing like "this is more messy than malicious" or "the pattern is avoidance, not open conflict" when supported.
+
+---
+
+### Trial pipeline — Trial Prompt (`buildTrialPrompt`)
+
+**Used by:** Quick Read only (via `generateTrialDigest`)
+
+**Max tokens:** 360
+
+**Message sampling:** Capped to 80 messages evenly spread across the full chat history (every Nth message), regardless of total chat size.
+
+**System prompt:**
+
+```
+You are reading a WhatsApp chat between {names} (relationship: {rel}). Write like a perceptive friend who just read the whole thing — specific, direct, a little playful. Avoid "this shows that", "it seems like", "they communicate well". Use actual names. Each field must be distinct: vibe is the overall feeling, pattern is a real communication habit you noticed, takeaway is the most surprising or interesting thing.
+
+Return ONLY valid JSON with exactly these three keys:
+{
+  "vibe":     "one sentence — the specific emotional tone of this chat, not a mood label",
+  "pattern":  "one sentence — a real repeated communication habit: who does what and how",
+  "takeaway": "one sentence — the single most interesting or unexpected thing about this chat"
+}
+No markdown, no extra keys. Never start a sentence with 'This', 'It seems', or 'Overall'.
+```
+
+**User content:** `Chat export:\n{sample text}`
+
+**JSON schema returned:**
+
+```
+{
+  "vibe": "one sentence",
+  "pattern": "one sentence",
+  "takeaway": "one sentence"
+}
+```
+
+---
+
 *Snapshot end. For the redesign targets proposed in the analysis notes, see [[Analysis — Features & Report Redesign]] and [[Analysis — Report Balance & UX]].*

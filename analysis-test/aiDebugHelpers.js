@@ -118,14 +118,31 @@ export function prepareConnectionDigestRequest({
     "compatibilityRead": "1 short sentence - love-language compatibility summary",
     "mostEnergising": "1-2 short sentences - the most energising exchange: what sparked it and how the other person met it",
     "mostDraining": "1-2 short sentences - the most draining moment or recurring pattern: what created the pressure",
-    "energyCompatibility": "1 sentence - how their energy styles work together"
+    "energyCompatibility": "1 sentence - how their energy styles work together",
+    "timeOfDay": {
+      "personA": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
+      "personB": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
+      "contrast": "1 sentence — what the time difference reveals about how each person uses or experiences this chat"
+    },
+    "loveLanguageIntro": "1 sentence — how love languages show up in this chat overall, before naming either person specifically",
+    "loveMiss": {
+      "description": "1 sentence — a moment where love was expressed in one language but received in another, or empty string if not clearly supported",
+      "quote": "short real quote from that moment or empty string",
+      "persons": ["sender first name", "receiver first name"]
+    },
+    "loveMissUnspoken": "1 sentence — a moment of love expressed without words: a fast reply streak, an emoji burst at an odd hour, or sustained presence during a hard week — or empty string if not clearly supported",
+    "energyDynamic": "1 sentence — what happens when these two specific energies meet as a pair, not what each person is individually",
+    "guessThresholds": {
+      "loveLanguageGuessValid": "[true if person A has a clearly dominant love language with multiple examples and it is not obvious — false if borderline, mixed, or predictable]",
+      "energyGuessValid": "[true if one person is clearly more positive than the other by a meaningful margin — false if close, balanced, or obvious]"
+    }
   }
 }`;
 
   const systemPrompt = buildAnalystSystemPrompt(
     "a sharp, observant chat analyst building a compact connection digest for relationship, love-language, and energy reports",
     relationshipType,
-    `CONNECTION DIGEST SCOPE: relationship dynamic, ghost context, funny moments, kindness, tension, inside jokes, love language, and energy. Do NOT generate growth, evidence timelines, red-flag lists, accountability, or long status explanations. Keep most free-text fields compact and direct. vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, mostLovingMoment, mostEnergising, and mostDraining may use 1-2 short sentences if that keeps them specific rather than flat. MOMENT PICKING: For funniestReason, sweetMoment, tensionMoment, mostLovingMoment, mostEnergising, and mostDraining, choose the strongest supported moment or repeated pattern, not the safest bland example. Prefer a clear trigger, quote or move, and reaction or consequence. If several moments fit, pick the one that best captures the dynamic. ${extraConnectionRules} ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different events. sweetMoment = a specific act of care, support, or going out of their way. mostLovingMoment = a warm affectionate exchange, compliment, or emotional closeness. They must reference different messages. No two fields anywhere in the output should quote the same message. SIGNATURE PHRASES: Before assigning a phrase to a person, verify by checking which sender's line it appears on most. signaturePhrases[0] must be a phrase only person 1 sends; signaturePhrases[1] must be a phrase only person 2 sends. Never guess or swap attribution. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers, each window is a non-contiguous excerpt from the full history. Never connect or combine events from different windows unless the messages themselves explicitly link them. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body, the name before the colon is always and only the sender. Assign every quote, action, and behaviour to the name shown on that exact line. Never swap or infer the sender. FUNNY ATTRIBUTION: Whenever you see a laugh reaction (😂, lol, lmao, 'im dead', 💀, 🤣, haha, or similar) from person B immediately following a line from person A, the funny person is person A, the one whose line caused the reaction. Never attribute humour to the person who is laughing. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. DIRECTION OF ACTIONS: For sweetMoment, kindestPerson, energy, and love-language reads, the actor is the sender of that exact line. For all "name" fields return ONLY the person's first name, with no explanation. Only report findings you can directly support from the chat. If evidence is weak, use "None clearly identified". SUMMARY FIELD RULES:
+    `CONNECTION DIGEST SCOPE: relationship dynamic, ghost context, funny moments, kindness, tension, inside jokes, love language, energy, time-of-day patterns, love-language miss moments, energy dynamic, and love-language intro. Do NOT generate growth, evidence timelines, red-flag lists, accountability, or long status explanations. TIME OF DAY: derive peakHour and peakDaypart from the timestamps in the windows — look at when each person sends the most messages. GUESS THRESHOLDS: set loveLanguageGuessValid to true only if person A's love language is clearly dominant with multiple examples and is not the obvious expectation; set energyGuessValid to true only if one person's energy score is clearly higher than the other by a meaningful margin, not borderline. LOVE MISS: only populate if there is a specific moment where love was expressed in one language but clearly not received; otherwise use empty string. LOVE MISS UNSPOKEN: only populate if there is a specific non-verbal care moment in the windows; otherwise use empty string. ENERGY DYNAMIC: always populate — describe the chemistry of the pair, not the individuals. Keep most free-text fields compact and direct. vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, mostLovingMoment, mostEnergising, and mostDraining may use 1-2 short sentences if that keeps them specific rather than flat. MOMENT PICKING: For funniestReason, sweetMoment, tensionMoment, mostLovingMoment, mostEnergising, and mostDraining, choose the strongest supported moment or repeated pattern, not the safest bland example. Prefer a clear trigger, quote or move, and reaction or consequence. If several moments fit, pick the one that best captures the dynamic. ${extraConnectionRules} ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different events. sweetMoment = a specific act of care, support, or going out of their way. mostLovingMoment = a warm affectionate exchange, compliment, or emotional closeness. They must reference different messages. No two fields anywhere in the output should quote the same message. SIGNATURE PHRASES: Before assigning a phrase to a person, verify by checking which sender's line it appears on most. signaturePhrases[0] must be a phrase only person 1 sends; signaturePhrases[1] must be a phrase only person 2 sends. Never guess or swap attribution. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers, each window is a non-contiguous excerpt from the full history. Never connect or combine events from different windows unless the messages themselves explicitly link them. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body, the name before the colon is always and only the sender. Assign every quote, action, and behaviour to the name shown on that exact line. Never swap or infer the sender. FUNNY ATTRIBUTION: Whenever you see a laugh reaction (😂, lol, lmao, 'im dead', 💀, 🤣, haha, or similar) from person B immediately following a line from person A, the funny person is person A, the one whose line caused the reaction. Never attribute humour to the person who is laughing. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. DIRECTION OF ACTIONS: For sweetMoment, kindestPerson, energy, and love-language reads, the actor is the sender of that exact line. For all "name" fields return ONLY the person's first name, with no explanation. Only report findings you can directly support from the chat. If evidence is weak, use "None clearly identified". SUMMARY FIELD RULES:
 - vibeOneLiner must be a sharp, memorable read of the dynamic, specific to this chat
 - biggestTopic must name the recurring theme using real references, not broad categories
 - Avoid flat labels like "relationships", "daily life", "support", or "communication" unless made specific with names, situations, or repeated context
@@ -217,7 +234,16 @@ export function prepareGrowthDigestRequest({
       "topicsDisappeared": "1 short sentence naming topics or themes that faded away from the early period",
       "trajectory": "closer / drifting / stable",
       "trajectoryDetail": "1 short sentence - the overall arc based on evidence",
-      "arcSummary": "1 sharp sentence capturing the full growth arc"
+      "arcSummary": "1 sharp sentence capturing the full growth arc",
+      "personAArc": "1 sentence — how the first person changed across the chat's lifespan: topics, tone, or engagement level",
+      "personBArc": "1 sentence — how the second person changed across the chat's lifespan: topics, tone, or engagement level",
+      "turningPoint": "approximate period when the biggest shift happened e.g. 'a few months in' or 'toward the end' — empty string if no clear turning point",
+      "messageAtTurningPoint": {
+        "quote": "short real quote from at or near the turning point — empty string if not clearly present in the provided text",
+        "person": "first name of sender or empty string",
+        "contextParagraph": "1 sentence — what changed in the relationship in the period after this message or exchange"
+      },
+      "growthGuessThreshold": "[true if one person's change is clearly more pronounced than the other and the answer would be non-obvious — false if both changed equally or the answer is predictable]"
     }
   }
 }`;
@@ -225,7 +251,7 @@ export function prepareGrowthDigestRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a sharp chat analyst building a compact growth digest",
     relationshipType,
-    `GROWTH DIGEST SCOPE: only relationship evolution over time. Do NOT generate funny moments, kindness, inside jokes, energy, red flags, accountability, timelines, or relationship labels. Compare the EARLY snapshot, the BRIDGE WINDOWS, and the RECENT snapshot to read how the conversation changed. Keep every free-text field compact and direct: one sentence whenever possible, no filler, no repeated ideas across fields. GROWTH VOICE: Describe change as a lived rhythm, not a formal timeline. Focus on how the texture of the chat changed: faster/slower, warmer/flatter, more casual/more careful, more dependent/more distant. Avoid dramatic arcs unless the snapshots clearly support them. Do not use the em dash punctuation mark. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body, assign all quotes and changes only to the name shown on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone or emoji use alone. If the evidence for change is mixed, prefer "about the same" or "stable" over forcing a dramatic arc.`,
+    `GROWTH DIGEST SCOPE: only relationship evolution over time, including individual arcs per person, a turning point if detectable, and the message at that turning point. Do NOT generate funny moments, kindness, inside jokes, energy, red flags, accountability, timelines, or relationship labels. Compare the EARLY snapshot, the BRIDGE WINDOWS, and the RECENT snapshot to read how the conversation changed. INDIVIDUAL ARCS: personAArc and personBArc must describe how each specific person changed — do not repeat whoChangedHow. TURNING POINT: only populate turningPoint and messageAtTurningPoint if there is a detectable shift anchored in the snapshots; if the change is gradual or unclear, use empty string for turningPoint and empty strings inside messageAtTurningPoint. GUESS THRESHOLD: growthGuessThreshold is true only when one person's change is clearly more visible and the answer would surprise the user — false if both changed roughly equally. Keep every free-text field compact and direct: one sentence whenever possible, no filler, no repeated ideas across fields. GROWTH VOICE: Describe change as a lived rhythm, not a formal timeline. Focus on how the texture of the chat changed: faster/slower, warmer/flatter, more casual/more careful, more dependent/more distant. Avoid dramatic arcs unless the snapshots clearly support them. Do not use the em dash punctuation mark. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body, assign all quotes and changes only to the name shown on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone or emoji use alone. If the evidence for change is mixed, prefer "about the same" or "stable" over forcing a dramatic arc.`,
     chatLang,
     relationshipLine
   );
@@ -343,6 +369,23 @@ export function prepareCoreAnalysisARequest({
     "mostEnergising": "1 sentence - the single most energising moment or exchange. Describe what happened and quote the line that best captures it.",
     "mostDraining": "1 sentence - the single most draining moment or recurring pattern. Describe what happened and quote the line that best illustrates it.",
     "energyCompatibility": "1 sentence - how their energy styles work together (or don't)",
+    "timeOfDay": {
+      "personA": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
+      "personB": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
+      "contrast": "1 sentence — what the time difference reveals about how each person uses or experiences this chat"
+    },
+    "loveLanguageIntro": "1 sentence — how love languages show up in this chat overall, before naming either person specifically",
+    "loveMiss": {
+      "description": "1 sentence — a moment where love was expressed in one language but received in another, or empty string if not clearly supported",
+      "quote": "short real quote from that moment or empty string",
+      "persons": ["sender first name", "receiver first name"]
+    },
+    "loveMissUnspoken": "1 sentence — a moment of love expressed without words: a fast reply streak, an emoji burst at an odd hour, or sustained presence during a hard week — or empty string if not clearly supported",
+    "energyDynamic": "1 sentence — what happens when these two specific energies meet as a pair, not what each person is individually",
+    "guessThresholds": {
+      "loveLanguageGuessValid": "[true if person A has a clearly dominant love language with multiple examples and the answer would be non-obvious — false if borderline, mixed, or predictable]",
+      "energyGuessValid": "[true if one person is clearly more positive than the other by a meaningful margin — false if close, balanced, or obvious]"
+    },
     "growth": {
       "thenDepth": "1 sentence describing the conversation style and topics in the EARLY snapshot",
       "nowDepth": "1 sentence describing the conversation style and topics in the RECENT snapshot",
@@ -463,7 +506,16 @@ export function prepareCoreAnalysisBRequest({
       "conflictPattern": "1 sentence - how arguments usually start and resolve or fail to resolve",
       "powerBalance": "1 sentence - who holds more power in this dynamic and how it shows up",
       "powerHolder": "first name of who holds more power, or 'Balanced'",
-      "verdict": "1 punchy sentence verdict on the overall health of this chat"
+      "verdict": "1 punchy sentence verdict on the overall health of this chat",
+      "whatStillHere": "1 sentence — the genuine positive thread that runs through the chat despite its tension: what keeps these two people talking — empty string if not clearly supported",
+      "heavyAttributionQuote": {
+        "quote": "short real quote from the most charged moment in the conflict cluster",
+        "person": "first name of sender",
+        "contextParagraph": "1 sentence — what was happening around this message and why it mattered",
+        "isSensitive": "[true if the message involves threats, self-harm, sexual pressure, or severe abuse — false otherwise]"
+      },
+      "apologyGuessThreshold": "[true only if the apology gap is large and non-obvious — one person apologises more than twice the other — false if close or predictable]",
+      "powerGuessThreshold": "[true only if there is a clear, non-obvious power imbalance — false if Balanced or borderline]"
     },
     "accountability": {
       "notableBroken": {
@@ -478,7 +530,15 @@ export function prepareCoreAnalysisBRequest({
         "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
         "outcome": "how they followed through"
       },
-      "overallVerdict": "1 sentence verdict on accountability in this chat overall"
+      "overallVerdict": "1 sentence verdict on accountability in this chat overall",
+      "reliabilityArc": "1 sentence — did accountability improve or decline over the chat's lifespan? Use evidence from early vs late windows — empty string if no clear arc",
+      "promiseThatMattered": {
+        "person": "first name or None clearly identified",
+        "promise": "what they committed to - quote or close paraphrase",
+        "outcome": "what happened",
+        "contextParagraph": "1 sentence — why this specific promise mattered to the arc of the relationship"
+      },
+      "promiseGuessThreshold": "[true only if there is a clear, surprising difference in promise count between the two people — false if similar or obvious]"
     }
   }
 }`;
@@ -486,7 +546,7 @@ export function prepareCoreAnalysisBRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a careful risk, conflict, and accountability analyst building the canonical core-b object",
     relationshipType,
-    `CORE-B SCOPE: toxicity, health scores, apology patterns, conflict patterns, power balance, red flag moments, and accountability. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers - never connect separate windows unless the messages explicitly link them. SPEAKER ATTRIBUTION: Every line is [timestamp] SpeakerName: body - all behaviour belongs only to the sender on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. Always use the confirmed relationship label when describing who did something to whom. Be conservative: one or two examples do not prove a stable pattern. If the balance is mixed, prefer "Balanced", "Tie", or "None clearly identified" over forcing one villain. For accountability: a promise is BROKEN only if there is clear evidence it was never fulfilled or the person explicitly backed out. A promise fulfilled late is still KEPT. Do not count vague ideas like "we should hang out sometime" as promises. Never combine two separate events into one story. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, with one people entry per participant in that subset.`,
+    `CORE-B SCOPE: toxicity, health scores, apology patterns, conflict patterns, power balance, red flag moments, accountability, what still remains positive, attribution quotes, and guess thresholds. WHAT STILL HERE: only populate whatStillHere if there is a genuine positive thread clearly visible in the windows; use empty string if not. HEAVY ATTRIBUTION QUOTE: select the single most charged real quote from a conflict window; mark isSensitive as true if it involves threats, self-harm, sexual pressure, or severe abuse. GUESS THRESHOLDS: apologyGuessThreshold and powerGuessThreshold are true only when the gap is large and non-obvious to the user — err toward false if borderline. RELIABILITY ARC: compare early and late windows for promise follow-through; use empty string if the evidence is thin or unclear. PROMISE THAT MATTERED: select the promise with the clearest downstream effect on the relationship — not just the biggest or most broken. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers - never connect separate windows unless the messages explicitly link them. SPEAKER ATTRIBUTION: Every line is [timestamp] SpeakerName: body - all behaviour belongs only to the sender on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. Always use the confirmed relationship label when describing who did something to whom. Be conservative: one or two examples do not prove a stable pattern. If the balance is mixed, prefer "Balanced", "Tie", or "None clearly identified" over forcing one villain. For accountability: a promise is BROKEN only if there is clear evidence it was never fulfilled or the person explicitly backed out. A promise fulfilled late is still KEPT. Do not count vague ideas like "we should hang out sometime" as promises. Never combine two separate events into one story. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, with one people entry per participant in that subset.`,
     chatLang,
     relationshipLine
   );
@@ -568,7 +628,16 @@ export function prepareRiskDigestRequest({
       "conflictPattern": "1 short sentence - how arguments usually start and resolve or fail to resolve",
       "powerBalance": "1 short sentence - who holds more power in this dynamic and how it shows up",
       "powerHolder": "first name of who holds more power, or 'Balanced'",
-      "verdict": "1 short sentence verdict on the overall health of this chat"
+      "verdict": "1 short sentence verdict on the overall health of this chat",
+      "whatStillHere": "1 short sentence — the genuine positive thread in the chat despite its tension — empty string if not clearly supported",
+      "heavyAttributionQuote": {
+        "quote": "short real quote from the most charged conflict moment",
+        "person": "first name of sender",
+        "contextParagraph": "1 short sentence — what was happening around this message",
+        "isSensitive": "[true if it involves threats, self-harm, sexual pressure, or severe abuse — false otherwise]"
+      },
+      "apologyGuessThreshold": "[true only if the apology gap is large and non-obvious — false if close or predictable]",
+      "powerGuessThreshold": "[true only if there is a clear non-obvious power imbalance — false if Balanced or borderline]"
     },
     "accountability": {
       "notableBroken": {
@@ -586,7 +655,15 @@ export function prepareRiskDigestRequest({
       "comparison": "1 short sentence comparing both people's follow-through fairly, only if supported",
       "followThroughPattern": "1 short sentence naming the real pattern around kept, delayed, dropped, or unclear commitments",
       "evidenceQuality": "1 short sentence saying whether the promise evidence is strong, mixed, thin, or mostly casual",
-      "overallVerdict": "1 short sentence verdict on accountability in this chat overall"
+      "overallVerdict": "1 short sentence verdict on accountability in this chat overall",
+      "reliabilityArc": "1 short sentence — did accountability improve or decline over the chat's lifespan — empty string if no clear arc",
+      "promiseThatMattered": {
+        "person": "first name or None clearly identified",
+        "promise": "what they committed to - quote or close paraphrase",
+        "outcome": "what happened",
+        "contextParagraph": "1 short sentence — why this promise mattered to the arc of the relationship"
+      },
+      "promiseGuessThreshold": "[true only if there is a clear surprising difference in promise count — false if similar or obvious]"
     }
   }
 }`;
@@ -594,7 +671,7 @@ export function prepareRiskDigestRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a careful risk, conflict, and accountability analyst building a compact risk digest",
     relationshipType,
-    `RISK DIGEST SCOPE: toxicity, chat health, apology patterns, conflict patterns, power balance, red flag moments, and accountability. Do NOT generate relationship summaries, growth, timelines, love-language, or energy reads. Keep every free-text field compact and factual: one sentence whenever possible, no padding, no repeated ideas across fields. RISK VOICE: Keep risk, conflict, and accountability outputs careful but still human. Avoid courtroom language unless the chat is clearly severe. Do not make one person the villain from one or two examples. Use grounded phrasing like "this is more messy than malicious" or "the pattern is avoidance, not open conflict" when supported. Do not use the em dash punctuation mark. ACCOUNTABILITY RULES: Count only concrete commitments with a clear actor and action. A vague wish like "we should hang out sometime" is not a promise unless there is a specific plan, time, task, or follow-up. A promise is BROKEN only if there is clear evidence it was never fulfilled, explicitly cancelled, forgotten, or abandoned. A delay is not a failure unless the chat shows pressure, repeated postponement, or a missed agreed time. If the evidence is weak, say it is weak and use "None clearly identified" instead of forcing a dramatic broken promise. Prefer meaningful commitments over tiny logistics. Compare both people fairly and mention balance when the evidence is close or mixed. ${extraRiskRules} WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers, never connect separate windows unless the messages explicitly link them. SPEAKER ATTRIBUTION: Every line is [timestamp] SpeakerName: body, all behaviour belongs only to the sender on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. Always use the confirmed relationship label when describing who did something to whom. Be conservative: one or two examples do not prove a stable pattern. If the balance is mixed, prefer "Balanced", "Tie", or "None clearly identified" over forcing one villain. For accountability: a promise is BROKEN only if there is clear evidence it was never fulfilled or the person explicitly backed out. A promise fulfilled late is still KEPT. Do not count vague ideas like "we should hang out sometime" as promises. Never combine two separate events into one story. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, with one people entry per participant in that subset.`,
+    `RISK DIGEST SCOPE: toxicity, chat health, apology patterns, conflict patterns, power balance, red flag moments, accountability, what still remains positive, attribution quotes, and guess thresholds. Do NOT generate relationship summaries, growth, timelines, love-language, or energy reads. WHAT STILL HERE: only populate if a genuine positive thread is visible; use empty string otherwise. HEAVY ATTRIBUTION QUOTE: one real quote from the conflict cluster; mark isSensitive as true for threats, self-harm, sexual pressure, or severe abuse. GUESS THRESHOLDS: true only when the gap is large and non-obvious — err toward false if borderline. RELIABILITY ARC: use empty string if evidence is thin. PROMISE THAT MATTERED: the promise with the clearest downstream effect, not just biggest or most broken. Keep every free-text field compact and factual: one sentence whenever possible, no padding, no repeated ideas across fields. RISK VOICE: Keep risk, conflict, and accountability outputs careful but still human. Avoid courtroom language unless the chat is clearly severe. Do not make one person the villain from one or two examples. Use grounded phrasing like "this is more messy than malicious" or "the pattern is avoidance, not open conflict" when supported. Do not use the em dash punctuation mark. ACCOUNTABILITY RULES: Count only concrete commitments with a clear actor and action. A vague wish like "we should hang out sometime" is not a promise unless there is a specific plan, time, task, or follow-up. A promise is BROKEN only if there is clear evidence it was never fulfilled, explicitly cancelled, forgotten, or abandoned. A delay is not a failure unless the chat shows pressure, repeated postponement, or a missed agreed time. If the evidence is weak, say it is weak and use "None clearly identified" instead of forcing a dramatic broken promise. Prefer meaningful commitments over tiny logistics. Compare both people fairly and mention balance when the evidence is close or mixed. ${extraRiskRules} WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers, never connect separate windows unless the messages explicitly link them. SPEAKER ATTRIBUTION: Every line is [timestamp] SpeakerName: body, all behaviour belongs only to the sender on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. Always use the confirmed relationship label when describing who did something to whom. Be conservative: one or two examples do not prove a stable pattern. If the balance is mixed, prefer "Balanced", "Tie", or "None clearly identified" over forcing one villain. For accountability: a promise is BROKEN only if there is clear evidence it was never fulfilled or the person explicitly backed out. A promise fulfilled late is still KEPT. Do not count vague ideas like "we should hang out sometime" as promises. Never combine two separate events into one story. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, with one people entry per participant in that subset.`,
     chatLang,
     relationshipLine
   );

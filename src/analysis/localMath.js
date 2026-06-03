@@ -869,7 +869,7 @@ const MODE_META = {
     blurb: "Relationship status, toxicity, and warning signs.",
   },
 };
-export const DUO_CASUAL_SCREENS = 17;
+export const DUO_CASUAL_SCREENS = 14;
 export const DUO_REDFLAG_SCREENS = 7;
 export const GROUP_CASUAL_SCREENS = 17;
 export const GROUP_REDFLAG_SCREENS = 6;
@@ -1577,5 +1577,117 @@ export function localStats(messages) {
     toxicityReport: dynamics.toxicityReport,
     toxicityBreakdown: dynamics.toxicityBreakdown,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// QUIZ CHALLENGE — question builder
+// ─────────────────────────────────────────────────────────────────
+
+const QUIZ_EMOJI_POOL = ["🔥","💀","😭","🥹","💯","✨","😤","🤣","😮","🙈","🥲","💪","😩","🤯","😎","🙃","🥰","😬","🤦","🙏","👀","🫠","💅","🫶","🤌","🐸","💃","🎉","🫡","😏"];
+
+function seededShuffle(arr, seed) {
+  const a = [...arr];
+  let s = seed;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export function buildQuizQuestions(quizData) {
+  const {
+    names = [], msgCounts = [], ghostName = "", spiritEmoji = [],
+    signatureWord = [], signaturePhrase = [], streak = 0, topWords = [],
+  } = quizData;
+
+  const [nameA, nameB] = names;
+  if (!nameA || !nameB) return [];
+
+  const seed = nameA.charCodeAt(0) * 31 + nameB.charCodeAt(0);
+  const questions = [];
+
+  // Q1 — Who sent more messages?
+  const moreIdx = (msgCounts[0] ?? 0) >= (msgCounts[1] ?? 0) ? 0 : 1;
+  questions.push({
+    id: "who_more",
+    text: "Who sent more messages?",
+    options: seededShuffle([nameA, nameB], seed + 1),
+    correct: names[moreIdx],
+    layout: "stack",
+  });
+
+  // Q2 — Who ghosts longer?
+  if (ghostName) {
+    questions.push({
+      id: "who_ghosts",
+      text: "Who takes longer to reply?",
+      options: seededShuffle([nameA, nameB], seed + 2),
+      correct: ghostName,
+      layout: "stack",
+    });
+  }
+
+  // Q3 — Spirit emoji for nameA
+  if (spiritEmoji[0]) {
+    const pool = QUIZ_EMOJI_POOL.filter(e => e !== spiritEmoji[0] && e !== spiritEmoji[1]);
+    const distractors = seededShuffle(pool, seed + 3).slice(0, 3);
+    questions.push({
+      id: "spirit_emoji_a",
+      text: `What's ${nameA}'s spirit emoji?`,
+      options: seededShuffle([spiritEmoji[0], ...distractors], seed + 4),
+      correct: spiritEmoji[0],
+      layout: "grid",
+    });
+  }
+
+  // Q4 — Signature phrase for nameB
+  const phraseB = signaturePhrase[1] || signatureWord[1] || "";
+  if (phraseB) {
+    const distractors = [
+      signaturePhrase[0] || signatureWord[0],
+      topWords[1]?.[0],
+      topWords[2]?.[0],
+    ].filter(p => p && p !== phraseB).slice(0, 3);
+    questions.push({
+      id: "phrase_b",
+      text: `What's ${nameB}'s signature phrase?`,
+      options: seededShuffle([phraseB, ...distractors], seed + 5),
+      correct: phraseB,
+      layout: "stack",
+    });
+  }
+
+  // Q5 — Longest streak
+  if (streak > 0) {
+    const gap = Math.max(4, Math.ceil(streak * 0.25));
+    const opts = [
+      streak,
+      Math.max(1, streak - gap),
+      streak + gap,
+      Math.max(1, streak - gap * 2),
+    ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4);
+    questions.push({
+      id: "streak",
+      text: "What was their longest streak?",
+      options: seededShuffle(opts, seed + 6).map(n => `${n} days`),
+      correct: `${streak} days`,
+      layout: "grid",
+    });
+  }
+
+  // Q6 — Most used word
+  if (topWords.length >= 4) {
+    questions.push({
+      id: "top_word",
+      text: "What was their most used word?",
+      options: seededShuffle(topWords.slice(0, 4).map(w => w[0]), seed + 7),
+      correct: topWords[0][0],
+      layout: "grid",
+    });
+  }
+
+  return questions;
 }
 
