@@ -4,6 +4,7 @@
 import { normalizeDisplayName, applyApprovedMerges } from "../utils/identityMerge";
 import { detectOtherParticipantMismatches } from "../import/datasetBuilder";
 import { callClaude, tryParseJsonText } from "./claudeClient";
+import { redactSensitiveText } from "./redactSensitive";
 
 export const LOCAL_STATS_VERSION = 3;
 
@@ -333,14 +334,80 @@ export const STOP_WORDS = new Set([
   "ملغاة","لا إجابة","جهاز آخر","اضغط للرد",
 ]);
 
+// Chat fillers that dominate frequency counts without carrying meaning.
+// ASCII spellings are handled by foldToken below, so one form is enough.
+const CHAT_FILLER_WORDS = [
+  // Turkish
+  "yani", "evet", "hayır", "tamam", "tmm", "okey", "iyi", "zaten", "zaman",
+  "falan", "filan", "felan", "aynen", "valla", "vallahi", "herhalde", "mesela",
+  "gerçekten", "bişey", "bisey", "bişi", "bisi", "birşey", "hiçbi", "hiçbir",
+  "bugün", "yarın", "dün", "gün", "akşam", "sabah", "gece", "hafta",
+  "today", "tomorrow", "tonight", "yesterday", "morning", "night", "week", "day",
+  "demek", "dedim", "dedi", "diyorum", "ederim", "yapıyo", "oluyo", "değil mi",
+  // English
+  "like", "okay", "yes", "actually", "really", "thing", "things", "stuff",
+  "good", "well", "right", "know", "mean", "want", "going", "said", "sure",
+  "time", "still", "even", "much", "more", "some", "then", "when", "what's",
+];
+
+function foldToken(word) {
+  return String(word || "")
+    .toLowerCase()
+    .replace(/ı/g, "i")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 const TOKEN_STOP_WORDS = new Set(
-  Array.from(STOP_WORDS).flatMap(term =>
+  [...STOP_WORDS, ...CHAT_FILLER_WORDS].flatMap(term =>
     String(term || "")
       .toLowerCase()
       .split(/\s+/)
       .filter(Boolean)
+      .flatMap(word => [word, foldToken(word)])
   )
 );
+
+// Single gate for "is this token interesting enough to count?" — shared by
+// top words, signature words, and quiz word frequencies so the filters can
+// never drift apart. Diacritic-folded stop check catches ASCII Turkish
+// ("cok", "simdi"); laugh detection kills haha/jaja/mash tokens in every
+// language; fused URL remnants ("httpsinstagram...", "wwwsitecom") go too.
+// Chat abbreviations drop vowels (kanka -> knka -> knk, tamam -> tmm). Merge
+// spelling variants under the most-used form: same folded consonant skeleton
+// (min 3 consonants) + same first letter => one entry with summed counts.
+function variantSkeleton(word) {
+  const folded = foldToken(word);
+  const skeleton = folded.replace(/[aeiouıöü]/g, "");
+  return skeleton.length >= 3 ? `${folded[0]}:${skeleton}` : `=${folded}`;
+}
+
+export function mergeVariantCounts(freq) {
+  const groups = new Map();
+  for (const [word, count] of Object.entries(freq)) {
+    const key = variantSkeleton(word);
+    const group = groups.get(key);
+    if (group) {
+      group.total += count;
+      if (count > group.bestCount) { group.best = word; group.bestCount = count; }
+    } else {
+      groups.set(key, { best: word, bestCount: count, total: count });
+    }
+  }
+  const merged = {};
+  for (const group of groups.values()) merged[group.best] = group.total;
+  return merged;
+}
+
+function isContentToken(word, minLength = 3) {
+  if (!word || word.length < minLength) return false;
+  if (/^\d+$/.test(word)) return false;
+  if (word.startsWith("http") || word.startsWith("www")) return false;
+  if (TOKEN_STOP_WORDS.has(word) || TOKEN_STOP_WORDS.has(foldToken(word))) return false;
+  if (TOKEN_WA_NOISE_WORDS.has(word) || TOKEN_WA_NOISE_WORDS.has(foldToken(word))) return false;
+  if (isLaughReaction(word)) return false;
+  return true;
+}
 
 const WA_NOISE_WORDS = new Set([
   "image","images","video","videos","audio","voice","sticker","gif","document","documents",
@@ -486,7 +553,7 @@ function detectRelationship(messages, userSelectedCategory = null) {
       const matchedText = match[0];
       const usageHint = getRelationshipUsageHint(msg.body, matchedText);
       const context = messages.slice(start, end + 1)
-        .map(m => `[${formatEvidenceDate(m.date)}] ${m.name}: ${m.body}`)
+        .map(m => `[${formatEvidenceDate(m.date)}] ${m.name}: ${redactSensitiveText(m.body)}`)
         .join("\n");
 
       snippets.push({
@@ -497,7 +564,7 @@ function detectRelationship(messages, userSelectedCategory = null) {
         usageHint,
         speaker: msg.name,
         date: formatEvidenceDate(msg.date),
-        quote: cleanQuote(msg.body, 120),
+        quote: cleanQuote(redactSensitiveText(msg.body), 120),
         context,
         index: i,
       });
@@ -769,6 +836,8 @@ CRITICAL RULES:
 STYLE:
 Keep reasoning plain, short, and evidence-based. Do not use the em dash punctuation mark.
 
+OUTPUT FORMAT: Your entire response must be the JSON object and nothing else. Do not write any analysis, reasoning, or explanation before it. The first character of your response must be { and the last must be }.
+
 Return ONLY a JSON object with no extra text:
 {
   "category": "one of: partner / dating / ex / family / friend / colleague / other / unknown",
@@ -782,7 +851,10 @@ Return ONLY a JSON object with no extra text:
   const userContent = `Here are relationship-call snippets from a chat between ${names[0]} and ${names[1]}. The user selected relationship type is "${selectedCategory}". Use these snippets to confirm the most specific relationship label inside that category.\n\n${snippetText}`;
 
   try {
-    const raw = await callClaude(system, userContent, 300, "relationship");
+    // 700 tokens: the old 300 budget was regularly consumed by the model
+    // reasoning before the JSON on ambiguous endearment cases, producing a
+    // parse failure and silently dropping the relationship context.
+    const raw = await callClaude(system, userContent, 700, "relationship", "relationship");
     const parsed = raw && typeof raw === "object"
       ? raw
       : tryParseJsonText(String(raw || ""));
@@ -888,12 +960,12 @@ export function normalizeRedFlags(flags) {
   if (!Array.isArray(flags)) return [];
   return flags.map((flag, i) => {
     if (typeof flag === "string") {
-      return { title: `Red flag ${i + 1}`, detail: flag };
+      return { title: `Red flag ${i + 1}`, detail: sanitizeAiText(flag) };
     }
     if (flag && typeof flag === "object") {
-      const title = String(flag.title || flag.label || flag.flag || `Red flag ${i + 1}`).trim();
-      const detail = String(flag.detail || flag.reason || flag.description || "").trim();
-      const evidence = String(flag.evidence || flag.example || "").trim();
+      const title = sanitizeAiText(String(flag.title || flag.label || flag.flag || `Red flag ${i + 1}`).trim());
+      const detail = sanitizeAiText(String(flag.detail || flag.reason || flag.description || "").trim());
+      const evidence = sanitizeAiText(String(flag.evidence || flag.example || "").trim());
       if (!title && !detail) return null;
       return { title: title || `Red flag ${i + 1}`, detail, evidence };
     }
@@ -905,13 +977,13 @@ export function normalizeTimeline(items) {
   if (!Array.isArray(items)) return [];
   return items.map((item, i) => {
     if (typeof item === "string") {
-      return { date: `Point ${i + 1}`, title: item, detail: "" };
+      return { date: `Point ${i + 1}`, title: sanitizeAiText(item), detail: "" };
     }
     if (!item || typeof item !== "object") return null;
     return {
-      date: String(item.date || item.when || `Point ${i + 1}`).trim(),
-      title: String(item.title || item.label || item.observation || `Point ${i + 1}`).trim(),
-      detail: String(item.detail || item.description || item.quote || "").trim(),
+      date: sanitizeAiText(String(item.date || item.when || `Point ${i + 1}`).trim()),
+      title: sanitizeAiText(String(item.title || item.label || item.observation || `Point ${i + 1}`).trim()),
+      detail: sanitizeAiText(String(item.detail || item.description || item.quote || "").trim()),
     };
   }).filter(Boolean).slice(0, 5);
 }
@@ -923,8 +995,8 @@ export function normalizeMemorableMoments(raw) {
   return raw.map(item => {
     if (!item || typeof item !== "object") return null;
     const type = VALID_MOMENT_TYPES.has(item.type) ? item.type : "signature";
-    const title = String(item.title || "").trim();
-    const read  = String(item.read  || "").trim();
+    const title = sanitizeAiText(String(item.title || "").trim());
+    const read  = sanitizeAiText(String(item.read  || "").trim());
     if (!title && !read) return null;
     return {
       type,
@@ -933,8 +1005,8 @@ export function normalizeMemorableMoments(raw) {
         ? item.people.filter(p => typeof p === "string" && p.trim()).map(p => p.trim())
         : [],
       title,
-      quote:  String(item.quote  || "").trim(),
-      setup:  String(item.setup  || "").trim(),
+      quote:  sanitizeAiText(String(item.quote  || "").trim()),
+      setup:  sanitizeAiText(String(item.setup  || "").trim()),
       read,
     };
   }).filter(Boolean).slice(0, 6);
@@ -943,6 +1015,9 @@ export function normalizeMemorableMoments(raw) {
 export function formatEvidenceDate(date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+export { stripLongDashes, sanitizeResultText } from "./textSanitize";
+import { sanitizeResultText as sanitizeAiText } from "./textSanitize";
 
 export function cleanQuote(body, max = 72) {
   const text = String(body || "").replace(/\s+/g, " ").trim();
@@ -1353,13 +1428,13 @@ export function localStats(messages) {
   const NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached|end-to-end encrypted|messages and calls are end-to-end|security code (has )?changed/i;
   messages.forEach(({body}) => {
     if (NOISE_RE.test(body) || body.startsWith("http")) return;
-    const words = body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).filter(w => w.length>2 && !TOKEN_STOP_WORDS.has(w) && !TOKEN_WA_NOISE_WORDS.has(w) && !/^\d+$/.test(w) && !w.startsWith("http") && w !== "www");
+    const words = body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).filter(w => isContentToken(w, 3));
     for (let i=0;i<words.length;i++){
       wordFreq[words[i]]=(wordFreq[words[i]]||0)+1;
       if (i<words.length-1){const bg=`${words[i]} ${words[i+1]}`;bigramFreq[bg]=(bigramFreq[bg]||0)+1;}
     }
   });
-  const topWords = Object.entries(wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const topWords = Object.entries(mergeVariantCounts(wordFreq)).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const topBigrams = Object.entries(bigramFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
   const STICKER_RE = /sticker omitted/i;
@@ -1494,7 +1569,7 @@ export function localStats(messages) {
     const wf={};
     byName[n].forEach(({body})=>{
       if(NOISE_RE.test(body)||body.startsWith("http"))return;
-      body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).forEach(w=>{if(w.length>2&&!TOKEN_STOP_WORDS.has(w)&&!TOKEN_WA_NOISE_WORDS.has(w)&&!/^\d+$/.test(w)&&!w.startsWith("http")&&w!=="www")wf[w]=(wf[w]||0)+1;});
+      body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).forEach(w=>{if(isContentToken(w, 3))wf[w]=(wf[w]||0)+1;});
     });
     sigWordByName[n]=Object.entries(wf).sort((a,b)=>b[1]-a[1])[0]?.[0]||"...";
   });
@@ -1550,7 +1625,7 @@ export function localStats(messages) {
       if (!longest) return null;
       const wf = {};
       longest.body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).forEach(w=>{
-        if(w.length>3&&!TOKEN_STOP_WORDS.has(w)&&!TOKEN_WA_NOISE_WORDS.has(w)&&!/^\d+$/.test(w))wf[w]=(wf[w]||0)+1;
+        if(isContentToken(w, 4))wf[w]=(wf[w]||0)+1;
       });
       return Object.entries(wf).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
     })(),

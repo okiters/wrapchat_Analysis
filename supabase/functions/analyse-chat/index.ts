@@ -1,10 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { OUTPUT_SCHEMAS } from "./schemas.ts";
 
-const MAX_PROVIDER_TOKENS = 2600;
-const TRUNCATION_RETRY_TOKENS = 2600;
+// Output budget. The Core A / connection schema asks for ~50 populated fields;
+// the old 2600 clamp regularly truncated it (and the retry below could never
+// fire because the request was already at the ceiling).
+const MAX_PROVIDER_TOKENS = 5000;
+const TRUNCATION_RETRY_TOKENS = 6400;
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
-const FALLBACK_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+// claude-sonnet-4-20250514 (Sonnet 4) retired 2026-06-15 and now 404s.
+const FALLBACK_ANTHROPIC_MODEL = "claude-sonnet-4-5";
+
+// Server-side gating (see migration 20260712120000_edge_ai_gating.sql).
+const RATE_LIMIT_MAX_CALLS = 60;      // per user
+const RATE_LIMIT_WINDOW_MINUTES = 60; // fixed window
+const ALLOWED_SCHEMA_MODES = new Set(["analysis", "json", "raw_text", "relationship"]);
+const MAX_SYSTEM_CHARS = 60_000;
+const MAX_USER_CONTENT_CHARS = 600_000;
+// Fail-open keeps production alive if the gating migration has not been applied
+// yet (RPC missing). Flip to false once 20260712120000 is confirmed deployed.
+const GATING_FAIL_OPEN = false;
 
 const ALLOWED_ORIGINS = new Set([
   "https://wrapchat.vercel.app",
@@ -203,7 +218,14 @@ function didLikelyHitOutputLimit(data: unknown, raw: string): boolean {
   return withoutFence.startsWith("{") && !withoutFence.endsWith("}");
 }
 
-async function callAnthropic(apiKey: string, system: string, userContent: string, max_tokens: number, model: string) {
+async function callAnthropic(
+  apiKey: string,
+  system: string,
+  userContent: string,
+  max_tokens: number,
+  model: string,
+  outputSchema: Record<string, unknown> | null = null,
+) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -216,10 +238,26 @@ async function callAnthropic(apiKey: string, system: string, userContent: string
       max_tokens,
       system,
       messages: [{ role: "user", content: userContent }],
+      // Structured outputs: guarantees schema-valid JSON when supported by
+      // the model; on models without support the 400 is caught by the caller
+      // and the request is retried without the schema (prose-JSON path).
+      ...(outputSchema ? { output_config: { format: { type: "json_schema", schema: outputSchema } } } : {}),
     }),
   });
 
   return res;
+}
+
+function isStructuredOutputRejection(status: number, providerError: Record<string, unknown>): boolean {
+  if (status !== 400) return false;
+  const message = String(providerError.provider_error_message || "").toLowerCase();
+  return (
+    message.includes("output_config") ||
+    message.includes("output config") ||
+    message.includes("json_schema") ||
+    message.includes("structured") ||
+    message.includes("format")
+  );
 }
 
 function parseProviderError(raw: string): Record<string, unknown> {
@@ -344,16 +382,84 @@ serve(async (req) => {
       { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
     );
   }
+  const userId = String(authData.claims.sub);
+
+  // ── Server-side gating: rate limit + entitlement ──
+  // The JWT alone is not enough: accounts are free, and this endpoint spends
+  // real money per call. Every request must pass a per-user rate limit, and in
+  // credits/payments mode the user must hold credits, a pack, or a live Quick
+  // Read. Open mode and allowlisted admins pass the entitlement check inside
+  // the RPC itself.
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (serviceRoleKey) {
+    const service = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+
+    const { data: quotaOk, error: quotaError } = await service.rpc("consume_ai_call_quota", {
+      p_user_id: userId,
+      p_max_calls: RATE_LIMIT_MAX_CALLS,
+      p_window_minutes: RATE_LIMIT_WINDOW_MINUTES,
+    });
+    if (quotaError) {
+      console.error("[analyse-chat] rate-limit RPC failed:", quotaError.message);
+      if (!GATING_FAIL_OPEN) {
+        return new Response(
+          JSON.stringify({ error: "rate_limit_unavailable" }),
+          { status: 503, headers: { ...CORS, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (quotaOk === false) {
+      return new Response(
+        JSON.stringify({ error: "rate_limited", detail: "Too many analysis calls. Please wait a bit and try again." }),
+        { status: 429, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: entitled, error: entitlementError } = await service.rpc("user_has_ai_entitlement", {
+      p_user_id: userId,
+    });
+    if (entitlementError) {
+      console.error("[analyse-chat] entitlement RPC failed:", entitlementError.message);
+      if (!GATING_FAIL_OPEN) {
+        return new Response(
+          JSON.stringify({ error: "entitlement_unavailable" }),
+          { status: 503, headers: { ...CORS, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (entitled === false) {
+      return new Response(
+        JSON.stringify({ error: "no_entitlement", detail: "This account has no credits, packs, or trial available." }),
+        { status: 402, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+  } else {
+    console.error("[analyse-chat] SUPABASE_SERVICE_ROLE_KEY not set — gating skipped");
+  }
 
   try {
-    const { system, userContent, max_tokens = 1500, schema_mode = "analysis" } = await req.json();
-    const safeMaxTokens = Math.min(max_tokens, MAX_PROVIDER_TOKENS);
+    const { system, userContent, max_tokens = 1500, schema_mode = "analysis", schema_id = null } = await req.json();
+    let outputSchema = typeof schema_id === "string" && OUTPUT_SCHEMAS[schema_id] ? OUTPUT_SCHEMAS[schema_id] : null;
+    const safeMaxTokens = Math.min(
+      Number.isFinite(Number(max_tokens)) && Number(max_tokens) > 0 ? Math.floor(Number(max_tokens)) : 1500,
+      MAX_PROVIDER_TOKENS
+    );
     console.log("[analyse-chat] body:", { system: system?.slice(0, 80), userContent: userContent?.slice(0, 80), max_tokens, safeMaxTokens });
 
-    if (!system || !userContent) {
+    if (!system || !userContent || typeof system !== "string" || typeof userContent !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing required fields: system, userContent" }),
         { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+    if (!ALLOWED_SCHEMA_MODES.has(String(schema_mode))) {
+      return new Response(
+        JSON.stringify({ error: "Unsupported schema_mode" }),
+        { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+    if (system.length > MAX_SYSTEM_CHARS || userContent.length > MAX_USER_CONTENT_CHARS) {
+      return new Response(
+        JSON.stringify({ error: "Request payload too large" }),
+        { status: 413, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
 
@@ -371,16 +477,29 @@ serve(async (req) => {
     let effectiveSystem = system;
     let effectiveMaxTokens = safeMaxTokens;
     let effectiveModel = primaryModel;
-    let res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel);
-    console.log("[analyse-chat] provider status:", res.status);
+    let res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel, outputSchema);
+    console.log("[analyse-chat] provider status:", res.status, outputSchema ? `(structured: ${schema_id})` : "(prose)");
 
     if (!res.ok) {
       const text = await res.text();
       let providerError = parseProviderError(text);
       console.error("[analyse-chat] provider error:", { model: effectiveModel, status: res.status, ...providerError });
 
-      if (effectiveModel !== FALLBACK_ANTHROPIC_MODEL && shouldRetryWithFallbackModel(res.status, providerError)) {
+      if (outputSchema && isStructuredOutputRejection(res.status, providerError)) {
+        console.warn("[analyse-chat] structured outputs rejected by model, retrying without schema", { model: effectiveModel, schema_id });
+        outputSchema = null;
+        res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel);
+        console.log("[analyse-chat] prose retry status:", res.status);
+        if (!res.ok) {
+          const proseText = await res.text();
+          providerError = parseProviderError(proseText);
+          console.error("[analyse-chat] prose retry error:", { model: effectiveModel, status: res.status, ...providerError });
+        }
+      }
+
+      if (!res.ok && effectiveModel !== FALLBACK_ANTHROPIC_MODEL && shouldRetryWithFallbackModel(res.status, providerError)) {
         effectiveModel = FALLBACK_ANTHROPIC_MODEL;
+        outputSchema = null;
         console.warn("[analyse-chat] retrying provider with fallback model", { model: effectiveModel });
         res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel);
         console.log("[analyse-chat] fallback provider status:", res.status);
@@ -430,7 +549,7 @@ serve(async (req) => {
       const retryTokens = Math.min(TRUNCATION_RETRY_TOKENS, Math.max(effectiveMaxTokens + 1200, Math.round(effectiveMaxTokens * 1.5)));
       effectiveSystem = `${system}\n\nRETRY OVERRIDE: The previous attempt hit the output limit. Keep every free-text field concise and single-sentence where possible so the full JSON completes. Preserve the exact schema and concrete evidence.`;
       console.warn("[analyse-chat] output_limit_reached: retrying with higher token budget", { from: effectiveMaxTokens, to: retryTokens });
-      const retryRes = await callAnthropic(apiKey, effectiveSystem, userContent, retryTokens, effectiveModel);
+      const retryRes = await callAnthropic(apiKey, effectiveSystem, userContent, retryTokens, effectiveModel, outputSchema);
       console.log("[analyse-chat] retry provider status:", retryRes.status);
       if (retryRes.ok) {
         const retryData = await retryRes.json();

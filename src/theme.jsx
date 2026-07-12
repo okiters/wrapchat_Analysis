@@ -35,14 +35,17 @@ export const DA_DARK = {
 export const DA_LIGHT = {
   bg:     '#EDE8DC',
   text:   '#1f184e',
-  muted:  'rgba(31,24,78,0.6)',
-  faint:  'rgba(31,24,78,0.28)',
-  teal:   '#3DC4BF',
-  amber:  '#F5A84C',
-  lime:   '#C2DC3A',
-  blue:   '#7A90FF',
-  orange: '#E07040',
-  purple: '#7A90FF',
+  muted:  'rgba(31,24,78,0.66)',
+  faint:  'rgba(31,24,78,0.34)',
+  // Accents are darkened per-theme: the dark theme's values are tuned to glow
+  // on deep indigo and wash out on cream. These hold ~4:1+ as label text on
+  // #EDE8DC and ~4.4:1+ as CTA fills under white text.
+  teal:   '#12837E',
+  amber:  '#A8690D',
+  lime:   '#6E7F10',
+  blue:   '#4353CC',
+  orange: '#B34A17',
+  purple: '#4353CC',
   dp:     "'Nunito',sans-serif",
   bp:     "'Nunito Sans',sans-serif",
 };
@@ -594,13 +597,14 @@ export function Nav({ onBack, onNext, showBack=true, nextLabel='Next', accent, t
 
 // ── PrimaryButton — full-width pill CTA ───────────────────────────────────
 export function PrimaryButton({ children, onClick, color, textColor, disabled, style={} }) {
-  const da = getDA(useTheme().theme);
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: '100%', padding: '16px', borderRadius: 999, border: 'none',
       background: color || da.teal,
       fontFamily: da.bp, fontWeight: 700, fontSize: 16,
-      color: textColor || DA_DARK.bg,
+      color: textColor || (theme === 'light' && !color ? '#FFFFFF' : DA_DARK.bg),
       opacity: disabled ? 0.45 : 1,
       transition: 'all .2s',
       ...style,
@@ -619,7 +623,7 @@ export function GhostButton({ children, onClick, style={} }) {
     <button onClick={onClick} style={{
       width: '100%', padding: '13px', borderRadius: 999,
       background: 'transparent',
-      border: `1.5px solid ${isLight ? 'rgba(31,24,78,0.16)' : 'rgba(255,255,255,0.16)'}`,
+      border: `1.5px solid ${isLight ? 'rgba(31,24,78,0.26)' : 'rgba(255,255,255,0.16)'}`,
       fontFamily: da.bp, fontWeight: 600, fontSize: 14, color: da.muted,
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
       ...style,

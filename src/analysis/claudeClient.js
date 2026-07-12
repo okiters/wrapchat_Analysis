@@ -42,7 +42,7 @@ const MOCK_ANALYSIS_PAYLOAD = {
   },
 };
 
-export async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMode = "analysis") {
+export async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMode = "analysis", schemaId = null) {
   if (MOCK_MODE) {
     console.info("[callClaude] MOCK MODE — returning fake payload, no API call made");
     await new Promise(r => setTimeout(r, 600));
@@ -70,7 +70,7 @@ export async function callClaude(systemPrompt, userContent, maxTokens = 1500, sc
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ system: systemPrompt, userContent, max_tokens: maxTokens, schema_mode: schemaMode }),
+        body: JSON.stringify({ system: systemPrompt, userContent, max_tokens: maxTokens, schema_mode: schemaMode, schema_id: schemaId || undefined }),
         signal: controller.signal,
       }
     );
@@ -197,6 +197,8 @@ export function userFacingAnalysisError(error) {
   const combined = [message, providerDetail].filter(Boolean).join("\n");
   if (!message) return "The AI analysis didn't come through. Please try again.";
   if (message.includes("timed out")) return "The AI took too long to answer. Please try again.";
+  if (/no_entitlement/i.test(combined)) return "You need credits or a pack before running more AI reads.";
+  if (/rate_limited/i.test(combined)) return "You've hit the analysis limit for now. Please wait a little while and try again.";
   if (/parse_failed/i.test(combined)) return "The AI returned malformed JSON. Check the console for the raw preview and try again.";
   if (/invalid_response_shape|output_limit_reached/i.test(combined)) return "The AI answer was cut off before it finished. Please try again.";
   if (/ANTHROPIC_API_KEY secret not set/i.test(combined)) return "The AI server isn't configured correctly yet.";

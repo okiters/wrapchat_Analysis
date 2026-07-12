@@ -77,6 +77,7 @@ import {
   normalizeSelectedReportTypes, buildShareCanvas, canShareFiles, downloadBlob, canvasToBlob,
   chatHealthLabel, SLIDE_MS, SHELL_SAFE_TOP, SHELL_PANE_PADDING, SHELL_DRAWER_PADDING,
   SCREEN_CONTENT_STYLE, SCREEN_HEADER_BLOCK_STYLE, SCREEN_HEADER_CONTROL_TOP,
+  SCREEN_BODY_SCROLL_STYLE, getStickyHeaderStyle,
   LEGAL_VERSION, TERMS_OF_SERVICE_TEXT, PRIVACY_POLICY_TEXT,
   SharePicker, Shell, GearIcon, getReportLaunchSec,
   GuessCard, AttributionCard,
@@ -988,7 +989,7 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("A chaotic, wholesome connection."))}
       </div>
       <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
-      <Sub mt={14}>{t("Powered by AI — your messages never left your device.")}</Sub>
+      <Sub mt={14}>{t("Powered by AI — analysed securely, never stored.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
 
@@ -1248,7 +1249,7 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("Chaotic. Wholesome. Somehow still going."))}
       </div>
       <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
-      <Sub mt={14}>{t("Powered by AI — your messages never left your device.")}</Sub>
+      <Sub mt={14}>{t("Powered by AI — analysed securely, never stored.")}</Sub>
       <Nav back={back} next={next} nextLabel="See summary" />
     </Shell>,
   ];
@@ -2366,7 +2367,7 @@ export function PremiumFinale({ s, restart, back, reportType, fromHistory = fals
       <T s={22}>{t(rtype?.label || "Report complete")}</T>
       <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
       <div data-share-hide style={{ display:"flex", gap:10, marginTop:24, width:"100%" }}>
-        <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
+        <GhostButton onClick={back} style={{ flex:1, width:"auto", color:"rgba(255,255,255,0.78)", border:"1.5px solid rgba(255,255,255,0.22)" }}>← {t("Back")}</GhostButton>
         <PrimaryButton onClick={primaryAction} color={p.accent} textColor={p.bg} style={{ flex:1, width:"auto" }}>{primaryLabel}</PrimaryButton>
       </div>
     </Shell>
@@ -2517,7 +2518,7 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
 
       {/* Action buttons */}
       <div data-share-hide style={{ display:"flex", gap:10, width:"100%" }}>
-        <GhostButton onClick={back} style={{ flex:1, width:"auto" }}>← {t("Back")}</GhostButton>
+        <GhostButton onClick={back} style={{ flex:1, width:"auto", color:"rgba(255,255,255,0.78)", border:"1.5px solid rgba(255,255,255,0.22)" }}>← {t("Back")}</GhostButton>
         {fromHistory
           ? <PrimaryButton onClick={closeResults} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("My Results")}</PrimaryButton>
           : <PrimaryButton onClick={restart} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
@@ -2692,9 +2693,11 @@ export function RelationshipSelect({
 
   return (
     <Shell sec="upload" prog={1} total={3} contentAlign="start">
+      <div style={getStickyHeaderStyle(isLight)}>
+        <ScreenHeader back={onBack} title="Set up this chat" centerTitle />
+      </div>
       <FadeScale key={animKey}>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:18, paddingBottom:"calc(22px + env(safe-area-inset-bottom, 0px))" }}>
-      <ScreenHeader back={onBack} title="Set up this chat" centerTitle />
 
       {error && <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.2)", padding:"10px 16px", borderRadius:16, width:"100%", textAlign:"center" }}>{error}</div>}
 
@@ -3431,7 +3434,9 @@ export function DuplicateParticipantReview({ dataset, onContinue, onBack }) {
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
-      <ScreenHeader back={onBack} title="Review contacts" />
+      <div style={getStickyHeaderStyle(isLight)}>
+        <ScreenHeader back={onBack} title="Review contacts" />
+      </div>
       <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
           <div style={{ fontSize:22, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
@@ -3494,7 +3499,9 @@ export function ParticipantMismatchReview({ mismatch, onContinue, onBack }) {
   const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
-      <ScreenHeader back={onBack} title="Review chats" />
+      <div style={getStickyHeaderStyle(theme === "light")}>
+        <ScreenHeader back={onBack} title="Review chats" />
+      </div>
       <div style={{ background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.22)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
         <div style={{ fontSize:22, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
           These chats may be from different people.
@@ -3527,7 +3534,9 @@ export function ProfileNameMismatchReview({ warning, onContinue, onBack }) {
   const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start">
-      <ScreenHeader back={onBack} title="Check your name" />
+      <div style={getStickyHeaderStyle(theme === "light")}>
+        <ScreenHeader back={onBack} title="Check your name" />
+      </div>
       <div style={{ background:"rgba(122,144,255,0.14)", border:"1px solid rgba(122,144,255,0.34)", borderRadius:24, padding:"22px 20px", width:"100%" }}>
         <div style={{ fontSize:22, fontWeight:800, color:da.text, letterSpacing:-0.5, lineHeight:1.2 }}>
           We could not find &ldquo;{userName}&rdquo; in this duo chat.
@@ -3860,7 +3869,7 @@ export function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdat
           <div style={SCREEN_HEADER_BLOCK_STYLE}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
-          <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:14, minHeight:0 }}>
+          <div style={{ ...SCREEN_BODY_SCROLL_STYLE, gap:14, justifyContent:"safe center", paddingTop:4 }}>
 
             {/* ── Appearance toggle ── */}
             <div style={{
@@ -4234,13 +4243,14 @@ export function PackSelect({
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        padding:"16px 20px 56px",
+        padding:"0 20px 56px",
         minHeight:0,
+        overflowY:"auto", overscrollBehavior:"contain",
       }}>
-        <FadeScale key={animKey}>
-        <div style={{ marginBottom:14 }}>
+        <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0 })}>
           <ScreenHeader back={onBack} title="Pick your read" centerTitle />
         </div>
+        <FadeScale key={animKey}>
         <div style={{ fontSize:13, color:da.muted, lineHeight:1.5, textAlign:"center", margin:"-4px 8px 16px" }}>
           Choose the angle you want on this chat and uncover what is actually going on.
         </div>
@@ -4452,10 +4462,11 @@ export function PaymentScreen({ preselect = null, credits = null, userId = null,
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        padding:"16px 20px 56px",
+        padding:"0 20px 56px",
         minHeight:0,
+        overflowY:"auto", overscrollBehavior:"contain",
       }}>
-        <div style={{ marginBottom:10 }}>
+        <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0 })}>
           <ScreenHeader back={onBack} title="Add Credits" />
         </div>
         <div style={{ fontSize:14, color:da.muted, lineHeight:1.5, marginBottom:18 }}>Add credits once. Use them whenever you want.</div>
@@ -4654,8 +4665,8 @@ export function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, accent:pack.accent }}>
-      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px calc(96px + env(safe-area-inset-bottom, 0px))", minHeight:0, overflowY:"auto", overscrollBehavior:"contain" }}>
-        <div style={{ marginBottom:18 }}>
+      <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"0 20px calc(96px + env(safe-area-inset-bottom, 0px))", minHeight:0, overflowY:"auto", overscrollBehavior:"contain" }}>
+        <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0 })}>
           <ScreenHeader back={onClose} titleNode={titleNode} />
         </div>
 
@@ -4769,7 +4780,15 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
   };
 
   return (
-    <Shell sec="upload" prog={0} total={0} contentAlign="start">
+    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
+      <div style={{
+        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", gap:10,
+        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+        padding:"0 20px 56px",
+        minHeight:0,
+        overflowY:"auto", overscrollBehavior:"contain",
+      }}>
+      <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0, alpha: 0.94, blur: 8 })}>
       {canUnlockWithCredits && (
         <div style={{ position:"absolute", top:SCREEN_HEADER_CONTROL_TOP, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
           <div style={{
@@ -4811,6 +4830,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
         </div>
       )}
       <ScreenHeader back={onBack} backLabel="Back to reports" title={canUnlockWithCredits ? "Unlock reads" : "More credits needed"} />
+      </div>
 
       {canUnlockWithCredits ? (
         <>
@@ -4945,6 +4965,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
       ) : (
         <Sub mt={2}>{info?.message || t("You need credits to run these reports. Ask an admin to add credits to your account.")}</Sub>
       )}
+      </div>
     </Shell>
   );
 }
@@ -5947,7 +5968,7 @@ export function AdminFeedbackTab() {
         </div>
       )}
 
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, maxHeight:"58vh", overflowY:"auto", paddingRight:2, paddingBottom:4, alignSelf:"stretch" }}>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, paddingRight:2, paddingBottom:4, alignSelf:"stretch" }}>
         {rows?.map(row => {
           const baseResultRow = resultsById[row.result_id];
           const resultData = baseResultRow?.result_data;
@@ -6327,7 +6348,7 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
         </div>
       )}
 
-      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, maxHeight:"58vh", overflowY:"auto", paddingRight:2, paddingBottom:4, alignSelf:"stretch" }}>
+      <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12, paddingRight:2, paddingBottom:4, alignSelf:"stretch" }}>
         {rows?.map(row => {
           const inputValue = amountById[row.user_id] ?? "1";
           const notice = noticeById[row.user_id] || "";
@@ -7018,9 +7039,13 @@ export function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
         </div>
       )}
 
-      {tab === "feedback" && <AdminFeedbackTab />}
-      {tab === "users" && <AdminUsersTab accessMode={accessMode} />}
-      {tab === "settings" && <AdminAccessModeTab accessMode={accessMode} onAccessModeChange={onAccessModeChange} />}
+      {tab !== "preview" && (
+        <div style={{ ...SCREEN_BODY_SCROLL_STYLE, gap:12, alignSelf:"stretch" }}>
+          {tab === "feedback" && <AdminFeedbackTab />}
+          {tab === "users" && <AdminUsersTab accessMode={accessMode} />}
+          {tab === "settings" && <AdminAccessModeTab accessMode={accessMode} onAccessModeChange={onAccessModeChange} />}
+        </div>
+      )}
       {tab === "preview" && <AdminPreviewLab header={adminHeader} />}
     </Shell>
   );

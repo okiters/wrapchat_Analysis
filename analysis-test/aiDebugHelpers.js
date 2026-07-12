@@ -51,8 +51,44 @@ function toDebugRequestRecord(request) {
     userContent: request.userContent,
     maxTokens: request.maxTokens,
     schemaMode: request.schemaMode,
+    schemaId: request.schemaId ?? null,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Shared userContent fragments.
+// Global rules (speaker attribution, window isolation, funny attribution,
+// relationship boundary, quotes, dates, voice, JSON rules) live in
+// buildAnalystSystemPrompt — builders here carry only pipeline scope.
+// ─────────────────────────────────────────────────────────────────
+
+function buildTopicSpreadLine(math) {
+  const pick = list => (Array.isArray(list) ? list : [])
+    .slice(0, 5)
+    .map(entry => (Array.isArray(entry) ? entry[0] : entry))
+    .filter(Boolean);
+  const topics = [...pick(math?.topBigrams), ...pick(math?.topWords)].slice(0, 8);
+  if (!topics.length) return "";
+  return `RECURRING TOPICS (from local counts): ${topics.join(", ")}. Spread your answers across different topics: never anchor more than two fields on the same topic or the same story.`;
+}
+
+function buildDuoLocalContext(math, relationshipContext, isGroup) {
+  const base = isGroup
+    ? `The least active member (the ghost) is ${math.ghost}. The conversation starter is ${math.convStarter}.`
+    : `By reply time, ${math.ghostName} is slower to respond. The conversation starter is ${math.convStarter}. Local analysis found that ${math.funniestPerson} caused the most laugh reactions from the other person (${math.laughCausedBy?.[math.funniestPerson] || 0} times), confirm or correct this from the chat.`;
+  const evidence = !isGroup && relationshipContext?.evidence
+    ? `\nRELATIONSHIP EVIDENCE: A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}". Use it as confirmation, but do not over-quote it.`
+    : "";
+  return `IMPORTANT CONTEXT: ${base}${evidence}`;
+}
+
+function buildWindowIntro(names, totalMessages, isGroup, largeChatNote = "") {
+  return `Here is a ${isGroup ? "group" : "two-person"} WhatsApp chat between ${names.slice(0, 6).join(", ")}. The full chat has ${totalMessages.toLocaleString()} messages.${largeChatNote} The content below is divided into ISOLATED WINDOWS from across the full history, each labelled ━━━ WINDOW N/N · date · type ━━━.`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CONNECTION DIGEST
+// ─────────────────────────────────────────────────────────────────
 
 export function prepareConnectionDigestRequest({
   messages,
@@ -64,6 +100,7 @@ export function prepareConnectionDigestRequest({
   buildRelationshipLine,
   buildSampleText,
   extraConnectionRules = "",
+  candidatesText = "",
   coreAnalysisVersion,
   maxTokens,
 }) {
@@ -82,8 +119,7 @@ export function prepareConnectionDigestRequest({
       "name": "first person's first name",
       "careStyle": {
         "language": "one of: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed",
-        "languageEmoji": "1 emoji representing that care style",
-        "examples": ["one short concrete example", "second short example if needed"],
+        "examples": ["one short concrete example (one sentence, under 120 characters, no line breaks)", "second short example if needed"],
         "score": [1-10]
       },
       "energy": {
@@ -122,19 +158,19 @@ export function prepareConnectionDigestRequest({
     "timeOfDay": {
       "personA": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
       "personB": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
-      "contrast": "1 sentence — what the time difference reveals about how each person uses or experiences this chat"
+      "contrast": "1 sentence - what the time difference reveals about how each person uses or experiences this chat"
     },
-    "loveLanguageIntro": "1 sentence — how love languages show up in this chat overall, before naming either person specifically",
+    "loveLanguageIntro": "1 sentence - how love languages show up in this chat overall, before naming either person specifically",
     "loveMiss": {
-      "description": "1 sentence — a moment where love was expressed in one language but received in another, or empty string if not clearly supported",
+      "description": "1 sentence - a moment where love was expressed in one language but received in another, or empty string if not clearly supported",
       "quote": "short real quote from that moment or empty string",
       "persons": ["sender first name", "receiver first name"]
     },
-    "loveMissUnspoken": "1 sentence — a moment of love expressed without words: a fast reply streak, an emoji burst at an odd hour, or sustained presence during a hard week — or empty string if not clearly supported",
-    "energyDynamic": "1 sentence — what happens when these two specific energies meet as a pair, not what each person is individually",
+    "loveMissUnspoken": "1 sentence - a moment of love expressed without words: a fast reply streak, an emoji burst at an odd hour, or sustained presence during a hard week - or empty string if not clearly supported",
+    "energyDynamic": "1 sentence - what happens when these two specific energies meet as a pair, not what each person is individually",
     "guessThresholds": {
-      "loveLanguageGuessValid": "[true if person A has a clearly dominant love language with multiple examples and it is not obvious — false if borderline, mixed, or predictable]",
-      "energyGuessValid": "[true if one person is clearly more positive than the other by a meaningful margin — false if close, balanced, or obvious]"
+      "loveLanguageGuessValid": "[true if person A has a clearly dominant love language with multiple examples and it is not obvious - false if borderline, mixed, or predictable]",
+      "energyGuessValid": "[true if one person is clearly more positive than the other by a meaningful margin - false if close, balanced, or obvious]"
     }
   }
 }`;
@@ -142,30 +178,29 @@ export function prepareConnectionDigestRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a sharp, observant chat analyst building a compact connection digest for relationship, love-language, and energy reports",
     relationshipType,
-    `CONNECTION DIGEST SCOPE: relationship dynamic, ghost context, funny moments, kindness, tension, inside jokes, love language, energy, time-of-day patterns, love-language miss moments, energy dynamic, and love-language intro. Do NOT generate growth, evidence timelines, red-flag lists, accountability, or long status explanations. TIME OF DAY: derive peakHour and peakDaypart from the timestamps in the windows — look at when each person sends the most messages. GUESS THRESHOLDS: set loveLanguageGuessValid to true only if person A's love language is clearly dominant with multiple examples and is not the obvious expectation; set energyGuessValid to true only if one person's energy score is clearly higher than the other by a meaningful margin, not borderline. LOVE MISS: only populate if there is a specific moment where love was expressed in one language but clearly not received; otherwise use empty string. LOVE MISS UNSPOKEN: only populate if there is a specific non-verbal care moment in the windows; otherwise use empty string. ENERGY DYNAMIC: always populate — describe the chemistry of the pair, not the individuals. Keep most free-text fields compact and direct. vibeOneLiner, biggestTopic, sweetMoment, tensionMoment, funniestReason, mostLovingMoment, mostEnergising, and mostDraining may use 1-2 short sentences if that keeps them specific rather than flat. MOMENT PICKING: For funniestReason, sweetMoment, tensionMoment, mostLovingMoment, mostEnergising, and mostDraining, choose the strongest supported moment or repeated pattern, not the safest bland example. Prefer a clear trigger, quote or move, and reaction or consequence. If several moments fit, pick the one that best captures the dynamic. ${extraConnectionRules} ANTI-REPETITION: sweetMoment and mostLovingMoment must describe different events. sweetMoment = a specific act of care, support, or going out of their way. mostLovingMoment = a warm affectionate exchange, compliment, or emotional closeness. They must reference different messages. No two fields anywhere in the output should quote the same message. SIGNATURE PHRASES: Before assigning a phrase to a person, verify by checking which sender's line it appears on most. signaturePhrases[0] must be a phrase only person 1 sends; signaturePhrases[1] must be a phrase only person 2 sends. Never guess or swap attribution. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers, each window is a non-contiguous excerpt from the full history. Never connect or combine events from different windows unless the messages themselves explicitly link them. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body, the name before the colon is always and only the sender. Assign every quote, action, and behaviour to the name shown on that exact line. Never swap or infer the sender. FUNNY ATTRIBUTION: Whenever you see a laugh reaction (😂, lol, lmao, 'im dead', 💀, 🤣, haha, or similar) from person B immediately following a line from person A, the funny person is person A, the one whose line caused the reaction. Never attribute humour to the person who is laughing. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. DIRECTION OF ACTIONS: For sweetMoment, kindestPerson, energy, and love-language reads, the actor is the sender of that exact line. For all "name" fields return ONLY the person's first name, with no explanation. Only report findings you can directly support from the chat. If evidence is weak, use "None clearly identified". SUMMARY FIELD RULES:
-- vibeOneLiner must be a sharp, memorable read of the dynamic, specific to this chat
-- biggestTopic must name the recurring theme using real references, not broad categories
-- Avoid flat labels like "relationships", "daily life", "support", or "communication" unless made specific with names, situations, or repeated context
-- Prefer phrasing that combines pattern + interpretation, for example "ongoing German boy drama with Aybüke acting as emotional tech support"
-- insideJoke must be recurring across multiple windows, not a single funny line
-- funniestReason must identify who caused the laugh, not who laughed
-- sweetMoment should feel warm and concrete, not poetic or generic
-- tensionMoment and dramaContext should describe what happened without exaggeration
-- Each summary should feel like it could only belong to this chat
-Keep quotes short and exact when used; do not translate them.`,
+    `CONNECTION DIGEST SCOPE: relationship dynamic, ghost context, funny moments, kindness, tension, inside jokes, love language, energy, time-of-day patterns, love-language miss moments, energy dynamic, and love-language intro. Do NOT generate growth, evidence timelines, red-flag lists, accountability, or long status explanations.
+TIME OF DAY: Derive peakHour and peakDaypart from the timestamps in the windows: look at when each person sends the most messages.
+GUESS THRESHOLDS: Set loveLanguageGuessValid to true only if person A's love language is clearly dominant with multiple examples and is not the obvious expectation. Set energyGuessValid to true only if one person's energy score is clearly higher by a meaningful margin, not borderline.
+LOVE MISS: Only populate if there is a specific moment where love was expressed in one language but clearly not received; otherwise use empty string. LOVE MISS UNSPOKEN: only populate from a specific non-verbal care moment in the windows; otherwise empty string. ENERGY DYNAMIC: always populate, describing the chemistry of the pair, not the individuals.
+MOMENT PICKING: For funniestReason, sweetMoment, tensionMoment, mostLovingMoment, mostEnergising, and mostDraining, choose the strongest supported moment or repeated pattern, not the safest bland example. Prefer a clear trigger, a quote or move, and the reaction or consequence.
+SUMMARY FIELDS: vibeOneLiner must be a sharp, memorable read of the dynamic specific to this chat. biggestTopic must name the recurring theme with real references, not a broad category: not "relationships" but the actual recurring storyline with its people. ghostContext explains WHY the slower replier takes longer, from observable patterns, without repeating the numeric reply time. insideJoke must recur across multiple windows, not a single funny line. Each summary should feel like it could only belong to this chat. ${extraConnectionRules}`,
     chatLang,
     relationshipLine
   );
 
-  const userContent = `Here is a ${isGroup ? "group" : "two-person"} WhatsApp chat between ${names.slice(0, 6).join(", ")}. The full chat has ${math.totalMessages.toLocaleString()} messages. ${math.totalMessages > 10000 ? `This is a very large chat - keep every answer compact. Summary fields must reflect dominant patterns that recur across the full history, not one standout moment.` : ""} The content below is divided into ISOLATED WINDOWS from across the full history - each labelled ━━━ WINDOW N/N · date · type ━━━. Windows are non-contiguous excerpts; do not infer connections between separate windows. Every line shows the speaker: [timestamp] SpeakerName: body.
+  const largeChatNote = math.totalMessages > 10000
+    ? " This is a very large chat: summary fields must reflect dominant patterns that recur across the full history, never one standout moment."
+    : "";
 
-IMPORTANT CONTEXT: ${isGroup ? `The least active member (the ghost) is ${math.ghost}. The conversation starter is ${math.convStarter}.` : `By reply time, ${math.ghostName} is slower to respond. The conversation starter is ${math.convStarter}. Local analysis found that ${math.funniestPerson} caused the most laugh reactions from the other person (${math.laughCausedBy?.[math.funniestPerson] || 0} times) - confirm or correct this based on the chat.`}
-${!isGroup && relationshipContext?.evidence ? `RELATIONSHIP EVIDENCE: A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}". Use it as confirmation, but do not over-quote it.` : ""}
+  const userContent = `${buildWindowIntro(names, math.totalMessages, isGroup, largeChatNote)}
 
+${buildDuoLocalContext(math, relationshipContext, isGroup)}
+${buildTopicSpreadLine(math)}
+${candidatesText ? `\n${candidatesText}\n` : ""}
 EVENT WINDOWS:
 ${chatText}
 
-Return exactly this JSON structure. JSON rules: (1) return ONLY valid JSON, no markdown, no text outside the JSON object; (2) the "examples" field MUST be an array of strings where each item is one sentence under 120 characters with no embedded line breaks; (3) never embed literal newline or tab characters inside any string value anywhere in the output.
+Return exactly this JSON structure:
 ${fields}`;
 
   return {
@@ -174,10 +209,15 @@ ${fields}`;
     userContent,
     maxTokens,
     schemaMode: "analysis",
+    schemaId: "connection",
     relationshipContext,
     relationshipLine,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// GROWTH DIGEST
+// ─────────────────────────────────────────────────────────────────
 
 function buildGrowthBridgeText(messages, formatForAI) {
   if (!Array.isArray(messages) || !messages.length || typeof formatForAI !== "function") return "";
@@ -235,15 +275,15 @@ export function prepareGrowthDigestRequest({
       "trajectory": "closer / drifting / stable",
       "trajectoryDetail": "1 short sentence - the overall arc based on evidence",
       "arcSummary": "1 sharp sentence capturing the full growth arc",
-      "personAArc": "1 sentence — how the first person changed across the chat's lifespan: topics, tone, or engagement level",
-      "personBArc": "1 sentence — how the second person changed across the chat's lifespan: topics, tone, or engagement level",
-      "turningPoint": "approximate period when the biggest shift happened e.g. 'a few months in' or 'toward the end' — empty string if no clear turning point",
+      "personAArc": "1 sentence - how the first person changed across the chat's lifespan: topics, tone, or engagement level",
+      "personBArc": "1 sentence - how the second person changed across the chat's lifespan: topics, tone, or engagement level",
+      "turningPoint": "approximate period when the biggest shift happened e.g. 'a few months in' or 'toward the end' - empty string if no clear turning point",
       "messageAtTurningPoint": {
-        "quote": "short real quote from at or near the turning point — empty string if not clearly present in the provided text",
+        "quote": "short real quote from at or near the turning point - empty string if not clearly present in the provided text",
         "person": "first name of sender or empty string",
-        "contextParagraph": "1 sentence — what changed in the relationship in the period after this message or exchange"
+        "contextParagraph": "1 sentence - what changed in the relationship in the period after this message or exchange"
       },
-      "growthGuessThreshold": "[true if one person's change is clearly more pronounced than the other and the answer would be non-obvious — false if both changed equally or the answer is predictable]"
+      "growthGuessThreshold": "[true if one person's change is clearly more pronounced than the other and the answer would be non-obvious - false if both changed equally or the answer is predictable]"
     }
   }
 }`;
@@ -251,7 +291,11 @@ export function prepareGrowthDigestRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a sharp chat analyst building a compact growth digest",
     relationshipType,
-    `GROWTH DIGEST SCOPE: only relationship evolution over time, including individual arcs per person, a turning point if detectable, and the message at that turning point. Do NOT generate funny moments, kindness, inside jokes, energy, red flags, accountability, timelines, or relationship labels. Compare the EARLY snapshot, the BRIDGE WINDOWS, and the RECENT snapshot to read how the conversation changed. INDIVIDUAL ARCS: personAArc and personBArc must describe how each specific person changed — do not repeat whoChangedHow. TURNING POINT: only populate turningPoint and messageAtTurningPoint if there is a detectable shift anchored in the snapshots; if the change is gradual or unclear, use empty string for turningPoint and empty strings inside messageAtTurningPoint. GUESS THRESHOLD: growthGuessThreshold is true only when one person's change is clearly more visible and the answer would surprise the user — false if both changed roughly equally. Keep every free-text field compact and direct: one sentence whenever possible, no filler, no repeated ideas across fields. GROWTH VOICE: Describe change as a lived rhythm, not a formal timeline. Focus on how the texture of the chat changed: faster/slower, warmer/flatter, more casual/more careful, more dependent/more distant. Avoid dramatic arcs unless the snapshots clearly support them. Do not use the em dash punctuation mark. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body, assign all quotes and changes only to the name shown on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone or emoji use alone. If the evidence for change is mixed, prefer "about the same" or "stable" over forcing a dramatic arc.`,
+    `GROWTH DIGEST SCOPE: only relationship evolution over time, including individual arcs per person, a turning point if detectable, and the message at that turning point. Do NOT generate funny moments, kindness, inside jokes, energy, red flags, accountability, timelines, or relationship labels.
+METHOD: Compare the EARLY snapshot, the BRIDGE WINDOWS, and the RECENT snapshot to read how the conversation changed. INDIVIDUAL ARCS: personAArc and personBArc must describe how each specific person changed, never repeating whoChangedHow.
+TURNING POINT: Only populate turningPoint and messageAtTurningPoint if a detectable shift is anchored in the snapshots; if the change is gradual or unclear, use empty strings.
+GUESS THRESHOLD: growthGuessThreshold is true only when one person's change is clearly more visible and the answer would surprise the user.
+GROWTH VOICE: Describe change as a lived rhythm, not a formal timeline: faster or slower, warmer or flatter, more casual or more careful, more dependent or more distant. If the evidence for change is mixed, prefer "about the same" or "stable" over forcing a dramatic arc.`,
     chatLang,
     relationshipLine
   );
@@ -277,10 +321,15 @@ ${fields}`;
     userContent,
     maxTokens,
     schemaMode: "analysis",
+    schemaId: "growth",
     relationshipContext,
     relationshipLine,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// CORE A (legacy full analysis — kept for the debug panel and fallbacks)
+// ─────────────────────────────────────────────────────────────────
 
 export function prepareCoreAnalysisARequest({
   messages,
@@ -292,6 +341,7 @@ export function prepareCoreAnalysisARequest({
   buildRelationshipLine,
   buildSampleText,
   formatForAI,
+  candidatesText = "",
   coreAnalysisVersion,
   maxTokens,
 }) {
@@ -316,7 +366,6 @@ export function prepareCoreAnalysisARequest({
       "summaryRole": "1 short phrase describing their role in the dynamic",
       "careStyle": {
         "language": "one of: Words of Affirmation / Acts of Service / Receiving Gifts / Quality Time / Physical Touch / Mixed",
-        "languageEmoji": "1 emoji representing that care style",
         "examples": ["first example of how they show care or affection (one sentence, under 120 chars)", "second example if applicable"],
         "score": [1-10]
       },
@@ -330,61 +379,61 @@ export function prepareCoreAnalysisARequest({
     }
   ],
   "shared": {
-    "vibeOneLiner": "One sharp memorable sentence that nails exactly what this chat *is* — specific to these people, not a mood label. If you can't nail it, keep it simple.",
-    "biggestTopic": "1 sentence — what actually keeps coming up across the chat. Name the specific thing, not the category: not 'relationships' but 'whether [Person] should quit their job' or 'trips they plan but never take'.",
-    "ghostContext": "1 sentence - explain WHY the slower replier takes longer to respond, based on observable patterns in the chat such as time of day, topic avoidance, or mood. Do not repeat the numeric response time. Do not mention unanswered messages.",
+    "vibeOneLiner": "One sharp memorable sentence that nails exactly what this chat *is*, specific to these people, not a mood label. If you can't nail it, keep it simple.",
+    "biggestTopic": "1 sentence - what actually keeps coming up across the chat. Name the specific thing, not the category.",
+    "ghostContext": "1 sentence - explain WHY the slower replier takes longer to respond, based on observable patterns such as time of day, topic avoidance, or mood. Do not repeat the numeric response time. Do not mention unanswered messages.",
     "funniestPerson": "ONLY the first name of the funniest person, or 'None clearly identified'",
     "funniestReason": "Name the specific line or moment that got the biggest reaction. Write it as 'drops lines like...' then the actual quote. Reference what caused the laugh, not the laugh itself. Under 20 words.",
     "dramaStarter": "ONLY a first name, 'Shared', or 'None clearly identified'",
-    "dramaContext": "1 sentence — describe the real pattern with one concrete moment from the chat. What do they actually do, and what did they say or drop that set it off ('exact quote'). No exaggeration.",
+    "dramaContext": "1 sentence - the real pattern with one concrete moment from the chat: what they actually do, and what they said or dropped that set it off ('exact quote'). No exaggeration.",
     "signaturePhrases": ["real phrase or expression person 1 uses a lot", "real phrase or expression person 2 uses a lot"],
     "relationshipStatus": "duo only: short relationship-status label, or 'None clearly identified'",
     "relationshipStatusWhy": "1 sentence - why that status fits, using objective evidence",
-    "statusEvidence": "1 short line with a concrete dated example if possible",
+    "statusEvidence": "1 short line with a concrete example if possible",
     "toxicPerson": "ONLY a first name, 'Tie', or 'None clearly identified'",
     "toxicReason": "1 sentence - factual and conservative explanation of that read",
     "toxicityReport": "1 sentence - balanced, observable summary of tension or health",
     "redFlags": [
-      { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "dated example or short quote" },
-      { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "dated example or short quote" },
-      { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "dated example or short quote" }
+      { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "period-dated example or short quote" },
+      { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "period-dated example or short quote" },
+      { "title": "2-4 word factual pattern label", "detail": "1 sentence with objective evidence", "evidence": "period-dated example or short quote" }
     ],
     "evidenceTimeline": [
-      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently') — never a specific calendar date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
-      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently') — never a specific calendar date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
-      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently') — never a specific calendar date", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" }
+      { "date": "approximate period only (e.g. 'early on', 'mid-chat', 'recently')", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
+      { "date": "approximate period only", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" },
+      { "date": "approximate period only", "title": "short factual headline", "detail": "1 short factual detail with quote or clear paraphrase" }
     ],
-    "relationshipSummary": "1 sentence — what's actually going on between them, in plain human terms. Specific about the pattern, not a label or diagnosis.",
+    "relationshipSummary": "1 sentence - what's actually going on between them, in plain human terms. Specific about the pattern, not a label or diagnosis.",
     "groupDynamic": "1 sentence - honest read of this group's energy. Specific about who does what and what the group runs on.",
-    "tensionMoment": "1 sentence — the most tense moment: what triggered it and how it played out. Support with a real quote. Describe clearly, don't amplify.",
+    "tensionMoment": "1 sentence - the most tense moment: what triggered it and how it played out, with a real quote. Describe clearly, don't amplify.",
     "kindestPerson": "ONLY a first name - the warmest/caring person, or 'None clearly identified'",
-    "sweetMoment": "1 sentence — name the person, what they said or did, and why it landed. The shape is 'When [Person] [did specific thing] for [Other]'. Not a warm routine — actual effort, support, or going out of their way.",
+    "sweetMoment": "1 sentence - name the person, what they said or did, and why it landed. The shape is 'When [Person] [did specific thing] for [Other]'. Actual effort or support, not a warm routine.",
     "mostMissed": "group only: ONLY a first name, or 'None clearly identified'",
-    "insideJoke": "group only: 1 sentence - a recurring joke, meme, reference, or expression that keeps coming back in the chat. Must appear in at least two separate windows. Quote the actual phrase or expression exactly as it appears in the chat.",
-    "hypePersonReason": "group only: 1 sentence - specifically how this person energises the group, with a real example of the kind of thing they say or do. Not generic - something that actually appears in the chat.",
+    "insideJoke": "group only: 1 sentence - a recurring joke, meme, reference, or expression that keeps coming back. Must appear in at least two separate windows. Quote the actual phrase exactly as written.",
+    "hypePersonReason": "group only: 1 sentence - specifically how this person energises the group, with a real example that actually appears in the chat.",
     "loveLanguageMismatch": "1 sentence - how their care styles align or mismatch in practice",
-    "mostLovingMoment": "1 sentence - the most genuinely warm or loving moment in the chat. Describe what happened and who was involved, with the actual message or action as evidence.",
+    "mostLovingMoment": "1 sentence - the most genuinely warm or loving moment, with the actual message or action as evidence.",
     "compatibilityScore": [1-10],
     "compatibilityRead": "1 sentence - love-language compatibility summary",
-    "mostEnergising": "1 sentence - the single most energising moment or exchange. Describe what happened and quote the line that best captures it.",
-    "mostDraining": "1 sentence - the single most draining moment or recurring pattern. Describe what happened and quote the line that best illustrates it.",
+    "mostEnergising": "1 sentence - the single most energising moment or exchange, quoting the line that best captures it.",
+    "mostDraining": "1 sentence - the single most draining moment or recurring pattern, quoting the line that best illustrates it.",
     "energyCompatibility": "1 sentence - how their energy styles work together (or don't)",
     "timeOfDay": {
       "personA": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
       "personB": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
-      "contrast": "1 sentence — what the time difference reveals about how each person uses or experiences this chat"
+      "contrast": "1 sentence - what the time difference reveals about how each person uses or experiences this chat"
     },
-    "loveLanguageIntro": "1 sentence — how love languages show up in this chat overall, before naming either person specifically",
+    "loveLanguageIntro": "1 sentence - how love languages show up in this chat overall, before naming either person specifically",
     "loveMiss": {
-      "description": "1 sentence — a moment where love was expressed in one language but received in another, or empty string if not clearly supported",
+      "description": "1 sentence - a moment where love was expressed in one language but received in another, or empty string if not clearly supported",
       "quote": "short real quote from that moment or empty string",
       "persons": ["sender first name", "receiver first name"]
     },
-    "loveMissUnspoken": "1 sentence — a moment of love expressed without words: a fast reply streak, an emoji burst at an odd hour, or sustained presence during a hard week — or empty string if not clearly supported",
-    "energyDynamic": "1 sentence — what happens when these two specific energies meet as a pair, not what each person is individually",
+    "loveMissUnspoken": "1 sentence - a moment of love expressed without words - or empty string if not clearly supported",
+    "energyDynamic": "1 sentence - what happens when these two specific energies meet as a pair, not what each person is individually",
     "guessThresholds": {
-      "loveLanguageGuessValid": "[true if person A has a clearly dominant love language with multiple examples and the answer would be non-obvious — false if borderline, mixed, or predictable]",
-      "energyGuessValid": "[true if one person is clearly more positive than the other by a meaningful margin — false if close, balanced, or obvious]"
+      "loveLanguageGuessValid": "[true if person A has a clearly dominant love language with multiple examples and the answer would be non-obvious - false if borderline, mixed, or predictable]",
+      "energyGuessValid": "[true if one person is clearly more positive than the other by a meaningful margin - false if close, balanced, or obvious]"
     },
     "growth": {
       "thenDepth": "1 sentence describing the conversation style and topics in the EARLY snapshot",
@@ -401,10 +450,10 @@ export function prepareCoreAnalysisARequest({
     "memorableMoments": [
       {
         "type": "funny | sweet | awkward | chaotic | signature | tension | care | conflict",
-        "date": "approximate period only (e.g. 'early on', 'a few months in', 'recently') — never a specific calendar date",
+        "date": "approximate period only (e.g. 'early on', 'a few months in', 'recently')",
         "people": ["first name of person involved"],
         "title": "2-5 word card title",
-        "quote": "short exact quote if directly present in the provided windows — empty string if not",
+        "quote": "short exact quote if directly present in the provided windows - empty string if not",
         "setup": "1 short sentence: what was happening in this moment",
         "read": "1 short sentence: WrapChat-style interpretation, warm and specific"
       }
@@ -415,26 +464,36 @@ export function prepareCoreAnalysisARequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a sharp, observant chat analyst building a canonical core-analysis object that later reports will reuse",
     relationshipType,
-    `CORE-A SCOPE: relationship dynamic, communication patterns, funny moments, kindness moments, energy, love language, growth trajectory, and memorable moments. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers - each window is a non-contiguous excerpt from the full history. Never connect or combine events from different windows unless the messages themselves explicitly link them. You will also receive EARLY and RECENT contiguous snapshots; use those specifically for growth/change fields, and use the event windows for specific moments and recurring patterns. SPEAKER ATTRIBUTION: Every message line is formatted as [timestamp] SpeakerName: body - the name before the colon is always and only the sender. Assign every quote, action, and behaviour to the name shown on that exact line. Never swap or infer the sender. FUNNY ATTRIBUTION: Whenever you see a laugh reaction (😂, lol, lmao, 'im dead', 💀, 🤣, haha, or similar) from person B immediately following a line from person A, the funny person is person A - the one whose line caused the reaction. Never attribute humour to the person who is laughing. This rule applies everywhere in the chat, regardless of window label. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone - a warm message between cousins does not make them romantic partners, a casual message between partners does not make them friends. Always use the confirmed relationship label when describing who did something to whom. DIRECTION OF ACTIONS: For sweetMoment, kindestPerson, and energy/love-language reads, the actor is the sender of that exact line. For all "name" fields return ONLY the person's first name, with no explanation. Each timestamp already includes the day of week - read it directly and never calculate it yourself. Only report findings you can directly cite from the chat - if evidence is weak, use "None clearly identified". QUOTE RULE: For funniestReason, sweetMoment, dramaContext, tensionMoment, mostLovingMoment, mostEnergising, mostDraining, hypePersonReason, insideJoke, and ghostContext - find the actual line from the chat that best illustrates the finding and include it as supporting evidence. The format is: your sentence describing what happened or the pattern, then the supporting quote in parentheses at the end like this: ('exact quote here'). The sentence must be meaningful on its own - the quote supports it, not replaces it. Do not explain or translate the quote after the closing parenthesis. If no specific supporting line exists in the windows for a field, write the sentence without a quote rather than inventing one. Do not translate quotes - reproduce them exactly as written in their original language. SUMMARY FIELD RULES: vibeOneLiner must capture the dominant emotional tone of the entire chat - never base it on a single moment, window, or exchange. insideJoke must be a recurring reference that appears in multiple windows - if you only saw it once, use 'None clearly identified'. biggestTopic must be the most consistently recurring subject across the full history, not the most dramatic single event. For all three fields: if you cannot confirm recurrence across multiple windows, do not claim it. When quoting messages in any language, quote them as-is - do not translate them. ALL PARTICIPANTS IN THIS CHAT: ${names.slice(0, isGroup ? names.length : 2).join(", ")}. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"} only - one entry per slotted participant. Participants not in the people array may still appear as senders in the windows. Track their behaviour for shared fields (dramaStarter, toxicPerson, funniestPerson, kindestPerson, etc.) but do not create people entries for them. Never fold an unslotted participant's actions into a slotted participant's entry. MEMORABLE MOMENTS RULES: Select 3 to 6 moments from the provided event windows. Each moment must come from a different window and reference a different exchange - never repeat the same message across two entries. Prefer moments that are funny, warm, awkward, revealing, or signature over generic filler. The quote field must be a short exact string directly present in the provided windows, or an empty string - never invented. The date field must be an approximate period ('early on', 'a few months in', 'recently') - never a specific calendar date. Keep setup and read short: one sentence each. The read should feel like a card someone would screenshot, not a report note. ANTI-REPETITION (EXTENDED): sweetMoment and mostLovingMoment must describe different events - sweetMoment is a specific act of care or support, mostLovingMoment is a warm affectionate exchange; they must not reference the same message. tensionMoment and dramaContext must describe different events - tensionMoment is the sharpest single spike, dramaContext is the recurring pattern. vibeOneLiner and relationshipSummary must not be near-identical - vibeOneLiner captures the overall feel in one memorable line, relationshipSummary describes the ongoing dynamic in human terms. toxicityReport and groupDynamic must not paraphrase each other - groupDynamic is the social energy read, toxicityReport is the health verdict. relationshipSummary and relationshipStatusWhy must take different angles - relationshipStatusWhy explains the label choice, relationshipSummary describes the dynamic. Each evidenceTimeline entry must reference a distinct event - no repeating the same exchange across entries. Each memorableMoments entry must be a different moment from a different window. DATE RULE: For all date-bearing fields (evidenceTimeline entries, memorableMoments entries), use approximate period descriptions only - words like 'early on', 'a few months in', 'mid-chat', 'recently', 'toward the end'. Never write a specific calendar date, month name, day number, or year.`,
+    `CORE-A SCOPE: relationship dynamic, communication patterns, funny moments, kindness moments, energy, love language, growth trajectory, and memorable moments.
+SNAPSHOTS VS WINDOWS: You will receive EARLY and RECENT contiguous snapshots plus event windows. Use the snapshots ONLY for the growth/change fields (thenDepth, nowDepth, depthChange, whoChangedMore, whoChangedHow, topicsAppeared, topicsDisappeared, trajectory, trajectoryDetail, arcSummary). Use the event windows for everything else.
+PARTICIPANTS: ${names.slice(0, isGroup ? names.length : 2).join(", ")}. The people array must follow this order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"} only, one entry each. Other senders may appear in windows: track them for shared fields but never create people entries for them, and never fold their actions into a slotted participant's entry.
+SUMMARY FIELDS: vibeOneLiner, biggestTopic, and insideJoke must reflect what recurs across multiple windows, never a single window. If you cannot confirm recurrence, do not claim it.
+MEMORABLE MOMENTS: Select 3 to 6 moments, each from a different window and a different exchange. Prefer funny, warm, awkward, revealing, or signature over generic filler. The quote must be a short exact string from the provided windows or empty. The read should feel like a card someone would screenshot.
+TIME OF DAY: Derive from timestamps in the windows; each timestamp already includes the day of week, read it directly.
+GUESS THRESHOLDS: true only when the answer is clear AND non-obvious; err toward false.`,
     chatLang,
     relationshipLine
   );
 
-  const userContent = `Here is a ${isGroup ? "group" : "two-person"} WhatsApp chat between ${names.slice(0, 6).join(", ")}. The full chat has ${math.totalMessages.toLocaleString()} messages. ${math.totalMessages > 10000 ? `This is a very large chat - every summary field (especially vibeOneLiner, biggestTopic, insideJoke) must reflect dominant patterns that recur across the full history. A single window is a tiny fraction of the whole. Never let one moment, joke, or exchange define a summary field. Weight only what appears repeatedly across multiple windows.` : ""} The content below is divided into ISOLATED WINDOWS from across the full history - each labelled ━━━ WINDOW N/N · date · type ━━━. Windows are non-contiguous excerpts; do not infer connections between separate windows. Every line shows the speaker: [timestamp] SpeakerName: body - assign all quotes and actions only to the name on that specific line.
+  const largeChatNote = math.totalMessages > 10000
+    ? " This is a very large chat: every summary field must reflect dominant patterns recurring across the full history. Never let one moment, joke, or exchange define a summary field."
+    : "";
 
-IMPORTANT CONTEXT: ${isGroup ? `The least active member (the ghost) is ${math.ghost}. The conversation starter is ${math.convStarter}.` : `By reply time, ${math.ghostName} is slower to respond. The conversation starter is ${math.convStarter}. Local analysis found that ${math.funniestPerson} caused the most laugh reactions from the other person (${math.laughCausedBy?.[math.funniestPerson] || 0} times) - confirm or correct this based on the chat.`}
-${!isGroup && relationshipContext?.evidence ? `RELATIONSHIP EVIDENCE: A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}". Use it as confirmation, but do not over-quote it.` : ""}
+  const userContent = `${buildWindowIntro(names, math.totalMessages, isGroup, largeChatNote)}
 
-EARLY SNAPSHOT (contiguous excerpt from the start of the chat - use ONLY for growth/change fields: thenDepth, nowDepth, depthChange, whoChangedMore, whoChangedHow, topicsAppeared, topicsDisappeared, trajectory, trajectoryDetail, arcSummary):
+${buildDuoLocalContext(math, relationshipContext, isGroup)}
+${buildTopicSpreadLine(math)}
+${candidatesText ? `\n${candidatesText}\n` : ""}
+EARLY SNAPSHOT (contiguous excerpt from the start of the chat - use ONLY for growth/change fields):
 ${earlyText}
 
-RECENT SNAPSHOT (contiguous excerpt from the end of the chat - use ONLY for the same growth/change fields listed above. Do not cite snapshot content for any other field):
+RECENT SNAPSHOT (contiguous excerpt from the end of the chat - use ONLY for growth/change fields):
 ${lateText}
 
-EVENT WINDOWS (use these for all non-growth fields - specific moments, quotes, patterns, kindness, humor, tension, red flags, love language, energy):
+EVENT WINDOWS (use these for all non-growth fields):
 ${chatText}
 
-Return exactly this JSON structure. JSON rules: (1) return ONLY valid JSON — no markdown, no text outside the JSON object; (2) the "examples" field MUST be an array of strings where each item is one sentence under 120 characters with no embedded line breaks; (3) never embed literal newline or tab characters inside any string value anywhere in the output.
+Return exactly this JSON structure:
 ${fields}`;
 
   return {
@@ -443,10 +502,18 @@ ${fields}`;
     userContent,
     maxTokens,
     schemaMode: "analysis",
+    schemaId: null,
     relationshipContext,
     relationshipLine,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// CORE B (legacy risk analysis — kept for the debug panel and fallbacks)
+// ─────────────────────────────────────────────────────────────────
+
+const RISK_SCOPE_RULES = `ACCOUNTABILITY RULES: Count only concrete commitments with a clear actor and action. A vague wish like "we should hang out sometime" is not a promise unless there is a specific plan, time, task, or follow-up. A promise is BROKEN only if there is clear evidence it was never fulfilled, explicitly cancelled, forgotten, or abandoned. A promise fulfilled late is still KEPT. A delay is not a failure unless the chat shows pressure, repeated postponement, or a missed agreed time. If the evidence is weak, say it is weak and use "None clearly identified" rather than forcing a dramatic broken promise. Prefer meaningful commitments over tiny logistics, and compare both people fairly.
+RISK VOICE: Careful but still human. No courtroom language unless the chat is clearly severe. Never make one person the villain from one or two examples. Use grounded phrasing like "this is more messy than malicious" or "the pattern is avoidance, not open conflict" when supported. Never combine two separate events into one story.`;
 
 export function prepareCoreAnalysisBRequest({
   messages,
@@ -499,46 +566,46 @@ export function prepareCoreAnalysisBRequest({
       "apologiesLeader": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 sentence - context and pattern" },
       "apologiesOther": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 sentence - context and pattern" },
       "redFlagMoments": [
-        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
-        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
-        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" }
+        { "date": "approximate period only (e.g. 'early on', 'recently')", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
+        { "date": "approximate period only", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" },
+        { "date": "approximate period only", "person": "first name", "description": "what happened specifically", "quote": "short real quote from that moment" }
       ],
       "conflictPattern": "1 sentence - how arguments usually start and resolve or fail to resolve",
       "powerBalance": "1 sentence - who holds more power in this dynamic and how it shows up",
       "powerHolder": "first name of who holds more power, or 'Balanced'",
       "verdict": "1 punchy sentence verdict on the overall health of this chat",
-      "whatStillHere": "1 sentence — the genuine positive thread that runs through the chat despite its tension: what keeps these two people talking — empty string if not clearly supported",
+      "whatStillHere": "1 sentence - the genuine positive thread that runs through the chat despite its tension - empty string if not clearly supported",
       "heavyAttributionQuote": {
         "quote": "short real quote from the most charged moment in the conflict cluster",
         "person": "first name of sender",
-        "contextParagraph": "1 sentence — what was happening around this message and why it mattered",
-        "isSensitive": "[true if the message involves threats, self-harm, sexual pressure, or severe abuse — false otherwise]"
+        "contextParagraph": "1 sentence - what was happening around this message and why it mattered",
+        "isSensitive": "[true if the message involves threats, self-harm, sexual pressure, or severe abuse - false otherwise]"
       },
-      "apologyGuessThreshold": "[true only if the apology gap is large and non-obvious — one person apologises more than twice the other — false if close or predictable]",
-      "powerGuessThreshold": "[true only if there is a clear, non-obvious power imbalance — false if Balanced or borderline]"
+      "apologyGuessThreshold": "[true only if the apology gap is large and non-obvious - one person apologises more than twice the other - false if close or predictable]",
+      "powerGuessThreshold": "[true only if there is a clear, non-obvious power imbalance - false if Balanced or borderline]"
     },
     "accountability": {
       "notableBroken": {
         "person": "first name or None clearly identified",
         "promise": "what they said they'd do - quote or close paraphrase",
-        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
+        "date": "approximate period only",
         "outcome": "what actually happened, or didn't"
       },
       "notableKept": {
         "person": "first name or None clearly identified",
         "promise": "what they committed to - quote or close paraphrase",
-        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
+        "date": "approximate period only",
         "outcome": "how they followed through"
       },
       "overallVerdict": "1 sentence verdict on accountability in this chat overall",
-      "reliabilityArc": "1 sentence — did accountability improve or decline over the chat's lifespan? Use evidence from early vs late windows — empty string if no clear arc",
+      "reliabilityArc": "1 sentence - did accountability improve or decline over the chat's lifespan? Use evidence from early vs late windows - empty string if no clear arc",
       "promiseThatMattered": {
         "person": "first name or None clearly identified",
         "promise": "what they committed to - quote or close paraphrase",
         "outcome": "what happened",
-        "contextParagraph": "1 sentence — why this specific promise mattered to the arc of the relationship"
+        "contextParagraph": "1 sentence - why this specific promise mattered to the arc of the relationship"
       },
-      "promiseGuessThreshold": "[true only if there is a clear, surprising difference in promise count between the two people — false if similar or obvious]"
+      "promiseGuessThreshold": "[true only if there is a clear, surprising difference in promise count between the two people - false if similar or obvious]"
     }
   }
 }`;
@@ -546,12 +613,15 @@ export function prepareCoreAnalysisBRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a careful risk, conflict, and accountability analyst building the canonical core-b object",
     relationshipType,
-    `CORE-B SCOPE: toxicity, health scores, apology patterns, conflict patterns, power balance, red flag moments, accountability, what still remains positive, attribution quotes, and guess thresholds. WHAT STILL HERE: only populate whatStillHere if there is a genuine positive thread clearly visible in the windows; use empty string if not. HEAVY ATTRIBUTION QUOTE: select the single most charged real quote from a conflict window; mark isSensitive as true if it involves threats, self-harm, sexual pressure, or severe abuse. GUESS THRESHOLDS: apologyGuessThreshold and powerGuessThreshold are true only when the gap is large and non-obvious to the user — err toward false if borderline. RELIABILITY ARC: compare early and late windows for promise follow-through; use empty string if the evidence is thin or unclear. PROMISE THAT MATTERED: select the promise with the clearest downstream effect on the relationship — not just the biggest or most broken. WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers - never connect separate windows unless the messages explicitly link them. SPEAKER ATTRIBUTION: Every line is [timestamp] SpeakerName: body - all behaviour belongs only to the sender on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. Always use the confirmed relationship label when describing who did something to whom. Be conservative: one or two examples do not prove a stable pattern. If the balance is mixed, prefer "Balanced", "Tie", or "None clearly identified" over forcing one villain. For accountability: a promise is BROKEN only if there is clear evidence it was never fulfilled or the person explicitly backed out. A promise fulfilled late is still KEPT. Do not count vague ideas like "we should hang out sometime" as promises. Never combine two separate events into one story. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, with one people entry per participant in that subset.`,
+    `CORE-B SCOPE: toxicity, health scores, apology patterns, conflict patterns, power balance, red flag moments, accountability, what still remains positive, attribution quotes, and guess thresholds.
+WHAT STILL HERE: Only populate if a genuine positive thread is clearly visible; empty string otherwise. HEAVY ATTRIBUTION QUOTE: the single most charged real quote from a conflict window; isSensitive is true for threats, self-harm, sexual pressure, or severe abuse. GUESS THRESHOLDS: true only when the gap is large and non-obvious; err toward false. RELIABILITY ARC: empty string if evidence is thin. PROMISE THAT MATTERED: the promise with the clearest downstream effect, not just the biggest or most broken.
+PARTICIPANTS: The people array follows the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, one entry each.
+${RISK_SCOPE_RULES}`,
     chatLang,
     relationshipLine
   );
 
-  const userContent = `Here is a WhatsApp chat between ${names.slice(0, 6).join(", ")} (${math.totalMessages.toLocaleString()} messages total). ${!isGroup && relationshipContext?.evidence ? `A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}".` : ""} The content below is ISOLATED WINDOWS from across the full history. Do not connect events across windows unless the messages explicitly link them. Every line shows the speaker: [timestamp] SpeakerName: body.
+  const userContent = `Here is a WhatsApp chat between ${names.slice(0, 6).join(", ")} (${math.totalMessages.toLocaleString()} messages total). ${!isGroup && relationshipContext?.evidence ? `A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}".` : ""} The content below is ISOLATED WINDOWS from across the full history.
 
 ${chatText}
 
@@ -564,10 +634,15 @@ ${fields}`;
     userContent,
     maxTokens,
     schemaMode: "analysis",
+    schemaId: null,
     relationshipContext,
     relationshipLine,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// RISK DIGEST
+// ─────────────────────────────────────────────────────────────────
 
 export function prepareRiskDigestRequest({
   messages,
@@ -579,6 +654,7 @@ export function prepareRiskDigestRequest({
   buildRelationshipLine,
   buildSampleText,
   extraRiskRules = "",
+  candidatesText = "",
   coreAnalysisVersion,
   maxTokens,
 }) {
@@ -621,49 +697,49 @@ export function prepareRiskDigestRequest({
       "apologiesLeader": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 short sentence - context and pattern" },
       "apologiesOther": { "name": "first name or None clearly identified", "count": [estimated count], "context": "1 short sentence - context and pattern" },
       "redFlagMoments": [
-        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
-        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
-        { "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" }
+        { "date": "approximate period only (e.g. 'early on', 'recently')", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
+        { "date": "approximate period only", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" },
+        { "date": "approximate period only", "person": "first name", "description": "short factual description", "quote": "short real quote from that moment" }
       ],
       "conflictPattern": "1 short sentence - how arguments usually start and resolve or fail to resolve",
       "powerBalance": "1 short sentence - who holds more power in this dynamic and how it shows up",
       "powerHolder": "first name of who holds more power, or 'Balanced'",
       "verdict": "1 short sentence verdict on the overall health of this chat",
-      "whatStillHere": "1 short sentence — the genuine positive thread in the chat despite its tension — empty string if not clearly supported",
+      "whatStillHere": "1 short sentence - the genuine positive thread in the chat despite its tension - empty string if not clearly supported",
       "heavyAttributionQuote": {
         "quote": "short real quote from the most charged conflict moment",
         "person": "first name of sender",
-        "contextParagraph": "1 short sentence — what was happening around this message",
-        "isSensitive": "[true if it involves threats, self-harm, sexual pressure, or severe abuse — false otherwise]"
+        "contextParagraph": "1 short sentence - what was happening around this message",
+        "isSensitive": "[true if it involves threats, self-harm, sexual pressure, or severe abuse - false otherwise]"
       },
-      "apologyGuessThreshold": "[true only if the apology gap is large and non-obvious — false if close or predictable]",
-      "powerGuessThreshold": "[true only if there is a clear non-obvious power imbalance — false if Balanced or borderline]"
+      "apologyGuessThreshold": "[true only if the apology gap is large and non-obvious - false if close or predictable]",
+      "powerGuessThreshold": "[true only if there is a clear non-obvious power imbalance - false if Balanced or borderline]"
     },
     "accountability": {
       "notableBroken": {
         "person": "first name or None clearly identified",
         "promise": "what they said they'd do - quote or close paraphrase",
-        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
+        "date": "approximate period only",
         "outcome": "what actually happened, or didn't"
       },
       "notableKept": {
         "person": "first name or None clearly identified",
         "promise": "what they committed to - quote or close paraphrase",
-        "date": "approximate period only (e.g. 'early on', 'recently') — never a specific calendar date",
+        "date": "approximate period only",
         "outcome": "how they followed through"
       },
       "comparison": "1 short sentence comparing both people's follow-through fairly, only if supported",
       "followThroughPattern": "1 short sentence naming the real pattern around kept, delayed, dropped, or unclear commitments",
       "evidenceQuality": "1 short sentence saying whether the promise evidence is strong, mixed, thin, or mostly casual",
       "overallVerdict": "1 short sentence verdict on accountability in this chat overall",
-      "reliabilityArc": "1 short sentence — did accountability improve or decline over the chat's lifespan — empty string if no clear arc",
+      "reliabilityArc": "1 short sentence - did accountability improve or decline over the chat's lifespan - empty string if no clear arc",
       "promiseThatMattered": {
         "person": "first name or None clearly identified",
         "promise": "what they committed to - quote or close paraphrase",
         "outcome": "what happened",
-        "contextParagraph": "1 short sentence — why this promise mattered to the arc of the relationship"
+        "contextParagraph": "1 short sentence - why this promise mattered to the arc of the relationship"
       },
-      "promiseGuessThreshold": "[true only if there is a clear surprising difference in promise count — false if similar or obvious]"
+      "promiseGuessThreshold": "[true only if there is a clear surprising difference in promise count - false if similar or obvious]"
     }
   }
 }`;
@@ -671,13 +747,16 @@ export function prepareRiskDigestRequest({
   const systemPrompt = buildAnalystSystemPrompt(
     "a careful risk, conflict, and accountability analyst building a compact risk digest",
     relationshipType,
-    `RISK DIGEST SCOPE: toxicity, chat health, apology patterns, conflict patterns, power balance, red flag moments, accountability, what still remains positive, attribution quotes, and guess thresholds. Do NOT generate relationship summaries, growth, timelines, love-language, or energy reads. WHAT STILL HERE: only populate if a genuine positive thread is visible; use empty string otherwise. HEAVY ATTRIBUTION QUOTE: one real quote from the conflict cluster; mark isSensitive as true for threats, self-harm, sexual pressure, or severe abuse. GUESS THRESHOLDS: true only when the gap is large and non-obvious — err toward false if borderline. RELIABILITY ARC: use empty string if evidence is thin. PROMISE THAT MATTERED: the promise with the clearest downstream effect, not just biggest or most broken. Keep every free-text field compact and factual: one sentence whenever possible, no padding, no repeated ideas across fields. RISK VOICE: Keep risk, conflict, and accountability outputs careful but still human. Avoid courtroom language unless the chat is clearly severe. Do not make one person the villain from one or two examples. Use grounded phrasing like "this is more messy than malicious" or "the pattern is avoidance, not open conflict" when supported. Do not use the em dash punctuation mark. ACCOUNTABILITY RULES: Count only concrete commitments with a clear actor and action. A vague wish like "we should hang out sometime" is not a promise unless there is a specific plan, time, task, or follow-up. A promise is BROKEN only if there is clear evidence it was never fulfilled, explicitly cancelled, forgotten, or abandoned. A delay is not a failure unless the chat shows pressure, repeated postponement, or a missed agreed time. If the evidence is weak, say it is weak and use "None clearly identified" instead of forcing a dramatic broken promise. Prefer meaningful commitments over tiny logistics. Compare both people fairly and mention balance when the evidence is close or mixed. ${extraRiskRules} WINDOW FORMAT: The chat is delivered as isolated windows separated by ━━━ headers, never connect separate windows unless the messages explicitly link them. SPEAKER ATTRIBUTION: Every line is [timestamp] SpeakerName: body, all behaviour belongs only to the sender on that exact line. RELATIONSHIP LANGUAGE: The user selected relationship type is "${relationshipType}". ${relationshipLine} Never infer or override the relationship type from tone, emoji use, or affection level alone. Always use the confirmed relationship label when describing who did something to whom. Be conservative: one or two examples do not prove a stable pattern. If the balance is mixed, prefer "Balanced", "Tie", or "None clearly identified" over forcing one villain. For accountability: a promise is BROKEN only if there is clear evidence it was never fulfilled or the person explicitly backed out. A promise fulfilled late is still KEPT. Do not count vague ideas like "we should hang out sometime" as promises. Never combine two separate events into one story. Make the people array follow the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, with one people entry per participant in that subset.`,
+    `RISK DIGEST SCOPE: toxicity, chat health, apology patterns, conflict patterns, power balance, red flag moments, accountability, what still remains positive, attribution quotes, and guess thresholds. Do NOT generate relationship summaries, growth, timelines, love-language, or energy reads.
+WHAT STILL HERE: Only populate if a genuine positive thread is visible; empty string otherwise. HEAVY ATTRIBUTION QUOTE: one real quote from the conflict cluster; isSensitive is true for threats, self-harm, sexual pressure, or severe abuse. GUESS THRESHOLDS: true only when the gap is large and non-obvious; err toward false. RELIABILITY ARC: empty string if evidence is thin. PROMISE THAT MATTERED: the promise with the clearest downstream effect, not just the biggest or most broken.
+PARTICIPANTS: The people array follows the provided name order for the first ${personCount || 1} participant${personCount === 1 ? "" : "s"}, one entry each.
+${RISK_SCOPE_RULES} ${extraRiskRules}`,
     chatLang,
     relationshipLine
   );
 
-  const userContent = `Here is a WhatsApp chat between ${names.slice(0, 6).join(", ")} (${math.totalMessages.toLocaleString()} messages total). ${!isGroup && relationshipContext?.evidence ? `A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}".` : ""} The content below is ISOLATED WINDOWS from across the full history. Do not connect events across windows unless the messages explicitly link them. Every line shows the speaker: [timestamp] SpeakerName: body.
-
+  const userContent = `Here is a WhatsApp chat between ${names.slice(0, 6).join(", ")} (${math.totalMessages.toLocaleString()} messages total). ${!isGroup && relationshipContext?.evidence ? `A direct-address snippet supporting the confirmed relationship is: "${relationshipContext.evidence}".` : ""} The content below is ISOLATED WINDOWS from across the full history.
+${candidatesText ? `\n${candidatesText}\n` : ""}
 ${chatText}
 
 Return exactly this JSON structure:
@@ -689,6 +768,7 @@ ${fields}`;
     userContent,
     maxTokens,
     schemaMode: "analysis",
+    schemaId: "risk",
     relationshipContext,
     relationshipLine,
   };

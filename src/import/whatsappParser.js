@@ -1,8 +1,23 @@
-import { MIN_MESSAGES } from "./normalizedSchema";
+import { MIN_MESSAGES } from "./normalizedSchema.js";
 
 const INVISIBLE_CHAR_RE = /[\u200e\u200f\u202a-\u202e\ufeff\u2066-\u2069]/g;
+const DIRECTION_MARK_RE = /[\u200e\u200f]/;
 const LINE_BREAK_RE = /\r\n?/g;
-const SYSTEM_MESSAGE_RE = /end-to-end encrypted|end-to-end şifreli|security code|messages and calls are end-to-end encrypted|messages and calls|mesajlar ve aramalar|created group|changed the subject|changed this group's icon|changed the group description|added|removed|left|joined using this group's invite link|you deleted this message|this message was deleted/i;
+// Phrases that identify a system message wherever they appear. Only phrases
+// that cannot plausibly occur in real conversation belong here — bare words
+// like "added", "removed", and "left" used to live in this list and silently
+// deleted real messages ("I left work early", "she added me on insta").
+const SYSTEM_MESSAGE_RE = /end-to-end encrypted|end-to-end şifreli|uçtan uca şifreli|security code|created group|created this group|changed this group's icon|changed the group description|joined using this group's invite link|you deleted this message|this message was deleted/i;
+// Group-membership events ("Alice added Bob", "Bob left"). In iOS exports
+// these can appear colon-attributed to the group name, so they parse like real
+// messages — but WhatsApp prefixes system/media lines with a Unicode direction
+// mark that real typed messages almost never carry. These words are only
+// treated as system content when that mark was present on the raw line.
+const GROUP_EVENT_RE = /\b(added|removed|left|joined|changed the subject|created|pinned a message)\b/i;
+// Continuation lines that start with a date-time stamp are system lines
+// (encryption notices, membership events, call logs) in every locale — real
+// multi-line message content does not begin with a full export timestamp.
+const DATED_SYSTEM_LINE_RE = /^\[?\d{1,4}[./-]\d{1,2}[./-]\d{1,4},?\s*\d{1,2}:\d{2}/;
 
 const HEADER_PATTERNS = [
   {
@@ -14,12 +29,6 @@ const HEADER_PATTERNS = [
     re: /^(\d{1,4}[./-]\d{1,2}[./-]\d{1,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s?(?:[APap]\.?[Mm]\.?)?)\s[-–—]\s([^:]+?):\s?(.*)$/,
   },
 ];
-
-function cleanExportText(text) {
-  return String(text || "")
-    .replace(INVISIBLE_CHAR_RE, "")
-    .replace(LINE_BREAK_RE, "\n");
-}
 
 function getHeaderPattern(lines) {
   for (const line of lines) {
@@ -120,9 +129,15 @@ function flattenBodyForAnalysis(text) {
 }
 
 export function parseWhatsAppExport(text) {
-  const cleanText = cleanExportText(text);
-  const rawLines = cleanText.split("\n");
-  const pattern = getHeaderPattern(rawLines);
+  const rawLines = String(text || "").replace(LINE_BREAK_RE, "\n").split("\n");
+  // Track WhatsApp's direction marks per raw line before stripping them —
+  // their presence is the only reliable signal separating iOS system/media
+  // lines from real typed messages.
+  const lines = rawLines.map(raw => ({
+    text: raw.replace(INVISIBLE_CHAR_RE, ""),
+    hadDirectionMark: DIRECTION_MARK_RE.test(raw),
+  }));
+  const pattern = getHeaderPattern(lines.map(line => line.text));
 
   if (!pattern) {
     return {
@@ -134,15 +149,26 @@ export function parseWhatsAppExport(text) {
     };
   }
 
-  const dateOrder = inferDateOrder(rawLines, pattern);
-  const joinedLines = [];
+  const dateOrder = inferDateOrder(lines.map(line => line.text), pattern);
+  const joined = [];
 
-  for (const line of rawLines) {
-    if (pattern.re.test(line)) {
-      joinedLines.push(line);
-    } else if (joinedLines.length > 0) {
-      const trimmed = line.trimEnd();
-      if (trimmed) joinedLines[joinedLines.length - 1] += `\n${trimmed}`;
+  for (const line of lines) {
+    if (pattern.re.test(line.text)) {
+      joined.push({
+        head: line.text,
+        continuation: "",
+        hadDirectionMark: line.hadDirectionMark,
+      });
+    } else if (joined.length > 0) {
+      const trimmed = line.text.trimEnd();
+      if (!trimmed) continue;
+      // Dated non-header lines are system lines (membership events, call
+      // logs, encryption notices) — dropping them here keeps them from being
+      // glued onto the previous real message.
+      if (DATED_SYSTEM_LINE_RE.test(trimmed)) continue;
+      const last = joined[joined.length - 1];
+      last.continuation += last.continuation ? `\n${trimmed}` : trimmed;
+      last.hadDirectionMark = last.hadDirectionMark || line.hadDirectionMark;
     }
   }
 
@@ -150,16 +176,21 @@ export function parseWhatsAppExport(text) {
   const seenParticipants = new Set();
   const messages = [];
 
-  for (const line of joinedLines) {
-    const match = line.match(pattern.re);
+  for (const entry of joined) {
+    // Match against the header line only — the previous implementation
+    // matched against the joined multi-line string, which the un-flagged `$`
+    // anchor can never match, so every multi-line message was dropped.
+    const match = entry.head.match(pattern.re);
     if (!match) continue;
 
     const timestamp = parseTimestamp(match[1], match[2], dateOrder);
     const sender = String(match[3] || "").trim();
-    const textBody = normalizeBody(match[4]);
+    const rawBody = entry.continuation ? `${match[4]}\n${entry.continuation}` : match[4];
+    const textBody = normalizeBody(rawBody);
 
     if (!timestamp || !sender || !textBody) continue;
     if (SYSTEM_MESSAGE_RE.test(sender) || SYSTEM_MESSAGE_RE.test(textBody)) continue;
+    if (entry.hadDirectionMark && GROUP_EVENT_RE.test(textBody)) continue;
 
     if (!seenParticipants.has(sender)) {
       seenParticipants.add(sender);

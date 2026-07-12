@@ -103,7 +103,10 @@ export function getShareCaptureHeight(el) {
   const rect = el.getBoundingClientRect();
   const panes = Array.from(el.querySelectorAll(".wc-pane"));
   const paneHeight = panes.reduce((max, pane) => Math.max(max, pane.scrollHeight || 0), 0);
-  return Math.ceil(Math.max((rect.height || 0) + 72, (el.scrollHeight || 0) + 72, paneHeight + 150));
+  // Natural card height only — the logo is overlaid on the waves, not given
+  // its own footer strip. The pane allowance only kicks in when card content
+  // is taller than the viewport (scrollable cards).
+  return Math.ceil(Math.max(rect.height || 0, el.scrollHeight || 0, paneHeight + 120));
 }
 
 export async function waitForShareAssets(el) {
@@ -241,17 +244,20 @@ export async function buildShareCanvas(type, logoSrc) {
           });
         });
 
-        const brand = clonedDoc.createElement("div");
-        Object.assign(brand.style, {
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "100%",
-          flex: "0 0 auto",
-          padding: "8px 20px 26px",
-          pointerEvents: "none",
-        });
+        // Logo overlays the waves at bottom center — no extra footer strip.
         if (tintedLogoMarkup) {
+          const brand = clonedDoc.createElement("div");
+          Object.assign(brand.style, {
+            position: "absolute",
+            left: "0",
+            right: "0",
+            bottom: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: "30",
+          });
           const logoWrap = clonedDoc.createElement("div");
           logoWrap.innerHTML = tintedLogoMarkup;
           Object.assign(logoWrap.style, {
@@ -271,8 +277,8 @@ export async function buildShareCanvas(type, logoSrc) {
             });
           }
           brand.appendChild(logoWrap);
+          root.appendChild(brand);
         }
-        root.appendChild(brand);
       },
     });
   } finally {
@@ -619,6 +625,37 @@ export const SCREEN_HEADER_BLOCK_STYLE = {
   flexShrink:0,
   marginBottom:12,
 };
+// Scrollable page body that lives BELOW a pinned header: the header stays
+// put and content scrolls under it (the My Results structure, now the
+// contract for every headered page).
+export const SCREEN_BODY_SCROLL_STYLE = {
+  flex:1,
+  minHeight:0,
+  overflowY:"auto",
+  overscrollBehavior:"contain",
+  display:"flex",
+  flexDirection:"column",
+  paddingBottom:"calc(24px + env(safe-area-inset-bottom, 0px))",
+};
+// Pins a header row to the top of a scrolling page. pullTop 16 bleeds over
+// the Shell pane's top padding (pages that scroll the pane itself); pullTop 0
+// is for pages with their own full-bleed scroll wrapper (paddingTop 0).
+// alpha < 1 lets content scrolling under the header show through faintly;
+// blur (px) frosts whatever shows through so it reads as a glow, not text.
+export function getStickyHeaderStyle(isLight, { pullTop = 16, alpha = 1, blur = 0 } = {}) {
+  return {
+    position:"sticky",
+    top:0,
+    zIndex:20,
+    background: isLight ? `rgba(237,232,220,${alpha})` : `rgba(31,24,78,${alpha})`,
+    ...(blur > 0 ? {
+      backdropFilter:`blur(${blur}px)`,
+      WebkitBackdropFilter:`blur(${blur}px)`,
+    } : {}),
+    margin:`${-pullTop}px -20px 12px`,
+    padding:"16px 20px 10px",
+  };
+}
 
 export const THEME_BG_SECTIONS = new Set(["upload", "trial"]);
 

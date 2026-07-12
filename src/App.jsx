@@ -1168,7 +1168,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       cacheUserCredits(authedUser?.id, optimisticBalance);
     }
     const bundleId = selectedTypes.length > 1 ? crypto.randomUUID() : null;
-    const successfulRuns = [];
+    const generatedRuns = [];
     const failedTypes = [];
     let firstAnalysisError = null;
 
@@ -1196,15 +1196,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
           failedTypes.push(type);
           continue;
         }
-        const creditMeta = {
-          reportTypes: selectedTypes,
-          creditCost: getReportCreditCost(type),
-          totalRunCreditCost: runCreditCost,
-          bundleName,
-        };
-        // eslint-disable-next-line no-await-in-loop
-        const saved = await saveResult(type, result, math, bundleId, creditMeta);
-        successfulRuns.push({ type, result, savedId: saved?.id || null });
+        generatedRuns.push({ type, result });
       } catch (error) {
         console.error(`Analysis failed for report "${type}" [lang=${contentLang}]`, error);
         if (!firstAnalysisError) firstAnalysisError = error;
@@ -1212,7 +1204,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       }
     }
 
-    if (!successfulRuns.length) {
+    if (!generatedRuns.length) {
       if (shouldOptimisticallyDecrement) {
         setCredits(optimisticCreditStart);
         cacheUserCredits(authedUser?.id, optimisticCreditStart);
@@ -1221,16 +1213,38 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       return;
     }
 
+    // Charge before anything is persisted — a failed deduction must not leave
+    // free reports sitting in history.
     if (!skipCreditDeduction) {
       try {
-        await deductCreditsBatch(successfulRuns.map(run => run.type), activeAccessMode, runCreditCost);
+        await deductCreditsBatch(generatedRuns.map(run => run.type), activeAccessMode, runCreditCost);
       } catch {
         if (shouldOptimisticallyDecrement) {
           setCredits(optimisticCreditStart);
           cacheUserCredits(authedUser?.id, optimisticCreditStart);
         }
-        failBackToSelection("Couldn't persist your unlock. No credits were used. Please try again.");
+        failBackToSelection("Couldn't complete your unlock. No credits were used and nothing was saved. Please try again.");
         return;
+      }
+    }
+
+    const successfulRuns = [];
+    for (const run of generatedRuns) {
+      const creditMeta = {
+        reportTypes: selectedTypes,
+        creditCost: getReportCreditCost(run.type),
+        totalRunCreditCost: runCreditCost,
+        bundleName,
+      };
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const saved = await saveResult(run.type, run.result, math, bundleId, creditMeta);
+        successfulRuns.push({ ...run, savedId: saved?.id || null });
+      } catch (error) {
+        // The user already paid — keep the result usable in this session even
+        // if persistence failed.
+        console.error(`Saving report "${run.type}" failed`, error);
+        successfulRuns.push({ ...run, savedId: null });
       }
     }
     if (consumePackIds.length && authedUser?.id && !authedIsAdmin) {
