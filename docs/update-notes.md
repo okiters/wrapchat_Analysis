@@ -6,7 +6,10 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
-_Nothing pending._
+### Light-theme ink audit (audit item: accessibility / white-on-accent contrast)
+**Files:** `src/ui/Shell.jsx`, `src/screens/Screens.jsx`
+
+White text hardcoded across themed (upload/trial) screens was invisible on the cream light background. New `ThemedSurfaceContext` in Shell marks sections whose background follows the theme; a `useInk()` hook in Screens maps ink to the surface (white family on the fixed dark report palettes, `#1f184e` alphas on cream). Applied to the base primitives `T`/`Big`/`Sub`/`Cell`/`Words`/`Dots`/`Nav` — report screens are untouched (context defaults to dark ink). Per-screen fixes: TrialReportScreen labels/info card/pack-explainer title, TermsFlow scroll caption, PreviewAuthConfirmed card, UpgradePlaceholder credits chip + disabled Unlock button, and the MyResults name-detail cards (now use `REPORT_BUFFER_STYLE_LIGHT` + `da.*` text like PackResultsBuffer already did). Dots on permanently-dark overlays (AICard, delete confirms) pin white via the new `color` prop. Pack stepper "+" now uses each pack's `fg` (white failed 2.5:1 on the yellow/green accents). Also fixed the pre-existing rules-of-hooks error in `AnalysisDotsCounter` (early return before `useTheme`). Measured contrast after: light body text 4.9–13.2:1, dark 5.7–16.2:1. Suite 51/51, eslint 0 errors.
 
 ---
 

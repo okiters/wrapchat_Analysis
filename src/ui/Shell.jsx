@@ -17,6 +17,9 @@ export const ShareResultsContext   = createContext(null);
 export const FeedbackContext       = createContext(null);
 export const SlideContext          = createContext({ dir: "fwd", id: 0, animateIn: false });
 export const SectionPaletteContext = createContext(null);
+// True when the current Shell section renders the theme background (cream in
+// light mode) instead of a fixed dark report palette — text must follow da.*.
+export const ThemedSurfaceContext  = createContext(false);
 
 // ─────────────────────────────────────────────────────────────────
 // UI PRIMITIVES  — bold rounded-card aesthetic
@@ -718,6 +721,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
 
   return (
     <SectionPaletteContext.Provider value={p}>
+    <ThemedSurfaceContext.Provider value={THEME_BG_SECTIONS.has(sec)}>
     <>
       <style>{`
         .wc-root * { box-sizing: border-box; }
@@ -901,6 +905,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         </div>
       </div>
     </>
+    </ThemedSurfaceContext.Provider>
     </SectionPaletteContext.Provider>
   );
 }

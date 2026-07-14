@@ -72,6 +72,7 @@ import {
 } from "../analysis/aiAnalysis";
 import {
   CloseResultsContext, ShareResultsContext, FeedbackContext, SlideContext, SectionPaletteContext,
+  ThemedSurfaceContext,
   PAL, PILL_LABEL, PACK_DEFS, PACK_ORDER, PACK_COIN_FILTER, REPORT_BUFFER_STYLE, REPORT_BUFFER_STYLE_LIGHT,
   REPORT_TYPES, CREDIT_PACKS, reportTypeMeta, packForReports, packForSavedRows,
   normalizeSelectedReportTypes, buildShareCanvas, canShareFiles, downloadBlob, canvasToBlob,
@@ -113,16 +114,26 @@ const ADMIN_EMAILS = Array.from(new Set(
     .filter(Boolean)
 ));
 
-// Typography
-const T   = ({s=26,children}) => (
-  <div className="wc-fadeup" style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:"#fff", letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
-);
-const Big = ({children}) => (
-  <div className="wc-fadeup-2" style={{ fontSize:44, fontWeight:900, textAlign:"center", color:"#fff", letterSpacing:-1.5, width:"100%", lineHeight:1.05, wordBreak:"break-word", margin:"6px 0 2px" }}>{children}</div>
-);
-const Sub = ({children, mt=6}) => (
-  <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.65)", lineHeight:1.6, width:"100%", marginTop:mt, fontWeight:400 }}>{children}</div>
-);
+// Typography — ink follows the surface: white on report palettes, da.* on
+// themed sections in light mode (see useInk).
+const T   = ({s=26,children}) => {
+  const ink = useInk();
+  return (
+    <div className="wc-fadeup" style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:ink.text, letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
+  );
+};
+const Big = ({children}) => {
+  const ink = useInk();
+  return (
+    <div className="wc-fadeup-2" style={{ fontSize:44, fontWeight:900, textAlign:"center", color:ink.text, letterSpacing:-1.5, width:"100%", lineHeight:1.05, wordBreak:"break-word", margin:"6px 0 2px" }}>{children}</div>
+  );
+};
+const Sub = ({children, mt=6}) => {
+  const ink = useInk();
+  return (
+    <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:ink.muted, lineHeight:1.6, width:"100%", marginTop:mt, fontWeight:400 }}>{children}</div>
+  );
+};
 
 // Inner card — the chunky rounded inner panel from the reference
 function Card({ children, accent, style={} }) {
@@ -152,10 +163,30 @@ const pick = (arr, key = "") => {
 
 const Quip = ({children}) => <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.82)", background:"rgba(255,255,255,0.07)", padding:"13px 18px", borderRadius:18, width:"100%", lineHeight:1.55, fontStyle:"italic", fontWeight:500 }}>{children}</div>;
 
-function Dots() {
+// Ink colors for the current Shell surface: white-family on the fixed dark
+// report palettes, da.* on themed (upload/trial) sections in light mode.
+// Components below Shell should use this instead of hardcoding white.
+function useInk() {
+  const themedSection = useContext(ThemedSurfaceContext);
+  const { theme } = useTheme();
+  const light = themedSection && theme === "light";
+  return {
+    light,
+    text:  light ? "#1f184e"             : "#fff",
+    muted: light ? "rgba(31,24,78,0.66)" : "rgba(255,255,255,0.65)",
+    dim:   light ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.55)",
+    faint: light ? "rgba(31,24,78,0.45)" : "rgba(255,255,255,0.4)",
+    chipBg:     light ? "rgba(31,24,78,0.07)" : "rgba(255,255,255,0.10)",
+    chipBorder: light ? "rgba(31,24,78,0.18)" : "rgba(255,255,255,0.18)",
+    cellBg:     light ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.2)",
+  };
+}
+
+function Dots({ color }) {
+  const ink = useInk();
   return (
     <div style={{ display:"flex", gap:6, padding:"4px 0" }}>
-      {[0,1,2].map(i=><div key={i} style={{ width:8,height:8,borderRadius:"50%",background:"rgba(255,255,255,0.4)",animation:`blink 1.2s ${i*0.2}s infinite` }} />)}
+      {[0,1,2].map(i=><div key={i} style={{ width:8,height:8,borderRadius:"50%",background:color || ink.faint,animation:`blink 1.2s ${i*0.2}s infinite` }} />)}
     </div>
   );
 }
@@ -173,7 +204,7 @@ function AICard({ label, value, loading }) {
       overflow: "hidden",
     }}>
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:p.accent, marginBottom:10 }}>{label}</div>
-      {loading ? <Dots /> : <div style={{ fontSize:15, color:"#fff", lineHeight:1.65, fontWeight:400 }}>{value||"—"}</div>}
+      {loading ? <Dots color="rgba(255,255,255,0.4)" /> : <div style={{ fontSize:15, color:"#fff", lineHeight:1.65, fontWeight:400 }}>{value||"—"}</div>}
     </div>
   );
 }
@@ -392,13 +423,14 @@ function Btn({ onClick, children }) {
 function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
   const t = useT();
   const p = useContext(SectionPaletteContext) || PAL.upload;
+  const ink = useInk();
   return (
     <div data-share-hide data-nav-row="true" style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
       {showBack && (
         <button onClick={back} className="wc-btn" style={{
           flex:1, padding:"14px", borderRadius:999,
-          background:"rgba(255,255,255,0.10)", border:"1.5px solid rgba(255,255,255,0.18)",
-          fontFamily:"'Nunito Sans',sans-serif", color:"rgba(255,255,255,0.75)",
+          background:ink.chipBg, border:`1.5px solid ${ink.chipBorder}`,
+          fontFamily:"'Nunito Sans',sans-serif", color:ink.light ? "rgba(31,24,78,0.75)" : "rgba(255,255,255,0.75)",
           fontSize:15, fontWeight:700,
           display:"flex", alignItems:"center", justifyContent:"center", gap:7,
         }}><BackIcon size={13} /> {t("Back")}</button>
@@ -494,9 +526,9 @@ function PackSwatch({ pack, size = 48, inset = 9 }) {
 }
 
 function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = false }) {
-  if (hide || !Number.isInteger(credits)) return null;
   const { theme } = useTheme();
   const isLight = theme === "light";
+  if (hide || !Number.isInteger(credits)) return null;
   const useExplicitPackState = activePackIds && typeof activePackIds === "object";
   const dotPacks = PACK_ORDER.map(id => PACK_DEFS[id]).filter(Boolean);
   const ownedPacks = useExplicitPackState
@@ -600,6 +632,7 @@ function MonthBadge({ month, count, medal }) {
   );
 }
 function Words({ words, bigrams }) {
+  const ink = useInk();
   const M=["🥇","🥈","🥉"];
   const top5w=(words||[]).slice(0,5);
   const top5b=(bigrams||[]).slice(0,5);
@@ -607,20 +640,21 @@ function Words({ words, bigrams }) {
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:4 }}>
       {combined.map(({w,c},i)=>(
-        <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)", borderRadius:14 }}>
+        <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? (ink.light ? "rgba(31,24,78,0.10)" : "rgba(255,255,255,0.12)") : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.15)"), borderRadius:14 }}>
           <span style={{ width:26, fontSize:14, flexShrink:0 }}>{M[i]||i+1}</span>
-          <span style={{ flex:1, fontWeight:700, color:"#fff", fontSize:15, letterSpacing:-0.2 }}>{w}</span>
-          <span style={{ fontSize:13, color:"rgba(255,255,255,0.55)", fontWeight:600 }}>{c.toLocaleString()}x</span>
+          <span style={{ flex:1, fontWeight:700, color:ink.text, fontSize:15, letterSpacing:-0.2 }}>{w}</span>
+          <span style={{ fontSize:13, color:ink.dim, fontWeight:600 }}>{c.toLocaleString()}x</span>
         </div>
       ))}
     </div>
   );
 }
 function Cell({ label, value }) {
+  const ink = useInk();
   return (
-    <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px" }}>
-      <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:6 }}>{label}</div>
-      <div className="" style={{ fontWeight:800, color:"#fff", fontSize:16, wordBreak:"break-word", letterSpacing:-0.3 }}>{value}</div>
+    <div style={{ background:ink.cellBg, borderRadius:18, padding:"14px 16px" }}>
+      <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:ink.faint, marginBottom:6 }}>{label}</div>
+      <div className="" style={{ fontWeight:800, color:ink.text, fontSize:16, wordBreak:"break-word", letterSpacing:-0.3 }}>{value}</div>
     </div>
   );
 }
@@ -1334,6 +1368,12 @@ export const TRIAL_SCREENS = 7;
 
 export function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
   const t = useT();
+  // Every Shell in this screen is a themed section (trial/upload), so light
+  // theme means cream background: inline ink must flip with the theme.
+  const { theme } = useTheme();
+  const lightInk = theme === "light";
+  const inkText  = lightInk ? "#1f184e" : "#fff";
+  const inkLabel = lightInk ? "rgba(31,24,78,0.45)" : "rgba(255,255,255,0.4)";
   const loading = aiLoading && !ai;
   const [openPack, setOpenPack] = useState("vibe");
   const names = s.names || [];
@@ -1394,15 +1434,15 @@ export function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
 
     <Shell sec="trial" prog={4} total={TRIAL_SCREENS + 2}>
       <T>{t("Chat texture")}</T>
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:6, marginTop:4 }}>{t("Most used words")}</div>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:inkLabel, marginBottom:6, marginTop:4 }}>{t("Most used words")}</div>
       <Words words={s.topWords} bigrams={s.topBigrams} />
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:6, marginTop:10 }}>{t("Stats")}</div>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:inkLabel, marginBottom:6, marginTop:10 }}>{t("Stats")}</div>
       <div style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
         <Cell label={t("Media")} value={mediaTotal.toLocaleString()} />
         <Cell label={t("Voice")} value={voiceTotal.toLocaleString()} />
         <Cell label={t("Links")} value={linkTotal.toLocaleString()} />
       </div>
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:4, marginTop:10 }}>{t("Most used emojis")}</div>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase", color:inkLabel, marginBottom:4, marginTop:10 }}>{t("Most used emojis")}</div>
       <div style={{ width:"100%", background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"12px 16px", fontSize:22, letterSpacing:4 }}>
         {(Array.isArray(s.spiritEmoji) ? s.spiritEmoji.join(" ") : s.spiritEmoji) || "💬"}
       </div>
@@ -1433,7 +1473,7 @@ export function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
         <Cell label={t("Top month")} value={topMonth ? `${topMonth[0]} · ${topMonth[1].toLocaleString()}` : "—"} />
         <Cell label={t(s.isGroup ? "People" : "Chatters")} value={names.length || "—"} />
       </div>
-      <div style={{ width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:18, padding:"13px 16px", color:"rgba(255,255,255,0.70)", fontSize:13, lineHeight:1.55, textAlign:"center" }}>
+      <div style={{ width:"100%", background:lightInk ? "rgba(31,24,78,0.06)" : "rgba(255,255,255,0.06)", border:`1px solid ${lightInk ? "rgba(31,24,78,0.14)" : "rgba(255,255,255,0.12)"}`, borderRadius:18, padding:"13px 16px", color:lightInk ? "rgba(31,24,78,0.72)" : "rgba(255,255,255,0.70)", fontSize:13, lineHeight:1.55, textAlign:"center" }}>
         {t("There is a lot more to read in this chat. See the packs to unlock the deeper reports.")}
       </div>
       <Nav back={back} next={next} nextLabel="See packs" showArrow={false} />
@@ -1442,7 +1482,7 @@ export function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
     <Shell sec="upload" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 2} contentAlign="start" hidePill hideChromeButtons>
           <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px 0", minHeight:0, overflow:"hidden" }}>
             <div style={{ marginBottom:18, flexShrink:0 }}>
-              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, color:"#fff", letterSpacing:"-0.02em", lineHeight:1.1, textAlign:"left" }}>
+              <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, color:inkText, letterSpacing:"-0.02em", lineHeight:1.1, textAlign:"left" }}>
                 Here's what you can unlock.
               </div>
             </div>
@@ -3241,7 +3281,7 @@ export function TermsFlow({ onAccepted, onLogout }) {
       </div>
 
       {!bothRead && (
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.28)", textAlign:"center" }}>
+        <div style={{ fontSize:11, color:da.faint, textAlign:"center" }}>
           {!tosRead && !privacyRead
             ? "Scroll through both documents to continue."
             : !tosRead
@@ -4806,7 +4846,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
             </div>
             {isPayments && (
               <>
-                <div style={{ width:1, height:14, background:"rgba(255,255,255,0.12)", margin:"0 1px" }} />
+                <div style={{ width:1, height:14, background:isLight ? "rgba(31,24,78,0.16)" : "rgba(255,255,255,0.12)", margin:"0 1px" }} />
                 <button
                   type="button"
                   onClick={() => onOpenPayment(null)}
@@ -4814,10 +4854,10 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
                   aria-label="Add Credits"
                   style={{
                     width:22, height:22, borderRadius:"50%",
-                    background:"rgba(255,255,255,0.10)",
-                    border:"1px solid rgba(255,255,255,0.16)",
+                    background:isLight ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.10)",
+                    border:`1px solid ${isLight ? "rgba(31,24,78,0.20)" : "rgba(255,255,255,0.16)"}`,
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    color:"rgba(255,255,255,0.82)",
+                    color:isLight ? "rgba(31,24,78,0.82)" : "rgba(255,255,255,0.82)",
                     fontSize:14, fontWeight:700, lineHeight:1,
                     padding:0, paddingBottom:2, flexShrink:0, cursor:"pointer",
                   }}
@@ -4901,7 +4941,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
                           onClick={(event) => { event.stopPropagation(); changeQty(id, 1); }}
                           className="wc-btn"
                           aria-label={`Add ${pack.name}`}
-                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:"rgba(255,255,255,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:0, paddingBottom:2, fontSize:15, fontWeight:900, cursor:"pointer" }}
+                          style={{ width:22, height:22, borderRadius:"50%", border:"none", background:pack.accent, color:pack.fg || "#fff", display:"flex", alignItems:"center", justifyContent:"center", padding:0, paddingBottom:2, fontSize:15, fontWeight:900, cursor:"pointer" }}
                         >
                           +
                         </button>
@@ -4944,7 +4984,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
             onClick={handlePrimary}
             disabled={!canUnlockSelection}
             className="wc-btn"
-            style={{ width:"100%", padding:16, borderRadius:999, border:"none", fontSize:16, fontWeight:800, fontFamily:"'Nunito Sans',sans-serif", cursor:canUnlockSelection ? "pointer" : "default", background:canUnlockSelection ? selectedAccent : "rgba(255,255,255,0.10)", color:canUnlockSelection ? selectedFg : "rgba(255,255,255,0.30)", opacity:canUnlockSelection ? 1 : 0.72 }}
+            style={{ width:"100%", padding:16, borderRadius:999, border:"none", fontSize:16, fontWeight:800, fontFamily:"'Nunito Sans',sans-serif", cursor:canUnlockSelection ? "pointer" : "default", background:canUnlockSelection ? selectedAccent : (isLight ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.10)"), color:canUnlockSelection ? selectedFg : (isLight ? "rgba(31,24,78,0.35)" : "rgba(255,255,255,0.30)"), opacity:canUnlockSelection ? 1 : 0.72 }}
           >
             {buying ? "Unlocking..." : "Unlock"}
           </button>
@@ -6756,14 +6796,16 @@ const PREVIEW_PROFILE_WARNING = {
 
 export function PreviewAuthConfirmed({ status = "success" }) {
   const ok = status === "success";
+  const { theme } = useTheme();
+  const da = getDA(theme);
   return (
     <Shell sec="upload" prog={0} total={0} scrollable={false} hidePill hideProgressBar>
       <BrandLockup logoSrc={wrapchatLogoTransparent} logoSize={62} subtitle="Your chats, unwrapped." subtitleMarginBottom={8} />
       <div style={{ width:"100%", background:"rgba(var(--wc-p),0.12)", border:"1px solid rgba(var(--wc-p),0.24)", borderRadius:24, padding:"28px 22px", textAlign:"center" }}>
-        <div style={{ fontSize:ok ? 30 : 26, fontWeight:900, color:"#fff", letterSpacing:-1, lineHeight:1.08 }}>
+        <div style={{ fontSize:ok ? 30 : 26, fontWeight:900, color:da.text, letterSpacing:-1, lineHeight:1.08 }}>
           {ok ? "Account activated." : "Link expired or invalid."}
         </div>
-        <div style={{ marginTop:10, fontSize:14, color:"rgba(255,255,255,0.58)", lineHeight:1.65 }}>
+        <div style={{ marginTop:10, fontSize:14, color:da.muted, lineHeight:1.65 }}>
           {ok ? "Your account has been successfully activated. You can now log in." : "This confirmation link has expired or has already been used. Sign in to your account or request a new link."}
         </div>
       </div>
@@ -7464,7 +7506,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
             pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
             cursor:"pointer" }}
           aria-label={item.type === "bundle" ? "Delete pack" : "Delete result"}>×</button>
-        {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
+        {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots color="rgba(255,255,255,0.4)" /></div>}
         {isConfirming && !isDeleting && (
           <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
             alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
@@ -7545,7 +7587,14 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
           {allNameRows.map(row => {
               const rt = reportTypeMeta(row.report_type);
               const pal = PAL[rt.palette] || PAL.upload;
-              const style = REPORT_BUFFER_STYLE[row.report_type] || REPORT_BUFFER_STYLE.general;
+              const styleMap = isLight ? REPORT_BUFFER_STYLE_LIGHT : REPORT_BUFFER_STYLE;
+              const style = styleMap[row.report_type] || styleMap.general;
+              const dimText  = isLight ? da.faint   : "rgba(255,255,255,0.32)";
+              const bodyText = isLight ? da.muted   : "rgba(255,255,255,0.65)";
+              const divider  = isLight ? `${pal.accent}22` : "rgba(255,255,255,0.08)";
+              const chevronBg    = isLight ? `${pal.accent}12` : "rgba(255,255,255,0.08)";
+              const chevronBorder= isLight ? `${pal.accent}30` : "rgba(255,255,255,0.12)";
+              const chevronColor = isLight ? pal.accent        : "rgba(255,255,255,0.40)";
               const preview = resultPreviewFields(row);
               const isDeleting   = deletingId === row.id;
               const isConfirming = confirmId   === row.id;
@@ -7557,7 +7606,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                     display:"flex", flexDirection:"column", flexShrink:0, boxSizing:"border-box",
                     background:style.bg,
                     border:isConfirming ? "1.5px solid rgba(220,50,50,0.55)" : `1.5px solid ${style.border}`,
-                    color:"#fff", width:"100%", textAlign:"left", transition:"border-color 0.18s",
+                    color:da.text, width:"100%", textAlign:"left", transition:"border-color 0.18s",
                     cursor: editing || isDeleting || isConfirming ? "default" : "pointer",
                   }}
                 >
@@ -7579,21 +7628,21 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                       </div>
                       <div style={{
                         width:28, height:28, borderRadius:"50%", flexShrink:0,
-                        background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.12)",
+                        background:chevronBg, border:`1px solid ${chevronBorder}`,
                         display:"flex", alignItems:"center", justifyContent:"center",
-                        color:"rgba(255,255,255,0.40)", fontSize:14, marginTop:2,
+                        color:chevronColor, fontSize:14, marginTop:2,
                         opacity: editing || isDeleting || isConfirming ? 0 : 1,
                         transition:"opacity 0.2s ease",
                       }}>›</div>
                     </div>
-                    <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:14 }} />
+                    <div style={{ height:1, background:divider, marginBottom:14 }} />
                     <div style={{ display:"flex", alignItems:"stretch", gap:12 }}>
                       <div style={{ display:"flex", flexDirection:"column", flexShrink:0, minWidth:52 }}>
                         <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, letterSpacing:"-0.03em", lineHeight:1, color:pal.accent }}>{preview.stat}</div>
-                        <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.32)", letterSpacing:"0.06em", textTransform:"uppercase", marginTop:3 }}>{preview.label}</div>
+                        <div style={{ fontSize:10, fontWeight:700, color:dimText, letterSpacing:"0.06em", textTransform:"uppercase", marginTop:3 }}>{preview.label}</div>
                       </div>
-                      <div style={{ width:1, background:"rgba(255,255,255,0.08)", alignSelf:"stretch" }} />
-                      <div style={{ fontSize:13, fontWeight:500, fontStyle:"italic", color:"rgba(255,255,255,0.65)", lineHeight:1.55, flex:1 }}>
+                      <div style={{ width:1, background:divider, alignSelf:"stretch" }} />
+                      <div style={{ fontSize:13, fontWeight:500, fontStyle:"italic", color:bodyText, lineHeight:1.55, flex:1 }}>
                         "{cleanQuote(preview.insight, 120)}"
                       </div>
                     </div>
@@ -7608,7 +7657,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                       pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
                       cursor:"pointer" }}
                     aria-label="Delete result">×</button>
-                  {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
+                  {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots color="rgba(255,255,255,0.4)" /></div>}
                   {isConfirming && !isDeleting && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
@@ -7811,7 +7860,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                       pointerEvents: editing && !isDeletingName && !isConfirmingName ? "auto" : "none",
                       cursor:"pointer" }}
                     aria-label="Delete all for name">×</button>
-                  {isDeletingName && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
+                  {isDeletingName && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots color="rgba(255,255,255,0.4)" /></div>}
                   {isConfirmingName && !isDeletingName && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
