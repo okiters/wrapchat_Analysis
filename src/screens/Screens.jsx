@@ -5839,21 +5839,22 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
   return rows;
 }
 
-function adminControlPillStyle() {
+function adminControlPillStyle(ink) {
   return {
-    background:"rgba(255,255,255,0.08)",
-    border:"1px solid rgba(255,255,255,0.18)",
+    background:ink.light ? "rgba(31,24,78,0.07)" : "rgba(255,255,255,0.08)",
+    border:`1px solid ${ink.light ? "rgba(31,24,78,0.2)" : "rgba(255,255,255,0.18)"}`,
     borderRadius:999,
     padding:"7px 16px",
     fontSize:13,
     fontWeight:700,
-    color:"#fff",
+    color:ink.text,
     letterSpacing:0.1,
     whiteSpace:"nowrap",
   };
 }
 
 export function AdminFeedbackTab() {
+  const ink = useInk();
   const [rows, setRows] = useState(null);
   const [resultsById, setResultsById] = useState({});
   const [err, setErr] = useState("");
@@ -5945,19 +5946,19 @@ export function AdminFeedbackTab() {
       case "Tone misread":       return { bg:"rgba(60,140,240,0.15)",  border:"rgba(60,140,240,0.3)",  text:"#60A0F0" };
       case "Overclaiming":       return { bg:"rgba(220,80,60,0.15)",   border:"rgba(220,80,60,0.3)",   text:"#E06060" };
       case "Missing context":    return { bg:"rgba(80,160,100,0.15)",  border:"rgba(80,160,100,0.3)",  text:"#60C080" };
-      default:                   return { bg:"rgba(255,255,255,0.07)", border:"rgba(255,255,255,0.14)",text:"rgba(255,255,255,0.7)" };
+      default:                   return (ink.light ? { bg:"rgba(31,24,78,0.06)", border:"rgba(31,24,78,0.16)", text:"rgba(31,24,78,0.72)" } : { bg:"rgba(255,255,255,0.07)", border:"rgba(255,255,255,0.14)", text:"rgba(255,255,255,0.7)" });
     }
   };
 
   return (
     <>
       <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+        <div style={{ fontSize:26, fontWeight:800, color:ink.text, letterSpacing:-1, lineHeight:1.1 }}>
           Feedback
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", justifyContent:"flex-end" }}>
           <div
-            style={adminControlPillStyle()}
+            style={adminControlPillStyle(ink)}
           >
             {rows === null ? "Loading…" : `${rows.length} report${rows.length !== 1 ? "s" : ""}`}
           </div>
@@ -5967,13 +5968,13 @@ export function AdminFeedbackTab() {
               onClick={() => editing ? exitEditing() : setEditing(true)}
               className="wc-btn"
               style={{
-                background: editing ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.18)",
+                background: editing ? (ink.light ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.14)") : ink.chipBg,
+                border: `1px solid ${ink.chipBorder}`,
                 borderRadius: 999,
                 padding: "7px 16px",
                 fontSize: 13,
                 fontWeight: 700,
-                color: "#fff",
+                color: ink.text,
                 cursor: "pointer",
                 transition: "all 0.15s",
                 letterSpacing: 0.1,
@@ -5987,8 +5988,8 @@ export function AdminFeedbackTab() {
 
       {rows?.length > 0 && (
         !editing
-          ? <div style={{ fontSize:12, color:"rgba(255,255,255,0.42)", lineHeight:1.6 }}>Latest feedback reports and the exact card content they referred to.</div>
-          : <div style={{ fontSize:12, color:"rgba(255,255,255,0.42)", lineHeight:1.6 }}>Tap the × to delete a feedback report.</div>
+          ? <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.52)" : "rgba(255,255,255,0.42)", lineHeight:1.6 }}>Latest feedback reports and the exact card content they referred to.</div>
+          : <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.52)" : "rgba(255,255,255,0.42)", lineHeight:1.6 }}>Tap the × to delete a feedback report.</div>
       )}
 
       {rows === null && !err && (
@@ -5998,13 +5999,13 @@ export function AdminFeedbackTab() {
         <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.15)", border:"1px solid rgba(200,60,20,0.3)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center" }}>{err}</div>
       )}
       {rows?.length === 0 && !err && (
-        <div style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"32px 20px", textAlign:"center" }}>
+        <div style={{ width:"100%", background:ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)", border:`1px solid ${ink.light ? "rgba(31,24,78,0.1)" : "rgba(255,255,255,0.08)"}`, borderRadius:20, padding:"32px 20px", textAlign:"center" }}>
           <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={ink.light ? "rgba(31,24,78,0.3)" : "rgba(255,255,255,0.25)"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
-          <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", lineHeight:1.6 }}>No feedback yet.</div>
+          <div style={{ fontSize:14, color:ink.light ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.45)", lineHeight:1.6 }}>No feedback yet.</div>
         </div>
       )}
 
@@ -6045,8 +6046,8 @@ export function AdminFeedbackTab() {
             <div
               key={row.id}
               style={{
-                background:"rgba(255,255,255,0.04)",
-                border:`1px solid ${isConfirming ? "rgba(220,50,50,0.42)" : "rgba(255,255,255,0.08)"}`,
+                background:ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)",
+                border:`1px solid ${isConfirming ? "rgba(220,50,50,0.42)" : (ink.light ? "rgba(31,24,78,0.1)" : "rgba(255,255,255,0.08)")}`,
                 borderRadius:22,
                 overflow:"hidden",
                 flexShrink:0,
@@ -6088,7 +6089,7 @@ export function AdminFeedbackTab() {
 
               {isDeleting && (
                 <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(12,12,18,0.42)", zIndex:3 }}>
-                  <Dots />
+                  <Dots color="rgba(255,255,255,0.7)" />
                 </div>
               )}
 
@@ -6117,24 +6118,24 @@ export function AdminFeedbackTab() {
               )}
 
               {/* top strip */}
-              <div style={{ padding:"14px 16px 12px", borderBottom:"1px solid rgba(255,255,255,0.06)", opacity: editing ? 0.68 : 1, transition:"opacity 0.15s" }}>
+              <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid ${ink.light ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.06)"}`, opacity: editing ? 0.68 : 1, transition:"opacity 0.15s" }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:5 }}>
+                    <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:ink.light ? "rgba(31,24,78,0.45)" : "rgba(255,255,255,0.35)", marginBottom:5 }}>
                       {row.report_type} · card {row.card_index} · {submittedAt}
                     </div>
-                    <div style={{ fontSize:16, fontWeight:800, color:"#fff", letterSpacing:-0.3, lineHeight:1.2, marginBottom: namesLabel || messageLabel ? 5 : 0 }}>
+                    <div style={{ fontSize:16, fontWeight:800, color:ink.text, letterSpacing:-0.3, lineHeight:1.2, marginBottom: namesLabel || messageLabel ? 5 : 0 }}>
                       {row.card_title || "Untitled card"}
                     </div>
                     {(namesLabel || messageLabel) && (
-                      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", fontWeight:600 }}>
+                      <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.5)" : "rgba(255,255,255,0.4)", fontWeight:600 }}>
                         {[namesLabel, messageLabel].filter(Boolean).join(" · ")}
                       </div>
                     )}
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
                     {hasTranslation && (
-                      <div style={{ position:"relative", display:"inline-flex", alignItems:"center", padding:3, borderRadius:999, border:"1px solid rgba(255,255,255,0.12)", background:"rgba(255,255,255,0.05)" }}>
+                      <div style={{ position:"relative", display:"inline-flex", alignItems:"center", padding:3, borderRadius:999, border:`1px solid ${ink.light ? "rgba(31,24,78,0.14)" : "rgba(255,255,255,0.12)"}`, background:ink.light ? "rgba(31,24,78,0.05)" : "rgba(255,255,255,0.05)" }}>
                         <div
                           style={{
                             position:"absolute",
@@ -6143,7 +6144,7 @@ export function AdminFeedbackTab() {
                             left: selectedLang === "en" ? 3 : "calc(50% + 1.5px)",
                             width:"calc(50% - 3px)",
                             borderRadius:999,
-                            background:"rgba(255,255,255,0.14)",
+                            background:ink.light ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.14)",
                             transition:"left 0.18s ease",
                           }}
                         />
@@ -6162,7 +6163,7 @@ export function AdminFeedbackTab() {
                               minWidth:74,
                               border:"none",
                               background:"transparent",
-                              color: selectedLang === opt.code ? "#fff" : "rgba(255,255,255,0.52)",
+                              color: selectedLang === opt.code ? ink.text : ink.dim,
                               fontSize:11,
                               fontWeight:800,
                               letterSpacing:"0.04em",
@@ -6191,16 +6192,16 @@ export function AdminFeedbackTab() {
               <div style={{ padding:"12px 16px 14px", display:"flex", flexDirection:"column", gap:10, opacity: editing ? 0.68 : 1, transition:"opacity 0.15s" }}>
                 {/* user's note */}
                 {row.error_note && (
-                  <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:14, padding:"10px 14px" }}>
-                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:5 }}>Note</div>
-                    <div style={{ fontSize:13, color:"rgba(255,255,255,0.82)", lineHeight:1.6 }}>{row.error_note}</div>
+                  <div style={{ background:ink.light ? "rgba(31,24,78,0.05)" : "rgba(255,255,255,0.05)", borderRadius:14, padding:"10px 14px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.09em", textTransform:"uppercase", color:ink.light ? "rgba(31,24,78,0.45)" : "rgba(255,255,255,0.35)", marginBottom:5 }}>Note</div>
+                    <div style={{ fontSize:13, color:ink.light ? "rgba(31,24,78,0.82)" : "rgba(255,255,255,0.82)", lineHeight:1.6 }}>{row.error_note}</div>
                   </div>
                 )}
 
                 {/* model output */}
                 {summaryRows.length > 0 && (
-                  <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:14, padding:"10px 14px" }}>
-                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.09em", textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginBottom:8 }}>What was shown</div>
+                  <div style={{ background:ink.light ? "rgba(31,24,78,0.05)" : "rgba(255,255,255,0.05)", borderRadius:14, padding:"10px 14px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.09em", textTransform:"uppercase", color:ink.light ? "rgba(31,24,78,0.45)" : "rgba(255,255,255,0.35)", marginBottom:8 }}>What was shown</div>
                     {translatedResultRow ? (
                       <div style={{ display:"grid" }}>
                         {[
@@ -6221,8 +6222,8 @@ export function AdminFeedbackTab() {
                           >
                             {group.rows.map((item, index) => (
                               <div key={`${group.code}-${item.label}-${index}`}>
-                                <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.38)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>{item.label}</div>
-                                <div style={{ fontSize:13, color:"#fff", lineHeight:1.55, fontWeight:500 }}>{item.value}</div>
+                                <div style={{ fontSize:10, fontWeight:700, color:ink.light ? "rgba(31,24,78,0.48)" : "rgba(255,255,255,0.38)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>{item.label}</div>
+                                <div style={{ fontSize:13, color:ink.text, lineHeight:1.55, fontWeight:500 }}>{item.value}</div>
                               </div>
                             ))}
                           </div>
@@ -6232,8 +6233,8 @@ export function AdminFeedbackTab() {
                       <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
                         {summaryRows.map((item, index) => (
                           <div key={`${item.label}-${index}`}>
-                            <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.38)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>{item.label}</div>
-                            <div style={{ fontSize:13, color:"#fff", lineHeight:1.55, fontWeight:500 }}>{item.value}</div>
+                            <div style={{ fontSize:10, fontWeight:700, color:ink.light ? "rgba(31,24,78,0.48)" : "rgba(255,255,255,0.38)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>{item.label}</div>
+                            <div style={{ fontSize:13, color:ink.text, lineHeight:1.55, fontWeight:500 }}>{item.value}</div>
                           </div>
                         ))}
                       </div>
@@ -6242,7 +6243,7 @@ export function AdminFeedbackTab() {
                 )}
 
                 {!row.error_note && !summaryRows.length && (
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.28)", fontStyle:"italic" }}>No note or saved output for this card.</div>
+                  <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.4)" : "rgba(255,255,255,0.28)", fontStyle:"italic" }}>No note or saved output for this card.</div>
                 )}
               </div>
             </div>
@@ -6257,6 +6258,7 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
   const { theme } = useTheme();
   const da = getDA(theme);
   const isLight = theme === "light";
+  const ink = useInk();
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [busyById, setBusyById] = useState({});
@@ -6363,10 +6365,10 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
   return (
     <>
       <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+        <div style={{ fontSize:26, fontWeight:800, color:ink.text, letterSpacing:-1, lineHeight:1.1 }}>
           Users
         </div>
-        <div style={adminControlPillStyle()}>
+        <div style={adminControlPillStyle(ink)}>
           {rows === null ? "Loading…" : `${rows.length} user${rows.length !== 1 ? "s" : ""}`}
         </div>
       </div>
@@ -6378,13 +6380,13 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
         <div style={{ fontSize:13, color:"#FFB090", background:"rgba(200,60,20,0.15)", border:"1px solid rgba(200,60,20,0.3)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center" }}>{err}</div>
       )}
       {!canAdjustCredits && (
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.72)", background:"rgba(160,138,240,0.12)", border:"1px solid rgba(160,138,240,0.24)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center", lineHeight:1.5 }}>
+        <div style={{ fontSize:13, color:ink.light ? "rgba(31,24,78,0.75)" : "rgba(255,255,255,0.72)", background:"rgba(160,138,240,0.12)", border:"1px solid rgba(160,138,240,0.24)", padding:"10px 14px", borderRadius:14, width:"100%", textAlign:"center", lineHeight:1.5 }}>
           Switch to Credit Beta to adjust user credits.
         </div>
       )}
       {rows?.length === 0 && !err && (
-        <div style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"32px 20px", textAlign:"center" }}>
-          <div style={{ fontSize:14, color:"rgba(255,255,255,0.45)", lineHeight:1.6 }}>No users yet.</div>
+        <div style={{ width:"100%", background:ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)", border:`1px solid ${ink.light ? "rgba(31,24,78,0.1)" : "rgba(255,255,255,0.08)"}`, borderRadius:20, padding:"32px 20px", textAlign:"center" }}>
+          <div style={{ fontSize:14, color:ink.light ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.45)", lineHeight:1.6 }}>No users yet.</div>
         </div>
       )}
 
@@ -6398,15 +6400,15 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
           const canResendActivation = row.hasConfirmationStatus && row.email !== "No email" && !isEmailConfirmed;
 
           return (
-            <div key={row.user_id} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+            <div key={row.user_id} style={{ background:ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)", border:`1px solid ${ink.light ? "rgba(31,24,78,0.1)" : "rgba(255,255,255,0.08)"}`, borderRadius:20, padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:-0.2, lineHeight:1.35, wordBreak:"break-word" }}>{row.email}</div>
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:5 }}>
+                  <div style={{ fontSize:15, fontWeight:800, color:ink.text, letterSpacing:-0.2, lineHeight:1.35, wordBreak:"break-word" }}>{row.email}</div>
+                  <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.45)", marginTop:5 }}>
                     Current credits: {row.balance}{row.hasConfirmationStatus ? ` · ${isEmailConfirmed ? "Email confirmed" : "Email not confirmed"}` : ""}
                   </div>
                 </div>
-                <div style={adminControlPillStyle()}>
+                <div style={adminControlPillStyle(ink)}>
                   {row.balance} credit{row.balance === 1 ? "" : "s"}
                 </div>
               </div>
@@ -6438,10 +6440,10 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                   disabled={busy || !canAdjustCredits}
                   className="wc-btn"
                   style={{
-                    background:"rgba(255,255,255,0.10)",
-                    border:"1px solid rgba(255,255,255,0.16)",
+                    background:ink.chipBg,
+                    border:`1px solid ${ink.chipBorder}`,
                     borderRadius:999,
-                    color:"#fff",
+                    color:ink.text,
                     fontSize:12,
                     cursor:busy || !canAdjustCredits ? "default" : "pointer",
                     padding:"10px 14px",
@@ -6458,10 +6460,10 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                   disabled={busy || !canAdjustCredits}
                   className="wc-btn"
                   style={{
-                    background:"rgba(255,255,255,0.06)",
-                    border:"1px solid rgba(255,255,255,0.12)",
+                    background:ink.light ? "rgba(31,24,78,0.05)" : "rgba(255,255,255,0.06)",
+                    border:`1px solid ${ink.light ? "rgba(31,24,78,0.14)" : "rgba(255,255,255,0.12)"}`,
                     borderRadius:999,
-                    color:"#fff",
+                    color:ink.text,
                     fontSize:12,
                     cursor:busy || !canAdjustCredits ? "default" : "pointer",
                     padding:"10px 14px",
@@ -6527,6 +6529,7 @@ const ACCESS_MODE_OPTIONS = [
 ];
 
 export function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
+  const ink = useInk();
   const [mode, setMode] = useState(accessMode || DEFAULT_ACCESS_MODE);
   const [err, setErr] = useState("");
   const [notice, setNotice] = useState("");
@@ -6577,15 +6580,15 @@ export function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
   return (
     <>
       <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-        <div style={{ fontSize:26, fontWeight:800, color:"#fff", letterSpacing:-1, lineHeight:1.1 }}>
+        <div style={{ fontSize:26, fontWeight:800, color:ink.text, letterSpacing:-1, lineHeight:1.1 }}>
           Access Mode
         </div>
-        <div style={adminControlPillStyle()}>
+        <div style={adminControlPillStyle(ink)}>
           {loading ? "Loading…" : getAccessModeLabel(mode)}
         </div>
       </div>
 
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.55)", lineHeight:1.6, width:"100%" }}>
+      <div style={{ fontSize:13, color:ink.dim, lineHeight:1.6, width:"100%" }}>
         This global setting controls who can run reports without redeploying the app.
       </div>
 
@@ -6614,9 +6617,9 @@ export function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
                 textAlign:"left",
                 borderRadius:18,
                 padding:"14px 16px",
-                background: active ? "rgba(160,138,240,0.16)" : "rgba(255,255,255,0.04)",
-                border: active ? `1.5px solid ${PAL.upload.accent}` : "1px solid rgba(255,255,255,0.10)",
-                color:"#fff",
+                background: active ? "rgba(160,138,240,0.16)" : (ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)"),
+                border: active ? `1.5px solid ${PAL.upload.accent}` : `1px solid ${ink.light ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.10)"}`,
+                color:ink.text,
                 cursor:busy || loading ? "wait" : "pointer",
                 opacity:busy || loading ? 0.7 : 1,
                 transition:"all 0.18s",
@@ -6628,7 +6631,7 @@ export function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
                   width:20,
                   height:20,
                   borderRadius:"50%",
-                  border:active ? "none" : "1.5px solid rgba(255,255,255,0.22)",
+                  border:active ? "none" : `1.5px solid ${ink.light ? "rgba(31,24,78,0.26)" : "rgba(255,255,255,0.22)"}`,
                   background:active ? PAL.upload.accent : "transparent",
                   color:active ? PAL.upload.bg : "transparent",
                   display:"flex",
@@ -6641,7 +6644,7 @@ export function AdminAccessModeTab({ accessMode, onAccessModeChange }) {
                   ✓
                 </span>
               </div>
-              <div style={{ fontSize:12, color:"rgba(255,255,255,0.52)", lineHeight:1.55 }}>
+              <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.6)" : "rgba(255,255,255,0.52)", lineHeight:1.55 }}>
                 {option.description}
               </div>
             </button>
@@ -6857,6 +6860,7 @@ export function PreviewFrame({ children }) {
 }
 
 export function AdminPreviewLab({ header = null }) {
+  const ink = useInk();
   const noop = () => {};
   const previewPages = [
     {
@@ -7022,7 +7026,7 @@ export function AdminPreviewLab({ header = null }) {
           {previewPages.map(page => {
             const active = page.id === selectedPage.id;
             return (
-              <button key={page.id} type="button" onClick={() => selectPage(page.id)} className="wc-btn" style={{ border:`1px solid ${active ? PAL.upload.accent : "rgba(255,255,255,0.12)"}`, background:active ? "rgba(122,144,255,0.20)" : "rgba(255,255,255,0.05)", color:active ? "#fff" : "rgba(255,255,255,0.62)", borderRadius:999, padding:"8px 12px", fontSize:12, fontWeight:850, cursor:"pointer", whiteSpace:"nowrap" }}>
+              <button key={page.id} type="button" onClick={() => selectPage(page.id)} className="wc-btn" style={{ border:`1px solid ${active ? PAL.upload.accent : (ink.light ? "rgba(31,24,78,0.14)" : "rgba(255,255,255,0.12)")}`, background:active ? "rgba(122,144,255,0.20)" : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(255,255,255,0.05)"), color:active ? ink.text : (ink.light ? "rgba(31,24,78,0.65)" : "rgba(255,255,255,0.62)"), borderRadius:999, padding:"8px 12px", fontSize:12, fontWeight:850, cursor:"pointer", whiteSpace:"nowrap" }}>
                 {page.title}
               </button>
             );
@@ -7032,7 +7036,7 @@ export function AdminPreviewLab({ header = null }) {
           {selectedPage.variations.map(item => {
             const active = item.id === selectedVariation.id;
             return (
-              <button key={item.id} type="button" onClick={() => selectVariation(item.id)} className="wc-btn" style={{ border:`1px solid ${active ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.10)"}`, background:active ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.04)", color:active ? "#fff" : "rgba(255,255,255,0.54)", borderRadius:999, padding:"7px 10px", fontSize:11, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
+              <button key={item.id} type="button" onClick={() => selectVariation(item.id)} className="wc-btn" style={{ border:`1px solid ${active ? (ink.light ? "rgba(31,24,78,0.38)" : "rgba(255,255,255,0.34)") : (ink.light ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.10)")}`, background:active ? (ink.light ? "rgba(31,24,78,0.12)" : "rgba(255,255,255,0.14)") : (ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)"), color:active ? ink.text : (ink.light ? "rgba(31,24,78,0.6)" : "rgba(255,255,255,0.54)"), borderRadius:999, padding:"7px 10px", fontSize:11, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
                 {item.label}
               </button>
             );
