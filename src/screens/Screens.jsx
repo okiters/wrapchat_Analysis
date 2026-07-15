@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────
 // SCREENS — every React screen component + supabase I/O helpers.
 // ─────────────────────────────────────────────────────────────────
-import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext, cloneElement } from "react";
 import { DA, getDA, ThemeContext, useTheme, Geo, WaveLines, PrimaryButton, GhostButton, BackIcon, ForwardIcon, setAppSafeAreaColor } from "../theme.jsx";
 import html2canvas from "html2canvas";
 import { supabase } from "../supabase";
@@ -503,7 +503,9 @@ function SwatchIcon({ inner, accent, size = 48, inset = 9, style = {} }) {
       <div style={{
         position:"absolute", inset,
         borderRadius:Math.round(size * 0.17),
-        background:inner || `${accent}38`,
+        // Light theme always uses the vivid accent fill (the Unlock page
+        // look): the solid report inner colors read as dark blobs on cream.
+        background:isLight ? `${accent}60` : (inner || `${accent}38`),
         border:`1px solid ${accent}90`,
         transform:"rotate(-12deg)",
       }} />
@@ -1786,6 +1788,20 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
 // LOVE LANGUAGE REPORT SCREENS  (10 cards)
 // ─────────────────────────────────────────────────────────────────
 export const LOVELANG_SCREENS = 10;
+// Cards that only exist when the AI found real content for them. Skipped
+// entirely instead of rendering filler or repeating another card's moment.
+export function lovelangCardAvailability(ai, aiLoading) {
+  const loading = aiLoading && !ai;
+  return {
+    miss: loading || !!ai?.loveMiss?.description,
+    unspoken: loading || !!ai?.loveMissUnspoken,
+    howItShows: loading || !!ai?.mostLovingMomentAttribution?.quote,
+  };
+}
+export function getLovelangScreenCount(ai, aiLoading) {
+  const avail = lovelangCardAvailability(ai, aiLoading);
+  return 7 + (avail.miss ? 1 : 0) + (avail.unspoken ? 1 : 0) + (avail.howItShows ? 1 : 0);
+}
 export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
@@ -1796,125 +1812,143 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
   const langA = reportControl(ai?.personA?.language || "");
   const langB = reportControl(ai?.personB?.language || "");
   const guessOptions = [...new Set([langA, langB].filter(Boolean))];
+  const avail = lovelangCardAvailability(ai, aiLoading);
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "lovelang", cardIndex, cardTitle } : null
   );
-  const screens = [
-    // Card 1 — Love languages in this chat (intro — new)
-    <Shell sec="lovelang" prog={1} total={LOVELANG_SCREENS} feedback={feedback("Love languages in this chat", 1)}>
-      <T>{t("Love languages in this chat")}</T>
-      <AICard label={t("The overall pattern")} value={ai?.loveLanguageIntro} loading={loading} />
-      <Nav back={back} next={next} showBack={false} />
-    </Shell>,
+  const defs = [
+    // Love languages in this chat (intro)
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("Love languages in this chat", prog)}>
+        <T>{t("Love languages in this chat")}</T>
+        <AICard label={t("The overall pattern")} value={ai?.loveLanguageIntro} loading={loading} />
+        <Nav back={back} next={next} showBack={false} />
+      </Shell>
+    ) },
 
-    // Card 2 — Guess A's love language (new — GuessCard)
-    // onReveal auto-advances to card 3 which shows the full language + examples
-    <Shell sec="lovelang" prog={2} total={LOVELANG_SCREENS} feedback={feedback("Guess A's love language", 2, ai?.loveLanguageGuessValid)}>
-      <GuessCard
-        question={loading ? "…" : t("Which love language describes {name}?", { name: personAName })}
-        options={guessOptions}
-        correctAnswer={langA}
-        confidenceValid={(ai?.loveLanguageGuessValid ?? false) && guessOptions.length >= 2}
-        onReveal={next}
-        back={back}
-        next={next}
-        revealContent={
-          <>
-            <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
-            <Big>{loading ? "…" : (langA || "—")}</Big>
-          </>
-        }
-      />
-    </Shell>,
-
-    // Card 3 — Person A's love language (existing)
-    <Shell sec="lovelang" prog={3} total={LOVELANG_SCREENS} feedback={feedback(`${personAName}'s love language`, 3)}>
-      <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
-      <Big>{loading ? "…" : (langA || "—")}</Big>
-      <AICard label={t("How they show it")} value={ai?.personA?.examples} loading={loading} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 4 — Person B's love language (existing)
-    <Shell sec="lovelang" prog={4} total={LOVELANG_SCREENS} feedback={feedback(`${personBName}'s love language`, 4)}>
-      <T>{loading ? "…" : t("{name}'s love language", { name: personBName })}</T>
-      <Big>{loading ? "…" : (langB || "—")}</Big>
-      <AICard label={t("How they show it")} value={ai?.personB?.examples} loading={loading} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 5 — The language gap (existing)
-    <Shell sec="lovelang" prog={5} total={LOVELANG_SCREENS} feedback={feedback("The language gap", 5)}>
-      <T>{t("The language gap")}</T>
-      <AICard label={t("Do they speak the same language?")} value={ai?.mismatch} loading={loading} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 6 — The Miss (new)
-    <Shell sec="lovelang" prog={6} total={LOVELANG_SCREENS} feedback={feedback("The miss", 6)}>
-      <T>{t("The miss")}</T>
-      <AICard label={t("What happened")} value={ai?.loveMiss?.description} loading={loading} />
-      {!loading && ai?.loveMiss?.quote && (
-        <div style={{ fontSize:14, fontStyle:"italic", color:"rgba(255,255,255,0.80)", lineHeight:1.6, borderLeft:"3px solid rgba(240,142,191,0.5)", paddingLeft:14, marginTop:4 }}>
-          "{ai.loveMiss.quote}"
-        </div>
-      )}
-      {!loading && ai?.loveMiss?.persons?.length >= 2 && (
-        <Sub mt={8}>{ai.loveMiss.persons.join(" → ")}</Sub>
-      )}
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 7 — The Unspoken Moment (new)
-    <Shell sec="lovelang" prog={7} total={LOVELANG_SCREENS} feedback={feedback("The unspoken moment", 7)}>
-      <T>{t("The unspoken moment")}</T>
-      <AICard label={t("What wasn't said")} value={ai?.loveMissUnspoken} loading={loading} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 8 — Most loving moment (existing)
-    <Shell sec="lovelang" prog={8} total={LOVELANG_SCREENS} feedback={feedback("Most loving moment", 8)}>
-      <T>{t("Most loving moment")}</T>
-      <AICard label={t("The moment")} value={ai?.mostLovingMoment} loading={loading} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 9 — How it shows (new — AttributionCard)
-    <Shell sec="lovelang" prog={9} total={LOVELANG_SCREENS} feedback={feedback("How it shows", 9)}>
-      {aiLoading && !ai?.mostLovingMomentAttribution ? (
-        <>
-          <T>{t("How it shows")}</T>
-          <div style={{ marginTop:24 }}><Dots /></div>
-        </>
-      ) : ai?.mostLovingMomentAttribution?.quote ? (
-        <AttributionCard
-          quote={ai.mostLovingMomentAttribution.quote}
-          participants={[personAName, personBName]}
-          correctSender={ai.mostLovingMomentAttribution.people?.[0] || ""}
-          contextParagraph={ai.mostLovingMomentAttribution.read || ai.mostLovingMomentAttribution.title || ""}
-          isSensitive={false}
-          label={t("Who showed love here?")}
+    // Guess A's love language (GuessCard; auto-advances on reveal)
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("Guess A's love language", prog, ai?.loveLanguageGuessValid)}>
+        <GuessCard
+          question={loading ? "…" : t("Which love language describes {name}?", { name: personAName })}
+          options={guessOptions}
+          correctAnswer={langA}
+          confidenceValid={(ai?.loveLanguageGuessValid ?? false) && guessOptions.length >= 2}
+          onReveal={next}
+          back={back}
+          next={next}
+          revealContent={
+            <>
+              <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
+              <Big>{loading ? "…" : (langA || "—")}</Big>
+            </>
+          }
         />
-      ) : (
-        <>
-          <T>{t("How it shows")}</T>
-          <AICard label={t("Most loving moment")} value={ai?.mostLovingMoment} loading={loading} />
-        </>
-      )}
-      <Nav back={back} next={next} />
-    </Shell>,
+      </Shell>
+    ) },
 
-    // Card 10 — Love language compatibility (closing — ScoreRing moved to end)
-    <Shell sec="lovelang" prog={10} total={LOVELANG_SCREENS} feedback={feedback("Love language compatibility", 10)}>
-      <T>{t("Love language compatibility")}</T>
-      <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
-        <ScoreRing score={loading ? 0 : (ai?.compatibilityScore||5)} max={10} size={130} color="#F08EBF" />
-      </div>
-      <AICard label={t("Compatibility read")} value={ai?.compatibilityRead} loading={loading} />
-      <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
-    </Shell>,
+    // Person A's love language
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback(`${personAName}'s love language`, prog)}>
+        <T>{loading ? "…" : t("{name}'s love language", { name: personAName })}</T>
+        <Big>{loading ? "…" : (langA || "—")}</Big>
+        <AICard label={t("How they show it")} value={ai?.personA?.examples} loading={loading} />
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // Person B's love language
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback(`${personBName}'s love language`, prog)}>
+        <T>{loading ? "…" : t("{name}'s love language", { name: personBName })}</T>
+        <Big>{loading ? "…" : (langB || "—")}</Big>
+        <AICard label={t("How they show it")} value={ai?.personB?.examples} loading={loading} />
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // The language gap
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("The language gap", prog)}>
+        <T>{t("The language gap")}</T>
+        <AICard label={t("Do they speak the same language?")} value={ai?.mismatch} loading={loading} />
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // The Miss — only when a real miss moment exists
+    { show: avail.miss, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("The miss", prog)}>
+        <T>{t("The miss")}</T>
+        <AICard label={t("What happened")} value={ai?.loveMiss?.description} loading={loading} />
+        {!loading && ai?.loveMiss?.quote && (
+          <div style={{ fontSize:14, fontStyle:"italic", color:"rgba(255,255,255,0.80)", lineHeight:1.6, borderLeft:"3px solid rgba(240,142,191,0.5)", paddingLeft:14, marginTop:4 }}>
+            "{ai.loveMiss.quote}"
+          </div>
+        )}
+        {!loading && ai?.loveMiss?.persons?.length >= 2 && (
+          <Sub mt={8}>{ai.loveMiss.persons.join(" → ")}</Sub>
+        )}
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // The Unspoken Moment — only when a real non-verbal moment exists
+    { show: avail.unspoken, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("The unspoken moment", prog)}>
+        <T>{t("The unspoken moment")}</T>
+        <AICard label={t("What wasn't said")} value={ai?.loveMissUnspoken} loading={loading} />
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // Most loving moment
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("Most loving moment", prog)}>
+        <T>{t("Most loving moment")}</T>
+        <AICard label={t("The moment")} value={ai?.mostLovingMoment} loading={loading} />
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // How it shows — only with a real attribution quote; never falls back to
+    // repeating Most Loving Moment.
+    { show: avail.howItShows, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("How it shows", prog)}>
+        {aiLoading && !ai?.mostLovingMomentAttribution ? (
+          <>
+            <T>{t("How it shows")}</T>
+            <div style={{ marginTop:24 }}><Dots /></div>
+          </>
+        ) : (
+          <AttributionCard
+            quote={ai.mostLovingMomentAttribution.quote}
+            participants={[personAName, personBName]}
+            correctSender={ai.mostLovingMomentAttribution.people?.[0] || ""}
+            contextParagraph={ai.mostLovingMomentAttribution.read || ai.mostLovingMomentAttribution.title || ""}
+            isSensitive={false}
+            label={t("Who showed love here?")}
+          />
+        )}
+        <Nav back={back} next={next} />
+      </Shell>
+    ) },
+
+    // Love language compatibility (closing)
+    { show: true, render: (prog, total) => (
+      <Shell sec="lovelang" prog={prog} total={total} feedback={feedback("Love language compatibility", prog)}>
+        <T>{t("Love language compatibility")}</T>
+        <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
+          <ScoreRing score={loading ? 0 : (ai?.compatibilityScore||5)} max={10} size={130} color="#F08EBF" />
+        </div>
+        <AICard label={t("Compatibility read")} value={ai?.compatibilityRead} loading={loading} />
+        <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
+      </Shell>
+    ) },
   ];
-  return screens[step] ?? null;
+  const visible = defs.filter(def => def.show);
+  const index = Math.min(step, visible.length - 1);
+  return visible[index]?.render(index + 1, visible.length) ?? null;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2238,6 +2272,10 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
 // ENERGY REPORT SCREENS  (10 cards)
 // ─────────────────────────────────────────────────────────────────
 export const ENERGY_SCREENS = 10;
+export function getEnergyScreenCount(ai, aiLoading) {
+  const loading = aiLoading && !ai;
+  return 9 + ((loading || ai?.chargeAttribution?.quote) ? 1 : 0);
+}
 export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
   const loading = aiLoading && !ai;
@@ -2347,14 +2385,16 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 9 — The Charge (new — AttributionCard)
+    // Card 9 — The Charge. Only exists with a real attribution quote: never
+    // repeats Most Energising as filler.
+    (aiLoading && !ai) || ai?.chargeAttribution?.quote ? (
     <Shell sec="energy" prog={9} total={ENERGY_SCREENS} feedback={feedback("The charge", 9)}>
       {aiLoading && !ai?.chargeAttribution ? (
         <>
           <T>{t("The charge")}</T>
           <div style={{ marginTop:24 }}><Dots /></div>
         </>
-      ) : ai?.chargeAttribution?.quote ? (
+      ) : (
         <AttributionCard
           quote={ai.chargeAttribution.quote}
           participants={[personAName, personBName]}
@@ -2363,14 +2403,10 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
           isSensitive={false}
           label={t("Who changed the room's energy?")}
         />
-      ) : (
-        <>
-          <T>{t("The charge")}</T>
-          <AICard label={t("Most energising moment")} value={ai?.mostEnergising} loading={loading} />
-        </>
       )}
       <Nav back={back} next={next} />
-    </Shell>,
+    </Shell>
+    ) : null,
 
     // Card 10 — Energy compatibility (closing)
     <Shell sec="energy" prog={10} total={ENERGY_SCREENS} feedback={feedback("Energy compatibility", 10)}>
@@ -2387,7 +2423,10 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
       <Nav back={back} next={next} nextLabel="Done" showArrow={false} />
     </Shell>,
   ];
-  return screens[step] ?? null;
+  const visible = screens.filter(Boolean);
+  const index = Math.min(step, visible.length - 1);
+  const el = visible[index];
+  return el ? cloneElement(el, { prog: index + 1, total: visible.length }) : null;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2432,7 +2471,7 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
     if (!url) { setQuizToast("Couldn't create link — try again."); return; }
     try {
       if (navigator.share) {
-        await navigator.share({ text: `I wrapped our chat — can you beat my score? 🎯`, url });
+        await navigator.share({ text: t("How well do you actually remember our chat? 6 questions."), url });
       } else {
         await navigator.clipboard.writeText(url);
         setQuizToast("Link copied!");
@@ -3904,11 +3943,16 @@ export function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdat
   return (
     <>
       <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
-        <div style={SCREEN_CONTENT_STYLE}>
-          <div style={SCREEN_HEADER_BLOCK_STYLE}>
+        <div style={{
+          alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", gap:14,
+          margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
+          padding:"0 20px calc(40px + env(safe-area-inset-bottom, 0px))",
+          minHeight:0,
+          overflowY:"auto", overscrollBehavior:"contain",
+        }}>
+          <div style={getStickyHeaderStyle(isLight, { pullTop: 0, alpha: 0.9, blur: 8 })}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
-          <div style={{ ...SCREEN_BODY_SCROLL_STYLE, gap:14, justifyContent:"safe center", paddingTop:4 }}>
 
             {/* ── Appearance toggle ── */}
             <div style={{
@@ -4133,7 +4177,6 @@ export function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdat
               <span style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#FF8E8E" }}>{t("Delete my account")}</span>
               <span style={{ fontSize:18, lineHeight:1, color:"rgba(255,142,142,0.55)" }}>›</span>
             </button>
-          </div>
         </div>
       </Shell>
 
@@ -4760,6 +4803,70 @@ export function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
         <div style={{ marginTop:24, textAlign:"center", fontSize:11, color:isLight ? da.faint : "rgba(255,255,255,0.20)", lineHeight:1.6, letterSpacing:"0.02em" }}>
           {orderedRows.length} reports · {pack.name} · run {daysAgo}
         </div>
+      </div>
+    </Shell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// POST-PURCHASE BUFFER — celebratory beat after unlocking reads or
+// buying credits. One component, two variants; illustration slot is a
+// placeholder until the artwork lands.
+// ─────────────────────────────────────────────────────────────────
+export function PostPurchaseBuffer({ variant = "unlock", onContinue }) {
+  const t = useT();
+  // This component renders the Shell itself, so the ThemedSurfaceContext
+  // provider sits below it: compute the ink locally (sec="upload" always
+  // follows the theme, same situation as TrialReportScreen).
+  const { theme } = useTheme();
+  const light = theme === "light";
+  const inkText  = light ? "#1f184e" : "#fff";
+  const inkMuted = light ? "rgba(31,24,78,0.66)" : "rgba(255,255,255,0.65)";
+  const inkFaint = light ? "rgba(31,24,78,0.40)" : "rgba(255,255,255,0.35)";
+  const slotBg     = light ? "rgba(31,24,78,0.05)" : "rgba(255,255,255,0.05)";
+  const slotBorder = light ? "rgba(31,24,78,0.20)" : "rgba(255,255,255,0.20)";
+
+  const copy = variant === "credits"
+    ? {
+        title: t("Credits landed."),
+        sub: t("They keep forever. Your curiosity probably won't."),
+        button: t("Pick a read"),
+      }
+    : {
+        title: t("You're in."),
+        sub: t("The reads are open to you now. Use them on a chat that's earned it."),
+        button: t("Continue"),
+      };
+
+  return (
+    <Shell sec="upload" prog={0} total={0} hidePill hideProgressBar>
+      <div className="wc-fadeup" style={{ width:"100%", display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:0 }}>
+        {/* Illustration slot — replace with the drawn artwork per variant */}
+        <div
+          data-illustration-slot={variant}
+          style={{
+            width:200, height:200, borderRadius:36, flexShrink:0,
+            border:`2px dashed ${slotBorder}`,
+            background:slotBg,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            marginBottom:26,
+          }}
+        >
+          <span style={{ fontSize:11, fontWeight:800, letterSpacing:"0.09em", textTransform:"uppercase", color:inkFaint }}>
+            illustration
+          </span>
+        </div>
+        <div className="wc-fadeup-2" style={{ fontSize:30, fontWeight:900, color:inkText, letterSpacing:-1, lineHeight:1.1 }}>
+          {copy.title}
+        </div>
+        <div className="wc-fadeup-3" style={{ marginTop:10, fontSize:14, color:inkMuted, lineHeight:1.6, maxWidth:280 }}>
+          {copy.sub}
+        </div>
+      </div>
+      <div className="wc-fadeup-3" style={{ width:"100%", marginTop:22 }}>
+        <PrimaryButton onClick={onContinue} color={PAL.upload.accent} textColor={PAL.upload.bg}>
+          {copy.button}
+        </PrimaryButton>
       </div>
     </Shell>
   );
@@ -6401,18 +6508,20 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
           return (
             <div key={row.user_id} style={{ background:ink.light ? "rgba(31,24,78,0.04)" : "rgba(255,255,255,0.04)", border:`1px solid ${ink.light ? "rgba(31,24,78,0.1)" : "rgba(255,255,255,0.08)"}`, borderRadius:20, padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
-                <div style={{ minWidth:0 }}>
+                <div style={{ minWidth:0, flex:1 }}>
                   <div style={{ fontSize:15, fontWeight:800, color:ink.text, letterSpacing:-0.2, lineHeight:1.35, wordBreak:"break-word" }}>{row.email}</div>
-                  <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.45)", marginTop:5 }}>
-                    Current credits: {row.balance}{row.hasConfirmationStatus ? ` · ${isEmailConfirmed ? "Email confirmed" : "Email not confirmed"}` : ""}
-                  </div>
+                  {row.hasConfirmationStatus && (
+                    <div style={{ fontSize:12, color:ink.light ? "rgba(31,24,78,0.55)" : "rgba(255,255,255,0.45)", marginTop:5 }}>
+                      {isEmailConfirmed ? "Email confirmed" : "Email not confirmed"}
+                    </div>
+                  )}
                 </div>
-                <div style={adminControlPillStyle(ink)}>
+                <div style={{ ...adminControlPillStyle(ink), flexShrink:0 }}>
                   {row.balance} credit{row.balance === 1 ? "" : "s"}
                 </div>
               </div>
 
-              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"76px 1fr 1fr", gap:8, alignItems:"stretch" }}>
                 <input
                   type="number"
                   min="1"
@@ -6421,12 +6530,14 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                   disabled={!canAdjustCredits || busy}
                   onChange={e => setAmount(row.user_id, e.target.value)}
                   style={{
-                    width:88,
+                    width:"100%",
+                    boxSizing:"border-box",
                     background: isLight ? "rgba(31,24,78,0.06)" : "rgba(0,0,0,0.22)",
                     border: isLight ? "1px solid rgba(31,24,78,0.14)" : "1px solid rgba(255,255,255,0.12)",
                     borderRadius:12,
                     padding:"10px 12px",
                     fontSize:14,
+                    textAlign:"center",
                     color:da.text,
                     outline:"none",
                     fontFamily:"inherit",
@@ -6445,9 +6556,10 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                     color:ink.text,
                     fontSize:12,
                     cursor:busy || !canAdjustCredits ? "default" : "pointer",
-                    padding:"10px 14px",
+                    padding:"10px 6px",
                     fontWeight:700,
                     letterSpacing:0.1,
+                    whiteSpace:"nowrap",
                     opacity:busy || !canAdjustCredits ? 0.6 : 1,
                   }}
                 >
@@ -6465,42 +6577,47 @@ export function AdminUsersTab({ accessMode = DEFAULT_ACCESS_MODE }) {
                     color:ink.text,
                     fontSize:12,
                     cursor:busy || !canAdjustCredits ? "default" : "pointer",
-                    padding:"10px 14px",
+                    padding:"10px 6px",
                     fontWeight:700,
                     letterSpacing:0.1,
+                    whiteSpace:"nowrap",
                     opacity:busy || !canAdjustCredits ? 0.6 : 1,
                   }}
                 >
                   {busyAction === "remove" ? "Removing…" : "Remove credits"}
                 </button>
-                {canResendActivation && (
-                  <button
-                    type="button"
-                    onClick={() => resendActivationEmail(row.user_id, row.email)}
-                    disabled={busy}
-                    className="wc-btn"
-                    style={{
-                      background:"rgba(176,244,200,0.12)",
-                      border:"1px solid rgba(176,244,200,0.24)",
-                      borderRadius:999,
-                      color:"#DDFBE6",
-                      fontSize:12,
-                      cursor:busy ? "default" : "pointer",
-                      padding:"10px 14px",
-                      fontWeight:700,
-                      letterSpacing:0.1,
-                      opacity:busy ? 0.6 : 1,
-                    }}
-                  >
-                    {busyAction === "resend" ? "Sending…" : "Resend activation email"}
-                  </button>
-                )}
-                {notice && (
-                  <div style={{ fontSize:12, color:notice === "Added." || notice === "Removed." || notice === "Activation email sent." ? "rgba(176,244,200,0.9)" : "#FFB090" }}>
-                    {notice}
-                  </div>
-                )}
               </div>
+
+              {canResendActivation && (
+                <button
+                  type="button"
+                  onClick={() => resendActivationEmail(row.user_id, row.email)}
+                  disabled={busy}
+                  className="wc-btn"
+                  style={{
+                    width:"100%",
+                    background:ink.light ? "rgba(18,131,126,0.10)" : "rgba(176,244,200,0.12)",
+                    border:`1px solid ${ink.light ? "rgba(18,131,126,0.32)" : "rgba(176,244,200,0.24)"}`,
+                    borderRadius:999,
+                    color:ink.light ? "#0E6B66" : "#DDFBE6",
+                    fontSize:12,
+                    cursor:busy ? "default" : "pointer",
+                    padding:"10px 14px",
+                    fontWeight:700,
+                    letterSpacing:0.1,
+                    opacity:busy ? 0.6 : 1,
+                  }}
+                >
+                  {busyAction === "resend" ? "Sending…" : "Resend activation email"}
+                </button>
+              )}
+              {notice && (
+                <div style={{ fontSize:12, fontWeight:700, textAlign:"center", color:notice === "Added." || notice === "Removed." || notice === "Activation email sent."
+                  ? (ink.light ? "#0E6B66" : "rgba(176,244,200,0.9)")
+                  : (ink.light ? "#B34A17" : "#FFB090") }}>
+                  {notice}
+                </div>
+              )}
             </div>
           );
         })}
@@ -7943,12 +8060,12 @@ export async function createQuizChallenge(resultId, mathData, signaturePhrase) {
 // CHAT MEMORY QUIZ — standalone screen (no Shell chrome)
 // ─────────────────────────────────────────────────────────────────
 
-const QUIZ_SCORE_LABELS = ["Did you even read these messages? 😅", "A few lucky guesses.", "Getting warmer.", "Pretty solid.", "You know this chat well.", "You know this chat inside out. 🎯"];
+const QUIZ_SCORE_LABELS = ["Did you even read these messages?", "A few lucky guesses.", "Getting warmer.", "Pretty solid.", "You know this chat well.", "You know this chat inside out."];
 
 function QuizOptionButton({ label, state, layout, onClick }) {
   const isGrid = layout === "grid";
   let bg     = "rgba(255,255,255,0.07)";
-  let border = "1.5px solid rgba(255,255,255,0.14)";
+  let border = "1.5px solid rgba(255,255,255,0.16)";
   let color  = "rgba(255,255,255,0.88)";
   if (state === "correct")         { bg = "rgba(80,220,120,0.18)"; border = "1.5px solid rgba(80,220,120,0.55)"; color = "#fff"; }
   if (state === "wrong")           { bg = "rgba(255,80,80,0.15)";  border = "1.5px solid rgba(255,80,80,0.45)";  color = "#fff"; }
@@ -7961,14 +8078,14 @@ function QuizOptionButton({ label, state, layout, onClick }) {
       className="wc-btn"
       style={{
         padding: isGrid ? "18px 8px" : "14px 18px",
-        borderRadius: isGrid ? 16 : 999,
+        borderRadius: isGrid ? 18 : 999,
         border,
         background: bg,
         color,
         fontSize: isGrid ? 28 : 15,
         fontWeight: isGrid ? 400 : 700,
+        fontFamily: isGrid ? "inherit" : "'Nunito Sans',sans-serif",
         cursor: state !== "idle" ? "default" : "pointer",
-        fontFamily: "inherit",
         textAlign: "center",
         transition: "background 0.22s, border-color 0.22s",
         lineHeight: 1.3,
@@ -8017,51 +8134,73 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
     }, 1200);
   }
 
-  // Finale palette — matches General Wrapped summary page
-  const BG      = "#5E1228";
-  const ACCENT  = "#F08EBF";
-  const INNER   = "rgba(255,255,255,0.09)";
-  const BORDER  = "rgba(255,255,255,0.12)";
+  // Finale palette + the app's card language: solid inner panels with accent
+  // borders, Nunito display type, waves behind. This page renders without
+  // Shell (public link, no auth), so the styles Shell normally provides
+  // (wc-btn hover, fadeUp/blink keyframes) are declared locally below.
+  const p = PAL.finale;
   const PRIMARY = "#fff";
-  const DIM     = "rgba(255,255,255,0.55)";
-  const DIMMER  = "rgba(255,255,255,0.35)";
-
-  // Stable outer shell — top-anchored so layout never shifts between phases
-  const shell = {
-    minHeight: "100dvh",
-    background: BG,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "0 20px 56px",
-    boxSizing: "border-box",
+  const DIM     = "rgba(255,255,255,0.60)";
+  const DIMMER  = "rgba(255,255,255,0.38)";
+  const cardStyle = {
+    background: p.inner,
+    border: `1.5px solid ${p.accent}55`,
+    borderRadius: 24,
+    padding: "24px 22px",
   };
-  // Fixed-width column — always the same horizontal footprint
-  const col = {
-    width: "100%",
-    maxWidth: 420,
-    display: "flex",
-    flexDirection: "column",
-    gap: 20,
-    paddingTop: 52,
-  };
+  const displayType = { fontFamily: "'Nunito',sans-serif", fontWeight: 900, color: PRIMARY };
 
-  // Shared wordmark header
-  const wordmark = (
-    <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:DIMMER, textAlign:"center" }}>
-      WrapChat
+  // Stable frame: brand pill pinned at the top, each phase's content
+  // vertically centered in the remaining space.
+  const frame = (content) => (
+    <div style={{
+      minHeight: "100dvh",
+      background: p.bg,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      padding: "calc(14px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px))",
+      boxSizing: "border-box",
+      position: "relative",
+      overflow: "hidden",
+      isolation: "isolate",
+      fontFamily: "system-ui, sans-serif",
+    }}>
+      <style>{`
+        .wc-quiz * { box-sizing: border-box; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .wc-fadeup   { animation: fadeUp 0.4s cubic-bezier(.2,0,.1,1) both; }
+        .wc-fadeup-2 { animation: fadeUp 0.4s 0.07s cubic-bezier(.2,0,.1,1) both; }
+        .wc-fadeup-3 { animation: fadeUp 0.4s 0.14s cubic-bezier(.2,0,.1,1) both; }
+        @keyframes blink { 0%,80%,100%{opacity:.15} 40%{opacity:1} }
+        .wc-btn:hover { opacity:0.82; transform:scale(0.98); }
+      `}</style>
+      <WaveLines accent={p.accent} />
+      <div className="wc-quiz" style={{ width:"100%", maxWidth:420, flex:1, display:"flex", flexDirection:"column", position:"relative", zIndex:1 }}>
+        <div style={{ paddingTop:14, display:"flex", justifyContent:"center", flexShrink:0 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase", color:p.accent, background:`${p.accent}20`, border:`1px solid ${p.accent}50`, padding:"4px 12px", borderRadius:999 }}>
+            WrapChat
+          </div>
+        </div>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", gap:20, padding:"24px 0" }}>
+          {content}
+        </div>
+      </div>
     </div>
   );
 
-  // Shared CTA button
-  const ctaBtn = (label, onClick) => (
+  // Shared CTA — same shape as the app's Nav primary button.
+  const ctaBtn = (label, onClick, showArrow = false) => (
     <button type="button" onClick={onClick} className="wc-btn" style={{
-      width:"100%", padding:"16px 20px", borderRadius:999,
-      background:ACCENT, border:"none", color:BG,
-      fontSize:16, fontWeight:800, cursor:"pointer",
-      fontFamily:"inherit", letterSpacing:0.1,
+      width:"100%", padding:"15px 20px", borderRadius:999,
+      background:p.accent, border:"none", color:p.bg,
+      fontSize:15, fontWeight:800, cursor:"pointer",
+      fontFamily:"'Nunito Sans',sans-serif",
+      display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+      transition:"all 0.15s",
     }}>
       {label}
+      {showArrow && <ForwardIcon size={13} />}
     </button>
   );
 
@@ -8070,59 +8209,48 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
 
   // ── Loading ──
   if (quizPhase === "loading") {
-    return (
-      <div style={shell}>
-        <div style={col}>
-          {wordmark}
-          <div style={{ textAlign:"center", color:DIM, fontSize:14, paddingTop:40 }}>Loading…</div>
-        </div>
-      </div>
+    return frame(
+      <div style={{ display:"flex", justifyContent:"center" }}><Dots color="rgba(255,255,255,0.4)" /></div>
     );
   }
 
   // ── Error ──
   if (quizPhase === "error" || !questions.length) {
-    return (
-      <div style={shell}>
-        <div style={col}>
-          {wordmark}
-          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"28px 24px", textAlign:"center", display:"flex", flexDirection:"column", gap:12 }}>
-            <div style={{ fontSize:20, fontWeight:800, color:PRIMARY }}>Quiz not found</div>
-            <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>This link may have expired or been removed.</div>
-          </div>
-          {ctaBtn(t("Try WrapChat"), onJoin)}
+    return frame(
+      <>
+        <div className="wc-fadeup" style={{ ...cardStyle, textAlign:"center", display:"flex", flexDirection:"column", gap:12 }}>
+          <div style={{ ...displayType, fontSize:22, letterSpacing:-0.5 }}>{t("Quiz not found")}</div>
+          <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>{t("This link may have expired or been removed.")}</div>
         </div>
-      </div>
+        <div className="wc-fadeup-2">{ctaBtn(t("Try WrapChat"), onJoin, true)}</div>
+      </>
     );
   }
 
   // ── Intro ──
   if (quizPhase === "intro") {
-    return (
-      <div style={shell}>
-        <div style={col}>
-          {wordmark}
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontSize:26, fontWeight:800, color:PRIMARY, lineHeight:1.25, letterSpacing:-0.5 }}>
-              {names.join(" & ")}
-            </div>
-            {total > 0 && (
-              <div style={{ fontSize:13, color:DIMMER, marginTop:6 }}>
-                {total.toLocaleString()} messages analysed
-              </div>
-            )}
+    return frame(
+      <>
+        <div className="wc-fadeup" style={{ textAlign:"center" }}>
+          <div style={{ ...displayType, fontSize:28, lineHeight:1.2, letterSpacing:-1 }}>
+            {names.join(" & ")}
           </div>
-          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"24px 22px", textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
-            <div style={{ fontSize:20, fontWeight:800, color:PRIMARY, lineHeight:1.35 }}>
-              Think you know this chat?
+          {total > 0 && (
+            <div style={{ fontSize:13, color:DIMMER, marginTop:6 }}>
+              {t("{count} messages analysed", { count: total.toLocaleString() })}
             </div>
-            <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>
-              {questions.length} questions · takes about a minute
-            </div>
-          </div>
-          {ctaBtn("Start the quiz →", () => setQuizPhase("question"))}
+          )}
         </div>
-      </div>
+        <div className="wc-fadeup-2" style={{ ...cardStyle, textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ ...displayType, fontSize:21, lineHeight:1.3, letterSpacing:-0.5 }}>
+            {t("Think you know this chat?")}
+          </div>
+          <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>
+            {t("{count} questions", { count: questions.length })}
+          </div>
+        </div>
+        <div className="wc-fadeup-3">{ctaBtn(t("Start the quiz"), () => setQuizPhase("question"), true)}</div>
+      </>
     );
   }
 
@@ -8131,79 +8259,69 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
     const q = questions[step];
     const isGrid = q.layout === "grid";
     const progress = (step + 1) / questions.length;
-    return (
-      <div style={shell}>
-        <div style={col}>
-          {wordmark}
-          {/* Progress bar */}
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:DIMMER, textAlign:"center", letterSpacing:"0.04em" }}>
-              {step + 1} / {questions.length}
-            </div>
-            <div style={{ width:"100%", height:4, background:"rgba(255,255,255,0.12)", borderRadius:999 }}>
-              <div style={{ width:`${progress * 100}%`, height:"100%", background:ACCENT, borderRadius:999, transition:"width 0.35s cubic-bezier(.4,0,.2,1)" }} />
-            </div>
+    return frame(
+      <>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:DIMMER, textAlign:"center", letterSpacing:"0.04em" }}>
+            {step + 1} / {questions.length}
           </div>
-          {/* Question card */}
-          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"24px 22px", display:"flex", flexDirection:"column", gap:20 }}>
-            <div style={{ fontSize:20, fontWeight:800, color:PRIMARY, textAlign:"center", lineHeight:1.35, letterSpacing:-0.3 }}>
-              {q.text}
-            </div>
-            <div style={{
-              display: isGrid ? "grid" : "flex",
-              gridTemplateColumns: isGrid ? "1fr 1fr" : undefined,
-              flexDirection: isGrid ? undefined : "column",
-              gap: 10,
-            }}>
-              {q.options.map(option => {
-                let state = "idle";
-                if (locked) {
-                  if (option === q.correct) state = picked === option ? "correct" : "correct-other";
-                  else if (option === picked) state = "wrong";
-                }
-                return (
-                  <QuizOptionButton
-                    key={option}
-                    label={option}
-                    state={state}
-                    layout={q.layout}
-                    onClick={() => handlePick(option)}
-                  />
-                );
-              })}
-            </div>
+          <div style={{ width:"100%", height:3, background:"rgba(255,255,255,0.12)", borderRadius:999 }}>
+            <div style={{ width:`${progress * 100}%`, height:"100%", background:p.accent, borderRadius:"0 2px 2px 0", transition:"width 0.35s cubic-bezier(.4,0,.2,1)" }} />
           </div>
         </div>
-      </div>
+        <div key={step} className="wc-fadeup" style={{ ...cardStyle, display:"flex", flexDirection:"column", gap:20 }}>
+          <div style={{ ...displayType, fontSize:20, textAlign:"center", lineHeight:1.35, letterSpacing:-0.5 }}>
+            {q.text}
+          </div>
+          <div style={{
+            display: isGrid ? "grid" : "flex",
+            gridTemplateColumns: isGrid ? "1fr 1fr" : undefined,
+            flexDirection: isGrid ? undefined : "column",
+            gap: 10,
+          }}>
+            {q.options.map(option => {
+              let state = "idle";
+              if (locked) {
+                if (option === q.correct) state = picked === option ? "correct" : "correct-other";
+                else if (option === picked) state = "wrong";
+              }
+              return (
+                <QuizOptionButton
+                  key={option}
+                  label={option}
+                  state={state}
+                  layout={q.layout}
+                  onClick={() => handlePick(option)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </>
     );
   }
 
   // ── Score ──
   const labelIndex = Math.min(Math.floor((score / questions.length) * QUIZ_SCORE_LABELS.length), QUIZ_SCORE_LABELS.length - 1);
-  return (
-    <div style={shell}>
-      <div style={col}>
-        {wordmark}
-        {/* Score */}
-        <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:24, padding:"32px 24px", textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
-          <div style={{ fontSize:72, fontWeight:900, color:PRIMARY, lineHeight:1, letterSpacing:-3 }}>
-            {score}<span style={{ fontSize:36, color:DIMMER, fontWeight:700 }}>/{questions.length}</span>
-          </div>
-          <div style={{ fontSize:15, color:DIM, lineHeight:1.55 }}>
-            {QUIZ_SCORE_LABELS[labelIndex]}
+  return frame(
+    <>
+      <div className="wc-fadeup" style={{ ...cardStyle, padding:"32px 24px", textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
+        <div style={{ ...displayType, fontSize:72, lineHeight:1, letterSpacing:-3 }}>
+          {score}<span style={{ fontSize:36, color:DIMMER, fontWeight:700 }}>/{questions.length}</span>
+        </div>
+        <div style={{ fontSize:15, color:DIM, lineHeight:1.55 }}>
+          {t(QUIZ_SCORE_LABELS[labelIndex])}
+        </div>
+      </div>
+      {total > 0 && (
+        <div className="wc-fadeup-2" style={{ background:`${p.accent}14`, border:`1px solid ${p.accent}40`, borderRadius:20, padding:"16px 20px", textAlign:"center" }}>
+          <div style={{ fontSize:13, color:DIM, lineHeight:1.6 }}>
+            This chat has <strong style={{ color:PRIMARY }}>{total.toLocaleString()}</strong> messages between {names.join(" and ")}. Curious what your own chat reveals?
           </div>
         </div>
-        {/* Teaser */}
-        {total > 0 && (
-          <div style={{ background:INNER, border:`1px solid ${BORDER}`, borderRadius:20, padding:"16px 20px", textAlign:"center" }}>
-            <div style={{ fontSize:13, color:DIM, lineHeight:1.6 }}>
-              This chat has <strong style={{ color:PRIMARY }}>{total.toLocaleString()}</strong> messages between {names.join(" and ")}. Curious what your own chat reveals?
-            </div>
-          </div>
-        )}
-        {ctaBtn("Analyse your own chat — free", onJoin)}
-      </div>
-    </div>
+      )}
+      <div className="wc-fadeup-3">{ctaBtn(t("Analyse your own chat, free"), onJoin, true)}</div>
+    </>
   );
 }
 

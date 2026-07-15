@@ -67,6 +67,9 @@ const chatLang = opt("lang") || detected?.code || "en";
 const relationshipLine = math.isGroup ? "" : ai.buildRelationshipLine ? "" : "";
 const candidates = ai.extractCandidateMoments(messages);
 const candidatesText = ai.formatCandidateMoments(candidates);
+const recurringCast = ai.extractRecurringCast(messages, math.names || [], {
+  topicTokens: (math.topWords || []).map(entry => (Array.isArray(entry) ? entry[0] : entry)),
+});
 
 console.log(`chat: ${path.basename(chatPath)} · ${messages.length} messages · ${math.isGroup ? "group" : "duo"} · lang=${chatLang} · ${candidates.length} candidate moments`);
 
@@ -84,6 +87,7 @@ const requests = {};
 if (PIPELINES.includes("connection")) {
   requests.connection = helpers.prepareConnectionDigestRequest({
     ...common,
+    recurringCast,
     buildAnalystSystemPrompt: ai.buildCoreASystemPrompt,
     buildSampleText: ai.buildSampleText,
     candidatesText,
@@ -101,6 +105,7 @@ if (PIPELINES.includes("growth")) {
 if (PIPELINES.includes("risk")) {
   requests.risk = helpers.prepareRiskDigestRequest({
     ...common,
+    recurringCast,
     buildAnalystSystemPrompt: ai.buildAnalystSystemPrompt,
     buildSampleText: ai.buildSampleText,
     candidatesText,
@@ -110,6 +115,33 @@ if (PIPELINES.includes("risk")) {
 
 const outDir = path.join("tests", "golden", "outputs", path.basename(chatPath).replace(/\.[^.]+$/, ""));
 await mkdir(outDir, { recursive: true });
+
+// What local math extracted and categorized before any AI call — the review
+// surface for "what are we sending Claude": typed candidate moments (with
+// reactions), the math context lines the prompts embed, and topic data.
+await writeFile(path.join(outDir, "local-analysis.json"), JSON.stringify({
+  chat: path.basename(chatPath),
+  messages: messages.length,
+  names: math.names,
+  totalMessages: math.totalMessages,
+  isGroup: math.isGroup,
+  detectedLanguage: chatLang,
+  localContext: {
+    ghostName: math.ghostName,
+    ghost: math.ghost,
+    convStarter: math.convStarter,
+    funniestPerson: math.funniestPerson,
+    laughCausedBy: math.laughCausedBy,
+    peakHour: math.peakHour,
+    streak: math.streak,
+  },
+  topWords: math.topWords,
+  topBigrams: math.topBigrams,
+  signatureWord: math.signatureWord,
+  candidateMoments: candidates,
+  candidatesTextSentToClaude: candidatesText,
+  recurringCast,
+}, null, 2));
 
 // --relint: re-score previously saved outputs with the current linter,
 // without any API calls. Cheap way to iterate on lint rules or re-judge
@@ -157,10 +189,11 @@ async function callAnthropic(request) {
   return { parsed: JSON.parse(candidate), raw: text, usage: data.usage, stopReason: data.stop_reason };
 }
 
+const groundCorpus = messages.map(message => message.body || "").join("\n");
 const NORMALIZERS = {
-  connection: raw => ai.normalizeConnectionDigest(raw, math, common.relationshipType),
-  growth: raw => ai.normalizeGrowthDigest(raw, math, common.relationshipType),
-  risk: raw => ai.normalizeRiskDigest(raw, math, common.relationshipType),
+  connection: raw => lint.groundResultQuotes(ai.normalizeConnectionDigest(raw, math, common.relationshipType), groundCorpus),
+  growth: raw => lint.groundResultQuotes(ai.normalizeGrowthDigest(raw, math, common.relationshipType), groundCorpus),
+  risk: raw => lint.groundResultQuotes(ai.normalizeRiskDigest(raw, math, common.relationshipType), groundCorpus),
 };
 const DERIVED = {
   connection: core => ({

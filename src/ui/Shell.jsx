@@ -106,10 +106,11 @@ export function getShareCaptureHeight(el) {
   const rect = el.getBoundingClientRect();
   const panes = Array.from(el.querySelectorAll(".wc-pane"));
   const paneHeight = panes.reduce((max, pane) => Math.max(max, pane.scrollHeight || 0), 0);
-  // Natural card height only — the logo is overlaid on the waves, not given
-  // its own footer strip. The pane allowance only kicks in when card content
-  // is taller than the viewport (scrollable cards).
-  return Math.ceil(Math.max(rect.height || 0, el.scrollHeight || 0, paneHeight + 120));
+  const natural = Math.max(rect.height || 0, el.scrollHeight || 0);
+  // Capture the card exactly as seen — the logo overlays the existing waves,
+  // never a padded strip below them. Extend the canvas only when the pane
+  // content genuinely overflows the card (scrollable cards).
+  return Math.ceil(paneHeight > natural + 8 ? paneHeight + 60 : natural);
 }
 
 export async function waitForShareAssets(el) {
@@ -213,6 +214,9 @@ export async function buildShareCanvas(type, logoSrc) {
           display: "flex",
           flexDirection: "column",
           borderRadius: "32px",
+          // Shared images get viewed full-screen: keep the pill clear of
+          // camera cutouts instead of hugging the top edge.
+          paddingTop: "56px",
         });
 
         root.querySelectorAll(".wc-body").forEach(body => {

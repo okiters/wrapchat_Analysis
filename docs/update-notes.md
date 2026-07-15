@@ -10,6 +10,43 @@ _Nothing pending._
 
 ---
 
+## v3.5 — Evidence-led analysis: cast attribution, storyline arcs, quote grounding, German support
+
+### Analysis quality: evidence-gathering extraction, quote grounding, storyline arcs (golden-validated)
+**Files:** `src/analysis/aiAnalysis.js`, `src/analysis/localMath.js`, `src/analysis/voiceLint.js`, `supabase/functions/_shared/prompts.js` (PROMPT_VERSION 4), `scripts/golden-run.mjs`, `src/screens/Screens.jsx`, `src/App.jsx`
+
+Golden-loop session on the real 6.9k-message Turkish duo: voice-lint went 14 errors → 0 across three live runs.
+- **Recurring cast + NAMED ATTRIBUTION:** `extractRecurringCast` counts third-party names deterministically (Titlecase/apostrophe channels + filtered top-words recall, vocative filter) and ships dated evidence samples per name; the model may attach an event to a name only when a message literally ties them. Fixed the Habib/Josh storyline blending.
+- **STORYLINE ARCS:** every cast entry carries its temporal span and its most recent mention; endings (breakups etc.) may only be claimed when later mentions stay consistent — a discussed breakup that recovered is a "rough patch," not an ending.
+- **Deterministic quote grounding:** `groundResultQuotes` de-quotes any span not verbatim in the chat, wired into all six AI paths + harness. Fabricated quotes are now structurally impossible.
+- **Drama candidates + reactions:** distress-driven `drama` candidate type; every candidate now includes the other person's reaction; the "why it lands for these exact people" commentary shape is required in all moment fields (the dad-casino principle).
+- **Category contracts:** Miss requires both sides in one exchange, Unspoken requires wordless care, group-only fields empty on duos, quote-spent rule, ranked Memorable Moments criteria with the screenshot test.
+- **Turkish register:** native-composition + actor-clarity rules (repeat names in pro-drop languages).
+- **Cards skip when unfulfilled:** Love Language Miss/Unspoken/How-It-Shows and Energy's Charge render only with real content (`getLovelangScreenCount`/`getEnergyScreenCount`); duplicate fallbacks deleted.
+- **German brought to structural parity:** all eight signal lexicons + stopwords/fillers gained colloquial German; cast detector disables the Titlecase channel for `de` (nouns are capitalized). Needs one real German chat for golden validation.
+- **Harness:** dumps `local-analysis.json` (typed candidates, cast, math context) per run for reviewable "what we send Claude" evidence.
+
+### UI feedback batch (share capture, admin, settings, icons) + deterministic time-of-day
+**Files:** `src/ui/Shell.jsx`, `src/screens/Screens.jsx`, `src/analysis/aiAnalysis.js`, `src/analysis/localMath.js`
+
+- **Share capture:** the `paneHeight + 120` allowance painted a flat band below the waves with the logo in it on every normal card; capture is now the exact natural card height (pane allowance only when content genuinely overflows), and the capture gets 56px top padding so the pill clears phone camera cutouts when viewed full-screen.
+- **Admin Users tab:** credits no longer shown twice; controls in a tidy `76px/1fr/1fr` grid (amount / add / remove) with the resend button full-width below; light theme gets readable teal (#0E6B66 on teal tint) instead of invisible pale mint for resend/success notices, and error notices darken to #B34A17.
+- **Settings:** `justifyContent:"safe center"` clipped the bottom unrecoverably on WebKit without `safe` support — restructured to the Unlock pattern (full-bleed scroller + sticky frosted header, alpha 0.9 + blur 8), 40px bottom padding.
+- **SwatchIcon:** light theme always uses the vivid `accent60` fill (the Unlock page look); the solid dark report inner colors read as dark blobs on cream (PackResultsBuffer, My Results, trial).
+- **Quiz copy:** intro now just "{count} questions"; share text drops "about a minute".
+- **Time-of-day is now deterministic:** `normalizeTimeOfDay` overrides the AI's peakHour/peakDaypart with `math.peakHour`/new `math.peakHourRaw` (daypart derived locally); the AI keeps only the contrast sentence. General Wrapped and Energy Report can no longer contradict each other on peak times — first instance of the rule that deterministic facts always come from local math, never per-call AI output.
+
+### Post-purchase buffer pages + Chat Memory Quiz redesign
+**Files:** `src/screens/Screens.jsx`, `src/App.jsx`
+
+**Post-purchase buffers:** new `PostPurchaseBuffer` component with two variants and a 200px dashed illustration slot (`data-illustration-slot="unlock" | "credits"`, artwork pending). Unlock flow ("You're in." → Continue) shows after a successful pack unlock; credits flow ("Credits landed." → Pick a read) replaces the success toast after buying credits and returns to the screen the purchase started from. Failure toasts unchanged. New `unlockBuffer`/`creditsBuffer` phases + `bufferTarget` state in App. Copy strings not yet translated (English fallback in all locales) pending final wording.
+
+**Chat Memory Quiz brought onto the design system:** the public quiz page previously used ghost white-alpha cards, no font family, top-anchored layout, and depended on wc-btn/keyframe styles that only exist inside Shell (never mounted on the public route, so hovers/animations silently missing). Now: content vertically centered with the brand pill pinned top (stable frame across phases), solid `PAL.finale.inner` cards with accent borders, Nunito display type, Nav-style CTA with ForwardIcon, WaveLines behind, Shell-style 3px progress bar, Dots loading state, per-question fadeUp, safe-area padding, and a local `<style>` block providing the wc-btn/fadeUp/blink rules the page needs standalone. Emojis removed from score labels; key strings wrapped in `t()`.
+
+**Share message fixed:** "I wrapped our chat — can you beat my score? 🎯" claimed a score the sender never had. Now: "How well do you actually remember our chat? 6 questions, about a minute." (no emoji, goes through `t()`).
+
+---
+
 ## v3.4 — Server-side prompt construction, token telemetry, light-theme ink audit
 
 ### Server-side prompt construction + token telemetry (audit: "one refactor fixes four")

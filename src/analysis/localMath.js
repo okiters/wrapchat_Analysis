@@ -138,6 +138,8 @@ export function getReviewableMergeSuggestions(dataset) {
 // LOCAL MATH
 // ─────────────────────────────────────────────────────────────────
 export const STOP_WORDS = new Set([
+  // German function words (nouns are handled by frequency filters)
+  "der","die","das","und","nicht","ich","du","wir","ihr","ein","eine","aber","auch","noch","schon","mal","dann","wenn","was","wie","wo","wer","ja","nein","doch","nur","mit","für","fuer","von","auf","aus","bei","nach","zu","im","am","um","ist","sind","war","bin","bist","hat","habe","haben","kann","muss","will","mehr","sehr","hier","jetzt","heute","morgen","gestern","gut","dich","dir","mir","mich","uns","euch","kein","keine","dass","weil","oder","wird","werden","wurde","als","bis","vor","über","ueber","unter","gegen","ohne","dieser","diese","dieses",
 
   // ── English ──
   "i","me","my","myself","we","our","ours","ourselves","you","your","yours",
@@ -337,6 +339,7 @@ export const STOP_WORDS = new Set([
 // Chat fillers that dominate frequency counts without carrying meaning.
 // ASCII spellings are handled by foldToken below, so one form is enough.
 const CHAT_FILLER_WORDS = [
+  "also","halt","eben","krass","echt","voll","mega","genau","stimmt","vielleicht","eigentlich","irgendwie","trotzdem","deswegen","übrigens","uebrigens","okay","oke","alles","klar","keine","ahnung",
   // Turkish
   "yani", "evet", "hayır", "tamam", "tmm", "okey", "iyi", "zaten", "zaman",
   "falan", "filan", "felan", "aynen", "valla", "vallahi", "herhalde", "mesela",
@@ -350,7 +353,7 @@ const CHAT_FILLER_WORDS = [
   "time", "still", "even", "much", "more", "some", "then", "when", "what's",
 ];
 
-function foldToken(word) {
+export function foldToken(word) {
   return String(word || "")
     .toLowerCase()
     .replace(/ı/g, "i")
@@ -358,7 +361,7 @@ function foldToken(word) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-const TOKEN_STOP_WORDS = new Set(
+export const TOKEN_STOP_WORDS = new Set(
   [...STOP_WORDS, ...CHAT_FILLER_WORDS].flatMap(term =>
     String(term || "")
       .toLowerCase()
@@ -430,19 +433,19 @@ const TOKEN_WA_NOISE_WORDS = new Set(
   )
 );
 
-export const ROMANCE_RE = /\b(love you|luv you|miss you|my love|baby|babe|bb|darling|good night love|good morning love|kiss you|date night|come over|sleep well|xoxo|sevgilim|askim|aşkım|canim|canım|ozledim|özledim|tatlim|tatlım|bebegim|bebeğim)\b/i;
+export const ROMANCE_RE = /\b(love you|luv you|miss you|my love|baby|babe|bb|darling|good night love|good morning love|kiss you|date night|come over|sleep well|xoxo|sevgilim|askim|aşkım|canim|canım|ozledim|özledim|tatlim|tatlım|bebegim|bebeğim|liebe dich|hab dich lieb|hdl|hdgdl|vermisse dich|vermiss dich|schatz|schatzi|süße|suesse|gute nacht schatz|küsschen|kuesschen)\b/i;
 export const FRIEND_RE = /\b(bestie|bro|broski|dude|girl|sis|mate|homie|kanka|knk|abi|abla)\b/i;
 export const WORK_RE = /\b(meeting|deadline|project|client|invoice|brief|office|shift|deck|review this|sunum|mesai|müşteri|musteri|patron|toplantı|toplanti)\b/i;
 export const DATE_RE = /\b(date|dinner tonight|movie night|see you tonight|come over|valentine|anniversary)\b/i;
 export const FLIRTY_EMOJI_RE = /(❤️|❤|💕|💖|💗|💘|😍|🥰|😘|💋)/;
 
-export const CONTROL_RE = /\b(where are you|who are you with|why are you online|why were you online|why didn't you reply|why dont you reply|why didn't you answer|why didnt you answer|answer me|pick up|call me now|send me your location|share your location|send your location|reply now|reply to me|neredesin|nerde kaldın|kimlesin|kimleydin|neden cevap vermedin|niye cevap vermedin|cevap ver|cvp ver|aç telefonu|telefonu aç|konum at|konumunu at|konum paylaş|konumunu paylaş)\b/i;
-export const AGGRO_RE = /\b(stupid|idiot|shut up|hate you|leave me alone|you're crazy|you are crazy|disgusting|pathetic|annoying|i'm sick of this|i am sick of this|salak|gerizekal[ıi]|aptal|mal|siktir|siktir git|defol|yeter|bıktım|biktim|nefret ediyorum|manyak|saçma|sacma)\b/i;
-export const BREAKUP_RE = /\b(it'?s over|we'?re done|i'?m done|im done|done with you|break up|breakup|goodbye forever|don't text me|dont text me|blocked you|bitti|bitsin|ayrıl|ayrilelim|ayrılalım|beni arama|yazma bana|engelledim|sildim seni)\b/i;
-export const APOLOGY_RE = /\b(sorry|i'm sorry|i am sorry|my fault|forgive me|özür dilerim|ozur dilerim|affet|hata bendeydi|haklısın|haklisin)\b/i;
-export const SUPPORT_RE = /\b(i'm here|i am here|here for you|got you|proud of you|take care|rest up|go rest|get some rest|drink water|eat something|text me when you|get home safe|call me if|let me know if|i can help|i'll help|i will help|i'll come|i will come|feel better|hope you feel better|hope it gets better|sending love|yanındayım|yanindayim|buradayım|buradayim|iyi misin|iyi mısın|kendine iyi bak|dinlen|uyu biraz|su iç|su ic|bir şey yedin mi|bir sey yedin mi|haber ver|arayayım|arayim|gelirim|yardım ederim|yardim ederim|geçer|gecer|hallolur|hallederiz)\b/i;
-export const GRATITUDE_RE = /\b(thank you|thanks|thank u|appreciate it|you’re the best|you're the best|sağ ol|sag ol|saol|teşekkür|tesekkur|iyi ki varsın|iyi ki varsin)\b/i;
-export const DISTRESS_RE = /\b(sad|cry|crying|tired|stressed|anxious|scared|worried|hurt|hard|difficult|broken|lost|alone|upset|angry|panic|panicking|faint|fainted|feel sick|bad day|burnt out|hasta|üzgün|uzgun|stresli|yorgun|yalnız|yalniz|korktum|kötü|kotu|bayıl|bayil|ağla|agla|yardım|yardim)\b/i;
+export const CONTROL_RE = /\b(where are you|who are you with|why are you online|why were you online|why didn't you reply|why dont you reply|why didn't you answer|why didnt you answer|answer me|pick up|call me now|send me your location|share your location|send your location|reply now|reply to me|neredesin|nerde kaldın|kimlesin|kimleydin|neden cevap vermedin|niye cevap vermedin|cevap ver|cvp ver|aç telefonu|telefonu aç|konum at|konumunu at|konum paylaş|konumunu paylaş|wo bist du|mit wem bist du|warum antwortest du nicht|wieso antwortest du nicht|antworte mir|geh ran|ruf mich sofort an|schick mir deinen standort|melde dich sofort)\b/i;
+export const AGGRO_RE = /\b(stupid|idiot|shut up|hate you|leave me alone|you're crazy|you are crazy|disgusting|pathetic|annoying|i'm sick of this|i am sick of this|salak|gerizekal[ıi]|aptal|mal|siktir|siktir git|defol|yeter|bıktım|biktim|nefret ediyorum|manyak|saçma|sacma|halt die klappe|halt den mund|du nervst|ich hasse dich|lass mich in ruhe|widerlich|erbärmlich|erbaermlich|mir reichts|mir reicht es|verpiss dich)\b/i;
+export const BREAKUP_RE = /\b(it'?s over|we'?re done|i'?m done|im done|done with you|break up|breakup|goodbye forever|don't text me|dont text me|blocked you|bitti|bitsin|ayrıl|ayrilelim|ayrılalım|beni arama|yazma bana|engelledim|sildim seni|es ist aus|es ist vorbei|schluss machen|machen wir schluss|wir sind fertig|ich bin fertig mit dir|schreib mir nicht mehr|hab dich blockiert|hab dich gelöscht|hab dich geloescht)\b/i;
+export const APOLOGY_RE = /\b(sorry|i'm sorry|i am sorry|my fault|forgive me|özür dilerim|ozur dilerim|affet|hata bendeydi|haklısın|haklisin|tut mir leid|entschuldige|entschuldigung|verzeih mir|mein fehler|du hast recht|hast recht)\b/i;
+export const SUPPORT_RE = /\b(i'm here|i am here|here for you|got you|proud of you|take care|rest up|go rest|get some rest|drink water|eat something|text me when you|get home safe|call me if|let me know if|i can help|i'll help|i will help|i'll come|i will come|feel better|hope you feel better|hope it gets better|sending love|yanındayım|yanindayim|buradayım|buradayim|iyi misin|iyi mısın|kendine iyi bak|dinlen|uyu biraz|su iç|su ic|bir şey yedin mi|bir sey yedin mi|haber ver|arayayım|arayim|gelirim|yardım ederim|yardim ederim|geçer|gecer|hallolur|hallederiz|bin für dich da|bin fuer dich da|ich bin da für|hast du was gegessen|gute besserung|ruh dich aus|schlaf dich aus|trink was|melde dich wenn|komm gut heim|komm gut nach hause|ich helf dir|ich helfe dir|wird schon|kriegen wir hin|pass auf dich auf|alles wird gut)\b/i;
+export const GRATITUDE_RE = /\b(thank you|thanks|thank u|appreciate it|you’re the best|you're the best|sağ ol|sag ol|saol|teşekkür|tesekkur|iyi ki varsın|iyi ki varsin|danke dir|vielen dank|tausend dank|du bist die beste|du bist der beste|zum glück gibt es dich|zum glueck gibt es dich)\b/i;
+export const DISTRESS_RE = /\b(sad|cry|crying|tired|stressed|anxious|scared|worried|hurt|hard|difficult|broken|lost|alone|upset|angry|panic|panicking|faint|fainted|feel sick|bad day|burnt out|hasta|üzgün|uzgun|stresli|yorgun|yalnız|yalniz|korktum|kötü|kotu|bayıl|bayil|ağla|agla|yardım|yardim|traurig|weine|weinen|müde|muede|gestresst|ängstlich|aengstlich|besorgt|verletzt|kaputt|einsam|sauer|wütend|wuetend|panik|krank|schlechter tag|ausgebrannt)\b/i;
 const LAUGH_RE = new RegExp(
   [
     // Standard laugh patterns
@@ -1560,6 +1563,7 @@ export function localStats(messages) {
     linkCounts: namesSorted.map(n=>linkByName[n]),
     voiceCounts: namesSorted.map(n=>voiceByName[n]),
     peakHour: namesSorted.map(n=>fmtHour(peakHourByName[n])),
+    peakHourRaw: namesSorted.map(n=>peakHourByName[n]),
     signatureWord: namesSorted.map(n=>sigWordByName[n]),
     ghostAvg, ghostName, ghostEqual, streak: maxStreak, funniestPerson, laughCausedBy,
     topMonths: topMonths.length?topMonths:[["This month",messages.length]],

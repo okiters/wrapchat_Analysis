@@ -200,6 +200,39 @@ export function lintQuoteGrounding(result, corpusText) {
   return issues;
 }
 
+// Deterministic quote grounding for the app itself (not just the linter):
+// any quoted span that is not a verbatim substring of the chat loses its
+// quote marks and stays as paraphrase. The model cannot be trusted to keep
+// quotes verbatim; local code can.
+function dequoteUngrounded(text, corpus) {
+  const value = String(text || "");
+  const fix = (match, inner) => {
+    const squashed = squash(inner);
+    if (squashed.length < 12 || corpus.includes(squashed)) return match;
+    return inner;
+  };
+  return value.replace(DOUBLE_QUOTE_RE, fix).replace(SINGLE_QUOTE_RE, fix);
+}
+
+export function groundResultQuotes(result, corpusText) {
+  const corpus = squash(corpusText);
+  if (!corpus) return result;
+  const walk = (value, path) => {
+    if (typeof value === "string") return dequoteUngrounded(value, corpus);
+    if (Array.isArray(value)) return value.map((item, index) => walk(item, `${path}.${index}`));
+    if (value && typeof value === "object") {
+      const out = {};
+      for (const [key, item] of Object.entries(value)) {
+        // The embedded core object is raw analysis state, not rendered text.
+        out[key] = path === "" && key === "coreAnalysis" ? item : walk(item, path ? `${path}.${key}` : key);
+      }
+      return out;
+    }
+    return value;
+  };
+  return walk(result, "");
+}
+
 export function formatLintReport(issues, label = "result") {
   if (!issues.length) return `voice-lint: ${label} clean`;
   const lines = issues.map(issue => `  [${issue.level}] ${issue.rule} @ ${issue.path}: ${issue.detail}`);

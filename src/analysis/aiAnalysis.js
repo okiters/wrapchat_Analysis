@@ -14,6 +14,7 @@ import { deriveTrialReport } from "../trialReport";
 import { normalizeUiLangCode, LANG_META } from "../i18n/translations";
 import { callAnalysis } from "./claudeClient";
 import { redactSensitiveText } from "./redactSensitive";
+import { groundResultQuotes } from "./voiceLint";
 import {
   buildAnalystSystemPrompt as sharedBuildAnalystSystemPrompt,
   CORE_A_WRITING_STYLE as SHARED_CORE_A_WRITING_STYLE,
@@ -24,7 +25,7 @@ import {
   CONTROL_RE, AGGRO_RE, BREAKUP_RE, APOLOGY_RE, ROMANCE_RE, DATE_RE, FLIRTY_EMOJI_RE,
   SUPPORT_RE, GRATITUDE_RE, DISTRESS_RE, HEART_REPLY_RE,
   isLaughReaction, coerceRelationshipCategory, coerceRelationshipSpecificLabel, sanitizeRelationshipStatus,
-  STOP_WORDS, cleanQuote, sanitizeResultText,
+  STOP_WORDS, TOKEN_STOP_WORDS, foldToken, cleanQuote, sanitizeResultText,
 } from "./localMath";
 
 // ─────────────────────────────────────────────────────────────────
@@ -83,6 +84,13 @@ function scoreMessages(messages) {
     // Care / support signals
     if (body && SUPPORT_RE.test(body)) {
       score += 5; tags.push("support");
+    }
+
+    // Distress / venting — life problems and third-party drama live here.
+    // These windows carry the recurring storylines (a partner, a boss, an ex)
+    // that summary fields kept missing.
+    if (body && DISTRESS_RE.test(body)) {
+      score += 4; tags.push("distress");
     }
     if (body && prev && prev.name !== msg.name && DISTRESS_RE.test(prev.body) && (SUPPORT_RE.test(body) || body.length > 90)) {
       score += 7; tags.push("care-response");
@@ -676,6 +684,7 @@ const CANDIDATE_TYPE_DEFS = [
   { type: "funny",     match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
   { type: "care",      match: tags => tags.includes("care-response") || tags.includes("support") },
   { type: "tension",   match: tags => tags.includes("conflict") },
+  { type: "drama",     match: tags => tags.includes("distress") && !tags.includes("conflict") },
   { type: "affection", match: tags => tags.includes("affection") },
   { type: "apology",   match: tags => tags.includes("apology") },
 ];
@@ -720,14 +729,17 @@ export function extractCandidateMoments(messages, { perType = 3, minGap = 30 } =
       // Topic dedupe: near-identical wording elsewhere means the same story.
       if (chosen.some(existing => candidateTokenOverlap(existing.tokens, tokens) > 0.45)) continue;
 
+      // Every candidate carries how the other person reacted: the exchange is
+      // the moment, not the single line. Funny requires a laugh reaction;
+      // other types take the first reply from a different speaker.
       let reaction = null;
-      if (def.type === "funny") {
-        for (let j = candidate.index + 1; j <= Math.min(candidate.index + 4, n - 1); j += 1) {
-          if (messages[j].name !== messages[candidate.index].name && isLaughReaction(messages[j].body)) {
-            reaction = { speaker: messages[j].name, quote: cleanQuote(redactSensitiveText(messages[j].body), 40) };
-            break;
-          }
-        }
+      for (let j = candidate.index + 1; j <= Math.min(candidate.index + 4, n - 1); j += 1) {
+        const reply = messages[j];
+        if (reply.name === messages[candidate.index].name) continue;
+        if (def.type === "funny" && !isLaughReaction(reply.body)) continue;
+        if (/^<(Voice|Media) omitted>$/.test(reply.body)) continue;
+        reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(reply.body), def.type === "funny" ? 40 : 90) };
+        break;
       }
 
       chosen.push({
@@ -752,13 +764,116 @@ export function formatCandidateMoments(candidates) {
   if (!Array.isArray(candidates) || !candidates.length) return "";
   const lines = candidates.map(candidate => {
     const reaction = candidate.reaction
-      ? ` (laugh reaction from ${candidate.reaction.speaker}: "${candidate.reaction.quote}")`
+      ? (candidate.type === "funny"
+        ? ` (laugh reaction from ${candidate.reaction.speaker}: "${candidate.reaction.quote}")`
+        : ` (reply from ${candidate.reaction.speaker}: "${candidate.reaction.quote}")`)
       : "";
     return `#${candidate.id} [${candidate.type} · ${candidate.period}] ${candidate.speaker}: "${candidate.quote}"${reaction}`;
   });
   return `CANDIDATE MOMENTS (pre-extracted locally from the full history):
 ${lines.join("\n")}
 RESERVATION RULE: Each candidate may anchor AT MOST ONE output field. Prefer these candidates for moment fields (funniest, sweetest, most loving, tension, drama example, energising, draining). Never anchor two fields on the same candidate or on the same underlying event, even reworded. If no candidate fits a field, use a different real moment from the windows instead. Spread fields across different people and different stories wherever the evidence allows.`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RECURRING CAST — locally verified third-party name detection.
+// The model kept blending third-party storylines (attaching a breakup to the
+// wrong person) because entity resolution was left to it across isolated
+// windows. This counts recurring outside names deterministically and collects
+// dated sample lines per name, so claims about third parties can be anchored
+// to literal evidence instead of guessed.
+// ─────────────────────────────────────────────────────────────────
+
+const CAST_TOKEN_RE = /[\p{L}][\p{L}'’-]{1,24}/gu;
+
+export function extractRecurringCast(messages, participantNames = [], { maxPeople = 8, maxSamples = 3, minMentions = 4, topicTokens = [], nounCapitalization = false } = {}) {
+  if (!Array.isArray(messages) || messages.length < 20) return [];
+  const participants = new Set(
+    participantNames.flatMap(n => String(n || "").toLowerCase().split(/\s+/)).filter(Boolean)
+  );
+  const stats = new Map(); // lower -> { canonical, count, strongCount, indexes }
+
+  messages.forEach((msg, index) => {
+    const body = msg.body || "";
+    if (/^<(Voice|Media) omitted>$/.test(body)) return;
+    let match;
+    let tokenPos = 0;
+    const bodyTokenCount = (body.match(CAST_TOKEN_RE) || []).length;
+    CAST_TOKEN_RE.lastIndex = 0;
+    while ((match = CAST_TOKEN_RE.exec(body)) !== null) {
+      tokenPos += 1;
+      const rawToken = match[0];
+      const base = rawToken.split(/['’]/)[0];
+      if (base.length < 3) continue;
+      const lower = base.toLowerCase();
+      if (participants.has(lower)) continue;
+      if (TOKEN_STOP_WORDS.has(lower) || TOKEN_STOP_WORDS.has(foldToken(lower))) continue;
+      // Titlecase only: ALL-CAPS tokens are shouting, not names.
+      const titlecase = /^[A-ZÇĞİÖŞÜ]/.test(base) && base.slice(1) === base.slice(1).toLowerCase();
+      const midSentence = tokenPos > 1;
+      const suffix = rawToken.slice(base.length + 1).toLowerCase();
+      const hasSuffixApostrophe = rawToken.length > base.length && !/^(s|t|d|m|re|ve|ll)$/.test(suffix);
+      // Strong signal: Titlecase away from sentence start, or an apostrophe
+      // suffix (Josh'la, Habib'e) — both are name-shaped usage.
+      // In noun-capitalizing languages (German) Titlecase marks every noun,
+      // so only the apostrophe/frequency channels count as name-shaped there.
+      const strong = (!nounCapitalization && titlecase && midSentence) || hasSuffixApostrophe;
+      const capitalized = titlecase;
+      const entry = stats.get(lower) || { canonical: base, count: 0, strongCount: 0, aloneCount: 0, indexes: [] };
+      entry.count += 1;
+      if (bodyTokenCount <= 2) entry.aloneCount += 1;
+      if (strong) { entry.strongCount += 1; if (capitalized) entry.canonical = base; }
+      if (entry.indexes.length < 400) entry.indexes.push(index);
+      stats.set(lower, entry);
+    }
+  });
+
+  const n = messages.length;
+  const periodOf = index => (index < n / 3 ? "early on" : index < (2 * n) / 3 ? "mid-chat" : "recently");
+
+  // Recall channel for names people type lowercase (josh, tim): the top
+  // content words are already stopword/filler/laugh-filtered by localStats,
+  // so recurring single tokens there are worth evidence samples too.
+  const topicSet = new Set(
+    (Array.isArray(topicTokens) ? topicTokens : [])
+      .map(token => String(token || "").toLowerCase())
+      .filter(token => /^[\p{L}][\p{L}-]{2,}$/u.test(token) && !participants.has(token))
+      .slice(0, 8)
+  );
+
+  return [...stats.values()]
+    .filter(entry => {
+      const nameLike = entry.strongCount >= 3 && entry.count >= minMentions;
+      const aloneRatio = entry.aloneCount / Math.max(1, entry.count);
+      const topicLike = topicSet.has(entry.canonical.toLowerCase()) && entry.count >= 6 && aloneRatio < 0.2;
+      return nameLike || topicLike;
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, maxPeople)
+    .map(entry => {
+      // Spread samples across the chat's lifespan so the evidence shows the
+      // storyline's arc, not one burst.
+      const picks = [];
+      const step = Math.max(1, Math.floor(entry.indexes.length / maxSamples));
+      for (let i = 0; i < entry.indexes.length && picks.length < maxSamples - 1; i += step) picks.push(entry.indexes[i]);
+      // The most recent mention is always evidence: it shows how the
+      // storyline CURRENTLY stands (a "breakup" followed by casual future
+      // plans never happened).
+      const lastIndex = entry.indexes[entry.indexes.length - 1];
+      if (!picks.includes(lastIndex)) picks.push(lastIndex);
+      const firstIndex = entry.indexes[0];
+      return {
+        name: entry.canonical,
+        mentions: entry.count,
+        firstPeriod: periodOf(firstIndex),
+        lastPeriod: periodOf(lastIndex),
+        samples: picks.map((index, i) => ({
+          period: i === picks.length - 1 && index === lastIndex ? "most recent mention" : periodOf(index),
+          speaker: messages[index].name,
+          quote: cleanQuote(redactSensitiveText(messages[index].body), 130),
+        })),
+      };
+    });
 }
 
 export function clampScore(value, fallback = 5) {
@@ -830,10 +945,30 @@ export function normalizeAttributionQuote(item) {
   };
 }
 
-export function normalizeTimeOfDay(item) {
+export function normalizeTimeOfDay(item, math = null) {
   const safe = item && typeof item === "object" ? item : {};
   const personA = safe.personA && typeof safe.personA === "object" ? safe.personA : {};
   const personB = safe.personB && typeof safe.personB === "object" ? safe.personB : {};
+  // Peak hours are deterministic facts from the timestamps: always use the
+  // local computation so every report shows identical numbers. The AI keeps
+  // only the contrast sentence (interpretation, not data).
+  const daypartOf = h => (h >= 5 && h <= 11) ? "morning" : (h >= 12 && h <= 16) ? "afternoon" : (h >= 17 && h <= 21) ? "evening" : "late night";
+  if (math && !math.isGroup && Array.isArray(math.names) && Array.isArray(math.peakHour) && math.names.length >= 2) {
+    const rawHours = Array.isArray(math.peakHourRaw) ? math.peakHourRaw : [];
+    return {
+      personA: {
+        name: math.names[0] || strOr(personA.name),
+        peakHour: math.peakHour[0] || strOr(personA.peakHour),
+        peakDaypart: Number.isInteger(rawHours[0]) ? daypartOf(rawHours[0]) : strOr(personA.peakDaypart),
+      },
+      personB: {
+        name: math.names[1] || strOr(personB.name),
+        peakHour: math.peakHour[1] || strOr(personB.peakHour),
+        peakDaypart: Number.isInteger(rawHours[1]) ? daypartOf(rawHours[1]) : strOr(personB.peakDaypart),
+      },
+      contrast: strOr(safe.contrast),
+    };
+  }
   return {
     personA: { name: strOr(personA.name), peakHour: strOr(personA.peakHour), peakDaypart: strOr(personA.peakDaypart) },
     personB: { name: strOr(personB.name), peakHour: strOr(personB.peakHour), peakDaypart: strOr(personB.peakDaypart) },
@@ -1037,7 +1172,7 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       mostEnergising: strOr(shared.mostEnergising),
       mostDraining: strOr(shared.mostDraining),
       energyCompatibility: strOr(shared.energyCompatibility),
-      timeOfDay: normalizeTimeOfDay(shared.timeOfDay),
+      timeOfDay: normalizeTimeOfDay(shared.timeOfDay, math),
       loveLanguageIntro: strOr(shared.loveLanguageIntro),
       loveMiss: normalizeLoveMiss(shared.loveMiss),
       loveMissUnspoken: strOr(shared.loveMissUnspoken),
@@ -1456,6 +1591,18 @@ export function hasMeaningfulAnalysisResult(type, result) {
   }
 }
 
+
+// Corpus for deterministic quote grounding: what the participants actually
+// typed. Applied to every AI result before it reaches a screen.
+function chatCorpus(messages) {
+  return (Array.isArray(messages) ? messages : []).map(message => message.body || "").join("\n");
+}
+
+function buildRecurringCast(messages, math, chatLang = "en") {
+  const topicTokens = (math?.topWords || []).map(entry => (Array.isArray(entry) ? entry[0] : entry));
+  return extractRecurringCast(messages, math?.names || [], { topicTokens, nounCapitalization: chatLang === "de" });
+}
+
 export async function generateCoreAnalysisA(messages, math, relationshipType, chatLang = "en") {
   const names = math.names || [];
   const isGroup = math.isGroup;
@@ -1467,6 +1614,7 @@ export async function generateCoreAnalysisA(messages, math, relationshipType, ch
     chatLang,
     relationshipContext,
     candidatesText: formatCandidateMoments(extractCandidateMoments(messages)),
+    recurringCast: buildRecurringCast(messages, math, chatLang),
     buildSampleText,
     formatForAI,
     coreAnalysisVersion: CORE_ANALYSIS_VERSION,
@@ -1474,7 +1622,7 @@ export async function generateCoreAnalysisA(messages, math, relationshipType, ch
 
   if (import.meta.env.DEV) console.log("[CoreA] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callAnalysis(request.pipeline, request.payload);
-  return normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
+  return groundResultQuotes(normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext), chatCorpus(messages));
 }
 
 export async function generateConnectionDigest(messages, math, relationshipType, chatLang = "en", options = {}) {
@@ -1489,6 +1637,7 @@ export async function generateConnectionDigest(messages, math, relationshipType,
     chatLang,
     relationshipContext,
     candidatesText: formatCandidateMoments(extractCandidateMoments(messages)),
+    recurringCast: buildRecurringCast(messages, math, chatLang),
     buildSampleText: energyFocus ? buildEnergySampleText : buildSampleText,
     extraConnectionRules: energyFocus
       ? "ENERGY QUOTES: Choose quotes that clearly reflect the emotional tone. For positive energy examples, avoid sexual, sarcastic, awkward, or irrelevant messages."
@@ -1498,7 +1647,7 @@ export async function generateConnectionDigest(messages, math, relationshipType,
 
   if (import.meta.env.DEV) console.log("[ConnectionDigest] chatLang:", chatLang, "| energyFocus:", energyFocus, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callAnalysis(request.pipeline, request.payload);
-  return normalizeConnectionDigest(raw, math, relationshipType, relationshipContext);
+  return groundResultQuotes(normalizeConnectionDigest(raw, math, relationshipType, relationshipContext), chatCorpus(messages));
 }
 
 export async function generateGrowthDigest(messages, math, relationshipType, chatLang = "en") {
@@ -1517,7 +1666,7 @@ export async function generateGrowthDigest(messages, math, relationshipType, cha
 
   if (import.meta.env.DEV) console.log("[GrowthDigest] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callAnalysis(request.pipeline, request.payload);
-  return normalizeGrowthDigest(raw, math, relationshipType, relationshipContext);
+  return groundResultQuotes(normalizeGrowthDigest(raw, math, relationshipType, relationshipContext), chatCorpus(messages));
 }
 
 export async function generateCoreAnalysisB(messages, math, relationshipType, chatLang = "en") {
@@ -1536,7 +1685,7 @@ export async function generateCoreAnalysisB(messages, math, relationshipType, ch
 
   if (import.meta.env.DEV) console.log("[CoreB] chatLang:", chatLang, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callAnalysis(request.pipeline, request.payload);
-  return normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext);
+  return groundResultQuotes(normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext), chatCorpus(messages));
 }
 
 export async function generateRiskDigest(messages, math, relationshipType, chatLang = "en", options = {}) {
@@ -1551,6 +1700,7 @@ export async function generateRiskDigest(messages, math, relationshipType, chatL
     chatLang,
     relationshipContext,
     candidatesText: formatCandidateMoments(extractCandidateMoments(messages)),
+    recurringCast: buildRecurringCast(messages, math, chatLang),
     buildSampleText: accountabilityFocus ? buildAccountabilitySampleText : buildSampleText,
     extraRiskRules: accountabilityFocus
       ? "ACCOUNTABILITY FOCUS: Prioritize concrete promise, follow-through, delay, cancellation, apology, excuse, and follow-up windows. For notableBroken and notableKept, pick only meaningful commitments with clear evidence. If no strong broken promise exists, set person to \"None clearly identified\", leave promise/date/outcome plain and non-dramatic, and explain that the chat does not show a clear broken commitment. Make comparison, followThroughPattern, evidenceQuality, and overallVerdict fair to both people and honest about weak evidence."
@@ -1560,7 +1710,7 @@ export async function generateRiskDigest(messages, math, relationshipType, chatL
 
   if (import.meta.env.DEV) console.log("[RiskDigest] chatLang:", chatLang, "| accountabilityFocus:", accountabilityFocus, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callAnalysis(request.pipeline, request.payload);
-  return normalizeRiskDigest(raw, math, relationshipType, relationshipContext);
+  return groundResultQuotes(normalizeRiskDigest(raw, math, relationshipType, relationshipContext), chatCorpus(messages));
 }
 
 export async function generateTrialDigest(messages, math, relType) {
@@ -1573,7 +1723,7 @@ export async function generateTrialDigest(messages, math, relType) {
     namesLabel: (math?.names || []).filter(Boolean).join(" and ") || "the participants",
     relationshipType: relType || "friends",
   });
-  return deriveTrialReport(raw, math, relType);
+  return groundResultQuotes(deriveTrialReport(raw, math, relType), chatCorpus(messages));
 }
 
 export async function aiAnalysis(messages, math, relationshipType, coreAnalysis = null) {

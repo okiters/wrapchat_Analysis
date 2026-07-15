@@ -78,13 +78,13 @@ import {
   RelationshipSelect, Auth, OnboardingFlow, TermsFlow, ProfileNameSetup, QuickReadIntro,
   TooShort, DuplicateParticipantReview, ParticipantMismatchReview, ProfileNameMismatchReview,
   AdminLocked, Upload, Loading, SettingsScreen, PackSelect, PaymentScreen, PackResultsBuffer,
-  UpgradePlaceholder, Slide, FadeScale, StaggerList, SlidingSegmentedTabs, AuthPhaseFade,
+  UpgradePlaceholder, PostPurchaseBuffer, Slide, FadeScale, StaggerList, SlidingSegmentedTabs, AuthPhaseFade,
   AuthUploadFrame, AdminPanel, MyResults, ScoreRing,
   getUserProfile, initialiseUserCredits, consumeQuickReadTrial,
   deleteCurrentAccount, saveResult, submitFeedback,
   getUserCredits, postAuthPhaseForUser, shouldShowQuickReadIntro, parseCreditBalance,
-  ENERGY_SCREENS, FeedbackSheet,
-  TRIAL_SCREENS, TOXICITY_SCREENS, LOVELANG_SCREENS, GROWTH_SCREENS, ACCOUNTA_SCREENS,
+  ENERGY_SCREENS, getEnergyScreenCount, FeedbackSheet,
+  TRIAL_SCREENS, TOXICITY_SCREENS, LOVELANG_SCREENS, getLovelangScreenCount, GROWTH_SCREENS, ACCOUNTA_SCREENS,
   ChatMemoryQuiz, fetchQuizChallenge,
 } from "./screens/Screens";
 
@@ -148,6 +148,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const [unlockedPackIds, setUnlockedPackIds] = useState({});
   const [paymentPreselect, setPaymentPreselect] = useState(null);
   const [paymentBackPhase, setPaymentBackPhase] = useState("select");
+  const [bufferTarget,     setBufferTarget]     = useState("select");
   const [paymentToast, setPaymentToast] = useState("");
   const [shareBusy,        setShareBusy]        = useState(false);
   const [sharePicker,      setSharePicker]      = useState(false);
@@ -711,9 +712,10 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
 
     setAnalysisError("");
     setUploadInfo("");
+    setBufferTarget(upgradeInfo?.backPhase || (messages?.length && math ? "select" : "upload"));
     setUpgradeInfo(null);
-    setDir("bk");
-    setPhase(upgradeInfo?.backPhase || (messages?.length && math ? "select" : "upload"));
+    setDir("fwd");
+    setPhase("unlockBuffer");
     setSid(s => s + 1);
   };
 
@@ -746,8 +748,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       const nextBalance = await simulateCreditPurchase(authedUser.id, bundle.id);
       setCredits(nextBalance);
       cacheUserCredits(authedUser.id, nextBalance);
-      setPaymentToast(`${bundle.credits} credits added`);
-      window.setTimeout(() => setPaymentToast(""), 1800);
+      setBufferTarget(paymentBackPhase || upgradeInfo?.backPhase || "select");
+      setPaymentPreselect(null);
+      setPaymentToast("");
+      setDir("fwd");
+      setPhase("creditsBuffer");
+      setSid(s => s + 1);
     } catch (error) {
       console.error("Credit purchase failed", error);
       if (Number.isInteger(previousBalance)) {
@@ -2034,6 +2040,14 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     </Slide>
   );
 	  if (phase === "upgrade") return withUiLanguage(<Slide dir={dir} id={sid} animateIn><UpgradePlaceholder info={upgradeInfo} credits={credits} userRole={userRole} accessMode={accessMode} onBack={navigateBack} onOpenPayment={(packId) => openPayment(packId, "upgrade")} onBuyPacks={buyPacksWithCredits} /></Slide>);
+	  if (phase === "unlockBuffer" || phase === "creditsBuffer") return withUiLanguage(
+	    <Slide dir={dir} id={sid} animateIn>
+	      <PostPurchaseBuffer
+	        variant={phase === "creditsBuffer" ? "credits" : "unlock"}
+	        onContinue={() => { setDir("fwd"); setPhase(bufferTarget); setSid(s => s + 1); }}
+	      />
+	    </Slide>
+	  );
 	  if (phase === "payment") return withUiLanguage(
 	    <Slide dir={dir} id={sid} animateIn>
 	      <div style={{ position:"relative" }}>
@@ -2133,7 +2147,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "lovelang") {
-    if (step < LOVELANG_SCREENS) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    if (step < getLovelangScreenCount(ai, aiLoading)) return wrap(<LoveLangReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
     return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "growth") {
@@ -2145,7 +2159,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
   if (reportType === "energy") {
-    if (step < ENERGY_SCREENS) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
+    if (step < getEnergyScreenCount(ai, aiLoading)) return wrap(<EnergyReportScreen s={math} ai={ai} aiLoading={aiLoading} step={step} back={navigateBack} next={next} resultId={currentResultId} />);
     return wrap(<PremiumFinale s={math} restart={restart} back={navigateBack} reportType={reportType} resultId={currentResultId} fromHistory={fromHistory} />);
   }
 

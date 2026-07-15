@@ -128,6 +128,7 @@ export function prepareConnectionDigestRequest({
   relationshipType,
   chatLang = "en",
   relationshipContext = null,
+  recurringCast = [],
   buildSampleText,
   extraConnectionRules = "",
   candidatesText = "",
@@ -139,6 +140,7 @@ export function prepareConnectionDigestRequest({
     candidatesText,
     topics: pickTopics(math),
     localContext: pickLocalContext(math),
+    recurringCast,
     // The only extra connection rule that exists is the energy-focus one; the
     // wording itself is server-owned, the client just flags the focus.
     energyFocus: !!extraConnectionRules,
@@ -195,6 +197,7 @@ export function prepareCoreAnalysisARequest({
   relationshipType,
   chatLang = "en",
   relationshipContext = null,
+  recurringCast = [],
   buildSampleText,
   formatForAI,
   candidatesText = "",
@@ -209,6 +212,7 @@ export function prepareCoreAnalysisARequest({
     candidatesText,
     topics: pickTopics(math),
     localContext: pickLocalContext(math),
+    recurringCast,
   };
   return toRequest("coreA", payload, relationshipContext);
 }
@@ -243,6 +247,7 @@ export function prepareRiskDigestRequest({
   relationshipType,
   chatLang = "en",
   relationshipContext = null,
+  recurringCast = [],
   buildSampleText,
   extraRiskRules = "",
   candidatesText = "",
@@ -252,6 +257,7 @@ export function prepareRiskDigestRequest({
     ...basePayload({ math, relationshipType, chatLang, relationshipContext, coreAnalysisVersion }),
     windowsText: buildSampleText(messages),
     candidatesText,
+    recurringCast,
     // The only extra risk rule that exists is the accountability-focus one;
     // the wording itself is server-owned, the client just flags the focus.
     accountabilityFocus: !!extraRiskRules,
