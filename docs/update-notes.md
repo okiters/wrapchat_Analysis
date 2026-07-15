@@ -6,6 +6,12 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+_Nothing pending._
+
+---
+
+## v3.4 — Server-side prompt construction, token telemetry, light-theme ink audit
+
 ### Server-side prompt construction + token telemetry (audit: "one refactor fixes four")
 **Files:** `supabase/functions/_shared/prompts.js` (new), `supabase/functions/analyse-chat/index.ts`, `supabase/migrations/20260715120000_ai_usage_log.sql` (new), `analysis-test/aiDebugHelpers.js`, `src/analysis/aiAnalysis.js`, `src/analysis/claudeClient.js`, `src/analysis/localMath.js`, `src/analysis/voice.js`, `src/trialReport.js`, `src/App.jsx`, `src/screens/Screens.jsx`, `tests/promptServer.test.js` (new)
 
