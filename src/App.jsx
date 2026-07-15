@@ -28,7 +28,7 @@ import {
   prepareCoreAnalysisARequest, prepareGrowthDigestRequest,
   prepareCoreAnalysisBRequest, prepareRiskDigestRequest, serializeDebugAnalysisExport,
 } from "../analysis-test/aiDebugHelpers.js";
-import { buildTrialPrompt, deriveTrialReport } from "./trialReport";
+import { deriveTrialReport } from "./trialReport";
 
 // ── i18n ──
 import {
@@ -47,7 +47,7 @@ import {
   DUO_CASUAL_SCREENS, GROUP_CASUAL_SCREENS, peekResolvedRelationshipContext,
   LOCAL_STATS_VERSION, buildRelationshipLine,
 } from "./analysis/localMath";
-import { userFacingAnalysisError, callClaudeRawText } from "./analysis/claudeClient";
+import { userFacingAnalysisError, callAnalysis } from "./analysis/claudeClient";
 import {
   aiAnalysis, aiToxicityAnalysis, aiLoveLangAnalysis, aiGrowthAnalysis,
   aiAccountaAnalysis, aiEnergyAnalysis, generateCoreAnalysisA, generateConnectionDigest,
@@ -1532,7 +1532,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setDebugRawBusy(true);
     setDebugRawLabel(label);
     try {
-      const rawText = await callClaudeRawText(request.systemPrompt, request.userContent, request.maxTokens);
+      const rawText = await callAnalysis(request.pipeline, request.payload, { rawText: true });
       setDebugRawText(rawText);
     } catch (error) {
       console.error(`[${label}] export failed`, error);

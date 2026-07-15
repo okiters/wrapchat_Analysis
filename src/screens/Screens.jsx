@@ -46,7 +46,6 @@ import coinIcon from "../../assets/wrpcht-coin.svg";
 import bundle1Icon from "../../assets/bundle1.svg";
 import bundle2Icon from "../../assets/bundle2.svg";
 import bundle3Icon from "../../assets/bundle3.svg";
-import { buildTrialPrompt, deriveTrialReport } from "../trialReport";
 import {
   UILanguageContext, useUILanguage, useT, useControlT, translateUI, translateControlValue,
   normalizeUiLangCode, normalizeUiLangPref, LANG_META, SUPPORTED_UI_LANGS,

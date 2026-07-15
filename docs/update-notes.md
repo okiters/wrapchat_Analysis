@@ -6,6 +6,26 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+### Server-side prompt construction + token telemetry (audit: "one refactor fixes four")
+**Files:** `supabase/functions/_shared/prompts.js` (new), `supabase/functions/analyse-chat/index.ts`, `supabase/migrations/20260715120000_ai_usage_log.sql` (new), `analysis-test/aiDebugHelpers.js`, `src/analysis/aiAnalysis.js`, `src/analysis/claudeClient.js`, `src/analysis/localMath.js`, `src/analysis/voice.js`, `src/trialReport.js`, `src/App.jsx`, `src/screens/Screens.jsx`, `tests/promptServer.test.js` (new)
+
+#### Prompts are now server-owned
+All prompt text for every pipeline (connection, growth, risk, coreA, coreB, trial, relationship-confirm, translation) moved into `supabase/functions/_shared/prompts.js` — one pure-ESM module imported by three runtimes: the edge function (builds the real prompts), the app's request builders (debug panel/offline export parity), and the golden harness. The client now sends `{ pipeline, payload }` where payload is structured DATA only: redacted window text, math context values, name lists, candidate moments, relationship-confirm output. The edge function REJECTS any body carrying raw `system`/`userContent` (`legacy_client` 400) — the open-proxy hole where any entitled account could run arbitrary prompts on the API key is closed. Token budgets and schema selection are server-owned too (client-sent `max_tokens`/`schema_id` are gone).
+
+**Prompt parity proven, not assumed:** a worktree diff of HEAD's client-built prompts vs the new shared-module prompts over identical inputs came back byte-identical for all 7 pipeline variants (incl. energy/accountability focus) plus trial; the parity run caught and fixed two porting bugs first (missing default CONFIRMED RELATIONSHIP line when no confirm context; three risk-only fields wrongly added to the coreB spec). The v3.3 voice work ships through this refactor unchanged.
+
+#### Hardening at the trust boundary
+Payload values are sanitized server-side before entering prompts: single-line fields get control chars/newlines stripped (no `<priority_rules>` injection via a forged ghost name), free-text relationship-context fields are length-capped, relationship category/specific labels are clamped against the fixed tables, candidate/window blocks are size-capped, list fields bounded. `tests/promptServer.test.js` pins these behaviors (suite: 58 passing).
+
+#### Server-side prompt versioning
+`PROMPT_VERSION` in the shared module is returned per request and logged per call — prompt text can now be improved by redeploying the edge function alone, no app release, with output changes correlatable in the log.
+
+#### Token/cost telemetry (audit follow-up closed)
+New `ai_usage_log` table (migration `20260715120000`): one row per request with user_id, pipeline, model, prompt_version, input/output tokens (summed across provider retries), provider call count, and outcome status. Written fire-and-forget with the service role; RLS with no policies (server-only). Repair-call usage is not counted (helpers don't surface it) — known minor undercount.
+
+#### Deploy sequencing (IMPORTANT)
+The new edge function rejects old-client bodies, and the new client sends bodies the old edge function rejects. Deploy as one step: `supabase db push`, then `supabase functions deploy analyse-chat`, then ship the web build / `cap:sync` immediately. Installed app versions older than this refactor lose AI analysis until updated (beta-acceptable).
+
 ### Light-theme ink audit (audit item: accessibility / white-on-accent contrast)
 **Files:** `src/ui/Shell.jsx`, `src/screens/Screens.jsx`
 

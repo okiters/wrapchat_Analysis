@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────
 import { normalizeDisplayName, applyApprovedMerges } from "../utils/identityMerge";
 import { detectOtherParticipantMismatches } from "../import/datasetBuilder";
-import { callClaude, tryParseJsonText } from "./claudeClient";
+import { callAnalysis, tryParseJsonText } from "./claudeClient";
 import { redactSensitiveText } from "./redactSensitive";
 
 export const LOCAL_STATS_VERSION = 3;
@@ -625,28 +625,6 @@ function defaultSpecificRelationship(userSelectedType) {
   }[type] || "someone they know";
 }
 
-function allowedSpecificRelationships(category) {
-  const type = normalizeSelectedRelationshipType(category);
-  return {
-    partner: ["spouses", "partners"],
-    dating: ["dating"],
-    ex: ["exes"],
-    family: [
-      "father and child",
-      "mother and child",
-      "siblings",
-      "cousins",
-      "grandparent and grandchild",
-      "aunt/uncle and niece/nephew",
-      "family members",
-    ],
-    friend: ["best friends", "close friends"],
-    colleague: ["boss and employee", "colleagues"],
-    other: ["someone they know"],
-    unknown: ["someone they know"],
-  }[type] || ["someone they know"];
-}
-
 function inferRelationshipCategoryFromSpecific(specific, fallback = "other") {
   const label = String(specific || "").toLowerCase();
   const safeFallback = normalizeSelectedRelationshipType(fallback);
@@ -805,56 +783,30 @@ export function buildRelationshipLine(relationshipContext, userSelectedType) {
 export async function confirmRelationship(snippets, names, userSelectedType) {
   if (!snippets || !snippets.length || names.length < 2) return null;
   const selectedCategory = normalizeSelectedRelationshipType(userSelectedType || "other");
-  const allowedSpecifics = allowedSpecificRelationships(selectedCategory);
 
-  const snippetText = snippets
-    .map((s, i) => [
-      `SNIPPET ${i + 1}`,
-      `Matched relationship word: "${s.matchedText}"`,
-      `Suggested category: ${s.category}`,
-      `Suggested specific label: ${s.specificRelationship}`,
-      `Usage hint: ${s.usageHint}`,
-      `Signal line (${s.date} | ${s.speaker}): "${s.quote}"`,
-      "Nearby chat context:",
-      s.context,
-    ].join("\n"))
-    .join("\n\n");
-
-  const system = `You are a relationship analyst. You will be shown short excerpts from a WhatsApp chat between ${names[0]} and ${names[1]}. Your only job is to determine the most specific relationship label for these two specific people from relationship call-names used inside the chat.
-
-CRITICAL RULES:
-- The snippets were selected only because they contain relationship call-names like dad, cousin, husband, friend, boss, and similar labels.
-- A relationship word does NOT automatically prove the relationship between the two chat participants. It may refer to a third person.
-- Direct addressing matters most. Examples: "dad, where are you?", "you are my cousin", "goodnight husband".
-- Third-party references do NOT confirm the relationship. Examples: "my cousin called", "dad said that", "my friend is coming".
-- Use the nearby context to decide whether the matched word is being used for the other participant or for someone else.
-- The user selected "${selectedCategory}" as the relationship category. Stay inside that category. Do not switch to a different category.
-- Allowed specific labels inside "${selectedCategory}": ${allowedSpecifics.join(" / ")}.
-- Pick the most specific allowed label only when the wording supports it. Otherwise fall back to the broadest allowed label for that category.
-- Confidence should be "high" only for explicit direct-address evidence or repeated unambiguous evidence. Use "medium" for decent but not perfect support. Use "low" if the evidence is thin or mostly indirect.
-
-STYLE:
-Keep reasoning plain, short, and evidence-based. Do not use the em dash punctuation mark.
-
-OUTPUT FORMAT: Your entire response must be the JSON object and nothing else. Do not write any analysis, reasoning, or explanation before it. The first character of your response must be { and the last must be }.
-
-Return ONLY a JSON object with no extra text:
-{
-  "category": "one of: partner / dating / ex / family / friend / colleague / other / unknown",
-  "specificRelationship": "one of: spouses / partners / dating / exes / father and child / mother and child / siblings / cousins / grandparent and grandchild / aunt/uncle and niece/nephew / family members / best friends / close friends / colleagues / boss and employee / someone they know / unclear",
-  "confidence": "high / medium / low",
-  "reasoning": "one sentence explaining the key evidence",
-  "evidence": "a short quote or paraphrase from the strongest direct-address snippet",
-  "endearmentWarning": "if any keyword appears to be used as a term of endearment rather than a literal title, name it here, e.g. 'kızım is used as affection not literal daughter'. Otherwise null."
-}`;
-
-  const userContent = `Here are relationship-call snippets from a chat between ${names[0]} and ${names[1]}. The user selected relationship type is "${selectedCategory}". Use these snippets to confirm the most specific relationship label inside that category.\n\n${snippetText}`;
+  // Prompt wording is server-owned (supabase/functions/_shared/prompts.js);
+  // the client only ships the structured snippet evidence.
+  const payload = {
+    names: names.slice(0, 2),
+    selectedCategory,
+    snippets: snippets.slice(0, 8).map(s => ({
+      matchedText: s.matchedText,
+      category: s.category,
+      specificRelationship: s.specificRelationship,
+      usageHint: s.usageHint,
+      date: s.date,
+      speaker: s.speaker,
+      quote: s.quote,
+      context: s.context,
+    })),
+  };
 
   try {
-    // 700 tokens: the old 300 budget was regularly consumed by the model
-    // reasoning before the JSON on ambiguous endearment cases, producing a
-    // parse failure and silently dropping the relationship context.
-    const raw = await callClaude(system, userContent, 700, "relationship", "relationship");
+    // 700 tokens (server-side budget): the old 300 budget was regularly
+    // consumed by the model reasoning before the JSON on ambiguous
+    // endearment cases, producing a parse failure and silently dropping
+    // the relationship context.
+    const raw = await callAnalysis("relationship", payload);
     const parsed = raw && typeof raw === "object"
       ? raw
       : tryParseJsonText(String(raw || ""));

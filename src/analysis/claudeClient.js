@@ -42,11 +42,15 @@ const MOCK_ANALYSIS_PAYLOAD = {
   },
 };
 
-export async function callClaude(systemPrompt, userContent, maxTokens = 1500, schemaMode = "analysis", schemaId = null) {
+// The only transport since the server-side prompt refactor: the client sends
+// a pipeline name plus structured DATA (redacted chat windows, math context),
+// and the edge function builds the prompts itself. Raw system/userContent
+// bodies are rejected server-side.
+export async function callAnalysis(pipeline, payload, { rawText = false } = {}) {
   if (MOCK_MODE) {
-    console.info("[callClaude] MOCK MODE — returning fake payload, no API call made");
+    console.info("[callAnalysis] MOCK MODE — returning fake payload, no API call made");
     await new Promise(r => setTimeout(r, 600));
-    return MOCK_ANALYSIS_PAYLOAD;
+    return rawText ? JSON.stringify(MOCK_ANALYSIS_PAYLOAD, null, 2) : MOCK_ANALYSIS_PAYLOAD;
   }
   let { data: { session } } = await supabase.auth.getSession();
   const isExpired = session && session.expires_at && (session.expires_at * 1000) < Date.now();
@@ -55,7 +59,7 @@ export async function callClaude(systemPrompt, userContent, maxTokens = 1500, sc
       const { data: refreshed } = await supabase.auth.refreshSession();
       session = refreshed.session;
     } catch (refreshErr) {
-      console.warn("[callClaude] refreshSession threw:", refreshErr?.message);
+      console.warn("[callAnalysis] refreshSession threw:", refreshErr?.message);
     }
   }
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyse-chat`;
@@ -70,7 +74,7 @@ export async function callClaude(systemPrompt, userContent, maxTokens = 1500, sc
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ system: systemPrompt, userContent, max_tokens: maxTokens, schema_mode: schemaMode, schema_id: schemaId || undefined }),
+        body: JSON.stringify({ pipeline, payload, raw_text: rawText || undefined }),
         signal: controller.signal,
       }
     );
@@ -81,7 +85,7 @@ export async function callClaude(systemPrompt, userContent, maxTokens = 1500, sc
         const text = await res.text();
         parsed = tryParseJsonText(text);
         if (parsed && typeof parsed === "object") {
-          console.error("[callClaude] edge function error payload:", parsed);
+          console.error("[callAnalysis] edge function error payload:", parsed);
         }
         detail = String(parsed?.error || text || "").trim();
       } catch {
@@ -97,63 +101,9 @@ export async function callClaude(systemPrompt, userContent, maxTokens = 1500, sc
       }
       throw err;
     }
+    if (rawText) return await res.text();
     const raw = await res.json();
     return extractClaudePayload(raw);
-  } catch (error) {
-    if (error?.name === "AbortError") throw new Error("Analysis timed out");
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-export async function callClaudeRawText(systemPrompt, userContent, maxTokens = 1500) {
-  if (MOCK_MODE) {
-    console.info("[callClaudeRawText] MOCK MODE — returning fake text, no API call made");
-    await new Promise(r => setTimeout(r, 400));
-    return "MOCK RESPONSE: This is a placeholder returned in dev mock mode. No API call was made.";
-  }
-  let { data: { session } } = await supabase.auth.getSession();
-  const isExpired = session && session.expires_at && (session.expires_at * 1000) < Date.now();
-  if (!session || isExpired) {
-    try {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      session = refreshed.session;
-    } catch (refreshErr) {
-      console.warn("[callClaudeRawText] refreshSession threw:", refreshErr?.message);
-    }
-  }
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyse-chat`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000);
-  try {
-    const res = await fetch(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ system: systemPrompt, userContent, max_tokens: maxTokens, schema_mode: "raw_text" }),
-        signal: controller.signal,
-      }
-    );
-    if (!res.ok) {
-      let detail = "";
-      try {
-        const text = await res.text();
-        const parsed = tryParseJsonText(text);
-        if (parsed && typeof parsed === "object") {
-          console.error("[callClaudeRawText] edge function error payload:", parsed);
-        }
-        detail = String(parsed?.error || text || "").trim();
-      } catch {
-        // Fall back to the status code below.
-      }
-      throw new Error(detail || `Edge function error ${res.status}`);
-    }
-    return await res.text();
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("Analysis timed out");
     throw error;

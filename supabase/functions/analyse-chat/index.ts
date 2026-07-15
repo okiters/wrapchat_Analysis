@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { OUTPUT_SCHEMAS } from "./schemas.ts";
+// Server-owned prompt construction — the client sends a pipeline name plus
+// structured data; all prompt text lives in _shared/prompts.js.
+import { renderPipelinePrompt, PIPELINES, PROMPT_VERSION } from "../_shared/prompts.js";
 
 // Output budget. The Core A / connection schema asks for ~50 populated fields;
 // the old 2600 clamp regularly truncated it (and the retry below could never
@@ -14,7 +17,6 @@ const FALLBACK_ANTHROPIC_MODEL = "claude-sonnet-4-5";
 // Server-side gating (see migration 20260712120000_edge_ai_gating.sql).
 const RATE_LIMIT_MAX_CALLS = 60;      // per user
 const RATE_LIMIT_WINDOW_MINUTES = 60; // fixed window
-const ALLOWED_SCHEMA_MODES = new Set(["analysis", "json", "raw_text", "relationship"]);
 const MAX_SYSTEM_CHARS = 60_000;
 const MAX_USER_CONTENT_CHARS = 600_000;
 // Fail-open keeps production alive if the gating migration has not been applied
@@ -391,8 +393,8 @@ serve(async (req) => {
   // Read. Open mode and allowlisted admins pass the entitlement check inside
   // the RPC itself.
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (serviceRoleKey) {
-    const service = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+  const service = serviceRoleKey ? createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey) : null;
+  if (service) {
 
     const { data: quotaOk, error: quotaError } = await service.rpc("consume_ai_call_quota", {
       p_user_id: userId,
@@ -436,32 +438,76 @@ serve(async (req) => {
   }
 
   try {
-    const { system, userContent, max_tokens = 1500, schema_mode = "analysis", schema_id = null } = await req.json();
-    let outputSchema = typeof schema_id === "string" && OUTPUT_SCHEMAS[schema_id] ? OUTPUT_SCHEMAS[schema_id] : null;
-    const safeMaxTokens = Math.min(
-      Number.isFinite(Number(max_tokens)) && Number(max_tokens) > 0 ? Math.floor(Number(max_tokens)) : 1500,
-      MAX_PROVIDER_TOKENS
-    );
-    console.log("[analyse-chat] body:", { system: system?.slice(0, 80), userContent: userContent?.slice(0, 80), max_tokens, safeMaxTokens });
+    const body = await req.json();
 
-    if (!system || !userContent || typeof system !== "string" || typeof userContent !== "string") {
+    // Prompts are server-owned: raw system/userContent bodies are no longer
+    // accepted from any client (that was an open proxy on the API key).
+    if (isRecord(body) && (typeof body.system === "string" || typeof body.userContent === "string")) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: system, userContent" }),
+        JSON.stringify({ error: "legacy_client", detail: "Please update WrapChat to run new analyses." }),
         { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
-    if (!ALLOWED_SCHEMA_MODES.has(String(schema_mode))) {
+
+    const pipeline = isRecord(body) && typeof body.pipeline === "string" ? body.pipeline : "";
+    const rawTextMode = isRecord(body) && body.raw_text === true;
+    if (!PIPELINES[pipeline as keyof typeof PIPELINES]) {
       return new Response(
-        JSON.stringify({ error: "Unsupported schema_mode" }),
+        JSON.stringify({ error: "unsupported_pipeline" }),
         { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
+
+    let built;
+    try {
+      built = renderPipelinePrompt(pipeline, isRecord(body) ? body.payload : null);
+    } catch (buildErr) {
+      console.error("[analyse-chat] prompt build failed:", buildErr);
+      return new Response(
+        JSON.stringify({ error: "invalid_payload" }),
+        { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+    const { system, userContent } = built;
+    const schemaMode = built.schemaMode;
+    const schemaId = built.schemaId;
+    let outputSchema = schemaId && OUTPUT_SCHEMAS[schemaId] ? OUTPUT_SCHEMAS[schemaId] : null;
+    const safeMaxTokens = Math.min(built.maxTokens, MAX_PROVIDER_TOKENS);
+    console.log("[analyse-chat] request:", { pipeline, promptVersion: PROMPT_VERSION, schemaMode, schemaId, safeMaxTokens, rawTextMode });
+
     if (system.length > MAX_SYSTEM_CHARS || userContent.length > MAX_USER_CONTENT_CHARS) {
       return new Response(
         JSON.stringify({ error: "Request payload too large" }),
         { status: 413, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
+
+    // Per-user token telemetry: accumulated across the primary call and any
+    // retries, written once per request (fire-and-forget; repair-call usage
+    // is not returned by the helpers and is not counted).
+    const usageTotals = { input: 0, output: 0, calls: 0 };
+    const addUsage = (providerPayload: unknown) => {
+      const usage = isRecord(providerPayload) && isRecord(providerPayload.usage) ? providerPayload.usage : null;
+      if (!usage) return;
+      usageTotals.input += Number(usage.input_tokens) || 0;
+      usageTotals.output += Number(usage.output_tokens) || 0;
+      usageTotals.calls += 1;
+    };
+    const logUsage = (model: string, status: string) => {
+      if (!service || usageTotals.calls === 0) return;
+      service.from("ai_usage_log").insert({
+        user_id: userId,
+        pipeline,
+        model,
+        prompt_version: PROMPT_VERSION,
+        input_tokens: usageTotals.input,
+        output_tokens: usageTotals.output,
+        provider_calls: usageTotals.calls,
+        status,
+      }).then(({ error }: { error: { message: string } | null }) => {
+        if (error) console.error("[analyse-chat] usage log failed:", error.message);
+      });
+    };
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     console.log("[analyse-chat] has API key:", !!apiKey);
@@ -478,7 +524,7 @@ serve(async (req) => {
     let effectiveMaxTokens = safeMaxTokens;
     let effectiveModel = primaryModel;
     let res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel, outputSchema);
-    console.log("[analyse-chat] provider status:", res.status, outputSchema ? `(structured: ${schema_id})` : "(prose)");
+    console.log("[analyse-chat] provider status:", res.status, outputSchema ? `(structured: ${schemaId})` : "(prose)");
 
     if (!res.ok) {
       const text = await res.text();
@@ -486,7 +532,7 @@ serve(async (req) => {
       console.error("[analyse-chat] provider error:", { model: effectiveModel, status: res.status, ...providerError });
 
       if (outputSchema && isStructuredOutputRejection(res.status, providerError)) {
-        console.warn("[analyse-chat] structured outputs rejected by model, retrying without schema", { model: effectiveModel, schema_id });
+        console.warn("[analyse-chat] structured outputs rejected by model, retrying without schema", { model: effectiveModel, schemaId });
         outputSchema = null;
         res = await callAnthropic(apiKey, effectiveSystem, userContent, effectiveMaxTokens, effectiveModel);
         console.log("[analyse-chat] prose retry status:", res.status);
@@ -524,6 +570,7 @@ serve(async (req) => {
     }
 
     let data = await res.json();
+    addUsage(data);
     console.log("[analyse-chat] provider model used:", effectiveModel);
     console.log("[analyse-chat] raw response:", JSON.stringify(data).slice(0, 400));
     console.log("[analyse-chat] content blocks:", JSON.stringify((data.content || []).map((b: Record<string, unknown>) => ({ type: b.type, textLen: typeof b.text === "string" ? b.text.length : null }))));
@@ -538,14 +585,15 @@ serve(async (req) => {
       );
     }
     console.log("[analyse-chat] raw text:", raw.slice(0, 200));
-    if (schema_mode === "raw_text") {
+    if (rawTextMode) {
+      logUsage(effectiveModel, "ok_raw");
       return new Response(
         raw,
         { status: 200, headers: { ...CORS, "Content-Type": "text/plain; charset=utf-8" } }
       );
     }
 
-    if (schema_mode === "analysis" && didLikelyHitOutputLimit(data, raw) && effectiveMaxTokens < TRUNCATION_RETRY_TOKENS) {
+    if (schemaMode === "analysis" && didLikelyHitOutputLimit(data, raw) && effectiveMaxTokens < TRUNCATION_RETRY_TOKENS) {
       const retryTokens = Math.min(TRUNCATION_RETRY_TOKENS, Math.max(effectiveMaxTokens + 1200, Math.round(effectiveMaxTokens * 1.5)));
       effectiveSystem = `${system}\n\nRETRY OVERRIDE: The previous attempt hit the output limit. Keep every free-text field concise and single-sentence where possible so the full JSON completes. Preserve the exact schema and concrete evidence.`;
       console.warn("[analyse-chat] output_limit_reached: retrying with higher token budget", { from: effectiveMaxTokens, to: retryTokens });
@@ -553,6 +601,7 @@ serve(async (req) => {
       console.log("[analyse-chat] retry provider status:", retryRes.status);
       if (retryRes.ok) {
         const retryData = await retryRes.json();
+        addUsage(retryData);
         const retryRaw = extractFirstTextBlock(retryData);
         if (retryRaw) {
           data = retryData;
@@ -607,6 +656,7 @@ serve(async (req) => {
       console.error("[analyse-chat] parse_failed raw_start:", rawForParsing.slice(0, 1200));
       console.error("[analyse-chat] parse_failed raw_end:", rawForParsing.slice(-1200));
       if (posContext !== null) console.error("[analyse-chat] parse_failed pos_context:", posContext);
+      logUsage(effectiveModel, "parse_failed");
       return new Response(
         JSON.stringify({
           error: "parse_failed",
@@ -620,7 +670,7 @@ serve(async (req) => {
       );
     }
 
-    if (schema_mode === "analysis" && !looksCanonicalAnalysis(parsed)) {
+    if (schemaMode === "analysis" && !looksCanonicalAnalysis(parsed)) {
       console.warn("[analyse-chat] invalid_response_shape: attempting schema repair");
       try {
         const repairedRaw = await repairAnalysisPayload(apiKey, effectiveSystem, userContent, raw, effectiveMaxTokens);
@@ -630,8 +680,9 @@ serve(async (req) => {
       }
     }
 
-    if (schema_mode === "analysis" && !looksCanonicalAnalysis(parsed)) {
+    if (schemaMode === "analysis" && !looksCanonicalAnalysis(parsed)) {
       console.warn("[analyse-chat] invalid_response_shape: refusing non-canonical payload after repair attempt");
+      logUsage(effectiveModel, "invalid_shape");
       return new Response(
         JSON.stringify({
           error: didLikelyHitOutputLimit(data, raw) ? "output_limit_reached" : "invalid_response_shape",
@@ -643,6 +694,7 @@ serve(async (req) => {
       );
     }
 
+    logUsage(effectiveModel, "ok");
     return new Response(
       JSON.stringify(parsed),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
