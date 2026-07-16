@@ -6,6 +6,16 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+_Nothing pending — the sections below shipped in "Latest changes with UI mostly", "Quiz pages", and the quiz-chrome commit (cda28cf)._
+
+### Quiz page chrome + iOS scroll fixes (shipped in cda28cf and earlier)
+**Files:** `src/screens/Screens.jsx`, `src/ui/Shell.jsx`, `src/index.css`
+
+- **Quiz page fills the viewport and owns the page chrome:** `#root` is a centering flexbox painted with `--app-safe-area-bg` (default navy); the public quiz page now stretches full-width and calls `setAppSafeAreaColor(PAL.finale.bg)` on mount (also updates the `theme-color` meta so Safari's bars tint maroon).
+- **Window-scroll guard:** iOS could leave the document scrolled after rubber-banding (the "My Results shifts up" bug). Shell resets window/document scroll on screen changes; html/body get `overscroll-behavior: none`.
+- **Sticky header `top` reverted to 0:** negative sticky offsets misbehave in iOS WebKit (suspected unlock-screen scroll freeze).
+- **Quiz score CTA:** "Analyse your own chat, free" → "Try WrapChat for free".
+
 ### Pack multi-buy fixes + unlock/settings scroll clipping
 **Files:** `supabase/migrations/20260716120000_pack_multi_buy.sql` (new), `src/App.jsx`, `src/screens/Screens.jsx`
 
