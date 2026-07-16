@@ -193,6 +193,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   }, [authedUser]);
 
   useEffect(() => {
+    // The public quiz page owns the page chrome (finale maroon); this theme
+    // default must not overwrite it — App's effect runs after the child's.
+    if (phase === "quiz" && quizId) return;
     const da = getDA(theme);
     setAppSafeAreaColor(da.bg);
     document.documentElement.style.setProperty(
@@ -203,7 +206,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       "--wc-p",
       theme === "light" ? "122,144,255" : "127,91,176"
     );
-  }, [theme]);
+  }, [theme, phase, quizId]);
 
   useEffect(() => {
     let cancelled = false;

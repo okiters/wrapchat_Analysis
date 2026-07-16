@@ -8309,7 +8309,12 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
           </div>
         </div>
       )}
-      <div className="wc-fadeup-3">{ctaBtn(t("Try WrapChat for free"), onJoin, true)}</div>
+      <div className="wc-fadeup-3">
+        <div style={{ fontSize:13, color:DIM, textAlign:"center", marginBottom:10 }}>
+          {t("Analyse your own chats")}
+        </div>
+        {ctaBtn(t("Try for free"), onJoin, true)}
+      </div>
     </>
   );
 }
