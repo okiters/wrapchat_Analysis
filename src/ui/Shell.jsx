@@ -657,7 +657,7 @@ export const SCREEN_BODY_SCROLL_STYLE = {
 export function getStickyHeaderStyle(isLight, { pullTop = 16, alpha = 1, blur = 0 } = {}) {
   return {
     position:"sticky",
-    top:`${-pullTop}px`,
+    top:0,
     zIndex:20,
     background: isLight ? `rgba(237,232,220,${alpha})` : `rgba(31,24,78,${alpha})`,
     ...(blur > 0 ? {
@@ -693,6 +693,13 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
   useLayoutEffect(() => {
     requestAnimationFrame(() => {
       paneRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      // iOS sometimes leaves the WINDOW scrolled (rubber-band / input focus),
+      // which shifts the whole app up under the status bar and stays stuck.
+      if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
     });
     if (id !== prevIdRef.current) {
       setExitContent({ node: prevContentRef.current, dir });

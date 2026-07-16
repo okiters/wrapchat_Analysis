@@ -8087,6 +8087,12 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
   const [score,     setScore]     = useState(0);
 
   useEffect(() => {
+    // This public page never mounts Shell, so it must claim the page chrome
+    // itself: #root/body are painted with --app-safe-area-bg (default navy).
+    setAppSafeAreaColor(PAL.finale.bg);
+  }, []);
+
+  useEffect(() => {
     if (!quizId) { setQuizPhase("error"); return; }
     fetchQuizChallenge(quizId).then(row => {
       if (!row) { setQuizPhase("error"); return; }
@@ -8135,6 +8141,9 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
   const frame = (content) => (
     <div style={{
       minHeight: "100dvh",
+      width: "100%",
+      alignSelf: "stretch",
+      flex: 1,
       background: p.bg,
       display: "flex",
       flexDirection: "column",
