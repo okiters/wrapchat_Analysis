@@ -6,6 +6,16 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+### Signature phrases: distinctive multi-word extraction + "Your language" card cleanup
+**Files:** `src/analysis/localMath.js`, `analysis-test/aiDebugHelpers.js`, `supabase/functions/_shared/prompts.js`, `src/screens/Screens.jsx`
+
+The old `signatureWord` was each person's most frequent content word with no distinctiveness check (both people could get near-identical words). New `computeSignaturePhrases` in localMath extracts 2-3-word expressions per person that are frequent for them (>=4 uses), rare for everyone else (>=3x ratio), skip link-bearing messages, contain at least one content token, exclude a multilingual everyday-formula list (good night / iyi geceler / merhaba / nasılsın / wie geht's / buenas noches / bom dia...), dedupe across participants, and prefer denser phrases ("fair enough" over "kanka ben" when counts allow). `signatureWord` (kept as fallback) also gained a distinctiveness requirement. `localStats` now returns `signaturePhrase[]`; the quiz payload carries it.
+
+The candidates flow into the AI as evidence: `pickLocalContext` sends name+phrase pairs, the server prompt renders "Local counts found signature-phrase candidates: ... verify against the windows, never invent", the SIGNATURE PHRASES evidence rule now demands multi-word, recognizably-theirs expressions and bans greetings/daily formulas, and both pseudo-schema descriptions match. Verified end-to-end via the offline harness (real chat: Eylul "kanka ben", Ozge "fair enough").
+
+Card 9 ("Your language"): removed the "The words and phrases that define this chat." explanation line, added a small SIGNATURE PHRASE label per box, added the local phrase as fallback between AI result and legacy single word, and guarded long phrases with minWidth/overflow-wrap. Note: `supabase functions deploy analyse-chat` needed for the prompt-side changes.
+
+
 _Nothing pending — the sections below shipped in "Latest changes with UI mostly", "Quiz pages", and the quiz-chrome commit (cda28cf)._
 
 ### Quiz page chrome + iOS scroll fixes (shipped in cda28cf and earlier)

@@ -943,13 +943,13 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Words words={s.topWords} bigrams={s.topBigrams} />
       <div style={{display:"flex",gap:"1rem",marginTop:16,width:"100%",justifyContent:"center"}}>
         {[0,1].map(i=>(
-          <div key={i} style={{background:"rgba(255,255,255,0.08)",padding:"14px 18px",borderRadius:12,textAlign:"center",flex:1}}>
-            {aiLoading?<Dots />:<div style={{fontSize:14,fontWeight:700,color:"#fff",fontStyle:"italic"}}>"{ai?.signaturePhrase?.[i]||s.signatureWord[i]}"</div>}
+          <div key={i} style={{background:"rgba(255,255,255,0.08)",padding:"14px 18px",borderRadius:12,textAlign:"center",flex:1,minWidth:0}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"rgba(255,255,255,0.38)",marginBottom:6}}>{t("Signature phrase")}</div>
+            {aiLoading?<Dots />:<div style={{fontSize:14,fontWeight:700,color:"#fff",fontStyle:"italic",overflowWrap:"anywhere"}}>"{ai?.signaturePhrase?.[i]||s.signaturePhrase?.[i]||s.signatureWord[i]}"</div>}
             <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginTop:6}}>{s.names[i]}</div>
           </div>
         ))}
       </div>
-      <Sub>{t("The words and phrases that define this chat.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
 
@@ -8021,6 +8021,7 @@ export async function createQuizChallenge(resultId, mathData, signaturePhrase) {
       ghostAvg:        mathData.ghostAvg       || [],
       spiritEmoji:     mathData.spiritEmoji    || [],
       signatureWord:   mathData.signatureWord  || [],
+      signaturePhrase: mathData.signaturePhrase || [],
       signaturePhrase: Array.isArray(signaturePhrase) ? signaturePhrase : [],
       streak:          mathData.streak         || 0,
       topWords:        (mathData.topWords      || []).slice(0, 6),
@@ -8232,10 +8233,10 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
         </div>
         <div className="wc-fadeup-2" style={{ ...cardStyle, textAlign:"center", display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ ...displayType, fontSize:21, lineHeight:1.3, letterSpacing:-0.5 }}>
-            {t("Think you know this chat?")}
+            {t("Do you think you know this chat?")}
           </div>
           <div style={{ fontSize:14, color:DIM, lineHeight:1.6 }}>
-            {t("{count} questions", { count: questions.length })}
+            {t("Takes about a minute")}
           </div>
         </div>
         <div className="wc-fadeup-3">{ctaBtn(t("Start the quiz"), () => setQuizPhase("question"), true)}</div>
@@ -8305,14 +8306,15 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
       {total > 0 && (
         <div className="wc-fadeup-2" style={{ background:`${p.accent}14`, border:`1px solid ${p.accent}40`, borderRadius:20, padding:"16px 20px", textAlign:"center" }}>
           <div style={{ fontSize:13, color:DIM, lineHeight:1.6 }}>
-            This chat has <strong style={{ color:PRIMARY }}>{total.toLocaleString()}</strong> messages between {names.join(" and ")}. Curious what your own chat reveals?
+            {quizRow?.quiz_data?.isGroup ? (
+              <><strong style={{ color:PRIMARY }}>{names[0]}</strong> analysed this chat that has <strong style={{ color:PRIMARY }}>{total.toLocaleString()}</strong> messages in their group chat. Curious what your own chats reveal?</>
+            ) : (
+              <><strong style={{ color:PRIMARY }}>{names[0]}</strong> analysed this chat that has <strong style={{ color:PRIMARY }}>{total.toLocaleString()}</strong> messages with {names[1]}. Curious what your own chats reveal?</>
+            )}
           </div>
         </div>
       )}
       <div className="wc-fadeup-3">
-        <div style={{ fontSize:13, color:DIM, textAlign:"center", marginBottom:10 }}>
-          {t("Analyse your own chats")}
-        </div>
         {ctaBtn(t("Try for free"), onJoin, true)}
       </div>
     </>

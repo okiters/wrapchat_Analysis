@@ -1365,6 +1365,112 @@ export function spotDynamics({ messages, namesAll, namesSorted, msgCounts, start
   };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// SIGNATURE PHRASES — a multi-word expression each person repeats that is
+// recognizably THEIRS: frequent for them, rare for everyone else, and never
+// an everyday formula anyone might say.
+// ─────────────────────────────────────────────────────────────────
+const SIG_NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached|end-to-end/i;
+
+// Everyday greetings/formulas across the app's languages — never a signature.
+const CASUAL_FORMULA_PHRASES = [
+  // en
+  "good night", "good morning", "how are you", "see you", "thank you", "love you",
+  "take care", "good luck", "happy birthday", "miss you", "sleep well",
+  // tr
+  "iyi geceler", "günaydın", "iyi akşamlar", "iyi günler", "nasılsın", "naber",
+  "ne haber", "görüşürüz", "kendine iyi bak", "kolay gelsin", "geçmiş olsun",
+  "afiyet olsun", "hayırlı olsun", "iyi uykular", "tatlı rüyalar", "hoş geldin",
+  "teşekkür ederim", "çok teşekkür", "sağ ol", "seni seviyorum", "öptüm",
+  "iyi misin", "ne yapıyorsun", "napıyorsun", "hadi bakalım",
+  // de
+  "wie geht's", "wie gehts", "gute nacht", "guten morgen", "bis später",
+  "bis morgen", "alles gute", "danke dir", "hab dich lieb",
+  // es
+  "buenos días", "buenas noches", "cómo estás", "qué tal", "hasta luego",
+  "te quiero", "muchas gracias", "buen día",
+  // pt
+  "bom dia", "boa noite", "como vai", "tudo bem", "até logo", "te amo",
+  "muito obrigado", "muito obrigada",
+  // fr
+  "bonne nuit", "ça va", "à demain", "je t'aime", "merci beaucoup", "bonne journée",
+  // it
+  "buongiorno", "buonanotte", "come stai", "a domani", "ti amo", "grazie mille",
+  // ar
+  "صباح الخير", "تصبح على خير", "كيف حالك", "شكرا جزيلا",
+];
+const CASUAL_FORMULA_FOLDED = CASUAL_FORMULA_PHRASES.map(phrase =>
+  phrase.split(/\s+/).map(foldToken).join(" ")
+);
+const GREETING_WORDS_FOLDED = new Set(
+  ["merhaba", "selam", "selamlar", "hello", "hi", "hey", "hola", "ciao", "oi", "salut", "hallo", "günaydın", "naber"].map(foldToken)
+);
+
+function isCasualFormula(foldedGram) {
+  if (GREETING_WORDS_FOLDED.has(foldedGram)) return true;
+  return CASUAL_FORMULA_FOLDED.some(formula =>
+    foldedGram.includes(formula) || formula.includes(foldedGram)
+  );
+}
+
+function computeSignaturePhrases(byName, namesAll) {
+  const gramCounts = new Map();
+  namesAll.forEach(name => {
+    byName[name].forEach(({ body }) => {
+      // Skip link-bearing messages entirely: repeated shares produce fake
+      // "signature" grams like "maps google".
+      if (SIG_NOISE_RE.test(body) || /https?:\/\/|www\./i.test(body)) return;
+      const words = body
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s']/gu, " ")
+        .split(/\s+/)
+        .filter(word => word.length >= 2 && !word.startsWith("http") && !isLaughReaction(word));
+      for (let size = 2; size <= 3; size += 1) {
+        for (let i = 0; i + size <= words.length; i += 1) {
+          const gramWords = words.slice(i, i + size);
+          // At least one content-bearing token, so pure stop-word grams
+          // ("ya bi", "de la") never qualify.
+          const contentCount = gramWords.filter(word => isContentToken(word, 3)).length;
+          if (contentCount === 0) continue;
+          // No URL/system fragments ("google com", "media omitted").
+          if (gramWords.some(word => TOKEN_WA_NOISE_WORDS.has(word) || TOKEN_WA_NOISE_WORDS.has(foldToken(word)))) continue;
+          const gram = gramWords.join(" ");
+          let entry = gramCounts.get(gram);
+          if (!entry) { entry = { total: 0, byName: {}, contentCount }; gramCounts.set(gram, entry); }
+          entry.total += 1;
+          entry.byName[name] = (entry.byName[name] || 0) + 1;
+        }
+      }
+    });
+  });
+
+  const usedFolded = [];
+  const result = {};
+  namesAll.forEach(name => {
+    let best = null;
+    for (const [gram, entry] of gramCounts) {
+      const mine = entry.byName[name] || 0;
+      if (mine < 4) continue;
+      const others = entry.total - mine;
+      if (mine < others * 3) continue; // must be recognizably theirs
+      const folded = gram.split(" ").map(foldToken).join(" ");
+      if (isCasualFormula(folded)) continue;
+      if (usedFolded.some(used => used.includes(folded) || folded.includes(used))) continue;
+      const size = gram.split(" ").length;
+      // Denser phrases win: "bi bakalım artık" over "kanka ben".
+      const score = mine * (size === 3 ? 1.15 : 1) * (1 + 0.6 * (entry.contentCount - 1));
+      if (!best || score > best.score) best = { gram, score, folded };
+    }
+    if (best) {
+      result[name] = best.gram;
+      usedFolded.push(best.folded);
+    } else {
+      result[name] = "";
+    }
+  });
+  return result;
+}
+
 export function localStats(messages) {
   if (!messages.length) return null;
   const rawNames = [...new Set(messages.map(m => m.name))];
@@ -1519,15 +1625,28 @@ export function localStats(messages) {
   const therapist = [...namesAll].sort((a,b) => therapistRank[b]-therapistRank[a])[0] || namesAll[0];
   const therapistCount = therapistScore[therapist]?.length || 0;
 
-  const sigWordByName = {};
+  // Signature WORD (legacy fallback): each person's most frequent content
+  // word, now with a distinctiveness requirement so both people can't get the
+  // same shared vocabulary.
+  const perPersonWf = {};
   namesAll.forEach(n=>{
     const wf={};
     byName[n].forEach(({body})=>{
       if(NOISE_RE.test(body)||body.startsWith("http"))return;
       body.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,"").split(/\s+/).forEach(w=>{if(isContentToken(w, 3))wf[w]=(wf[w]||0)+1;});
     });
-    sigWordByName[n]=Object.entries(wf).sort((a,b)=>b[1]-a[1])[0]?.[0]||"...";
+    perPersonWf[n] = wf;
   });
+  const sigWordByName = {};
+  namesAll.forEach(n=>{
+    const ranked = Object.entries(perPersonWf[n]).sort((a,b)=>b[1]-a[1]);
+    const distinctive = ranked.find(([word, count]) => {
+      const others = namesAll.reduce((sum, other) => other === n ? sum : sum + (perPersonWf[other][word] || 0), 0);
+      return count >= 3 && count >= others * 2;
+    });
+    sigWordByName[n] = distinctive?.[0] || ranked[0]?.[0] || "...";
+  });
+  const sigPhraseByName = computeSignaturePhrases(byName, namesAll);
 
   // ── Funniest person — who CAUSED laugh reactions ──
   const laughCausedBy = {};
@@ -1565,6 +1684,7 @@ export function localStats(messages) {
     peakHour: namesSorted.map(n=>fmtHour(peakHourByName[n])),
     peakHourRaw: namesSorted.map(n=>peakHourByName[n]),
     signatureWord: namesSorted.map(n=>sigWordByName[n]),
+    signaturePhrase: namesSorted.map(n=>sigPhraseByName[n]||""),
     ghostAvg, ghostName, ghostEqual, streak: maxStreak, funniestPerson, laughCausedBy,
     topMonths: topMonths.length?topMonths:[["This month",messages.length]],
     convStarter: topStarterEntry?.[0]||namesSorted[0], convStarterPct: starterPct,

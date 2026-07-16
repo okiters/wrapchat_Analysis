@@ -81,12 +81,19 @@ function pickTopics(math) {
 }
 
 function pickLocalContext(math) {
+  const names = math?.names || [];
+  const phrases = math?.signaturePhrase || [];
   return {
     ghost: math?.ghost || "",
     ghostName: math?.ghostName || "",
     convStarter: math?.convStarter || "",
     funniestPerson: math?.funniestPerson || "",
     funniestLaughCount: math?.laughCausedBy?.[math?.funniestPerson] || 0,
+    // Locally-computed distinctive phrases per person — the prompt asks the
+    // model to verify these against the windows rather than guess.
+    signaturePhrases: names
+      .map((name, index) => ({ name, phrase: phrases[index] || "" }))
+      .filter(entry => entry.phrase),
   };
 }
 
