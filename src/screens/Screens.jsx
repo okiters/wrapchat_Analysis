@@ -532,9 +532,14 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
   if (hide || !Number.isInteger(credits)) return null;
   const useExplicitPackState = activePackIds && typeof activePackIds === "object";
   const dotPacks = PACK_ORDER.map(id => PACK_DEFS[id]).filter(Boolean);
-  const ownedPacks = useExplicitPackState
-    ? dotPacks.filter(pack => Boolean(activePackIds[pack.id]))
-    : dotPacks.filter((_, i) => i >= Math.max(dotPacks.length - dotPacks.filter(pack => Math.floor(credits / pack.cost) > 0).length, 0));
+  // One dot per owned UNIT (packs are consumable stock), coloured by pack, so
+  // the count of dots is the amount you hold. Capped so the pill stays compact.
+  const MAX_DOTS = 10;
+  const ownedUnits = useExplicitPackState
+    ? dotPacks.flatMap(pack => Array(Math.max(0, Number(activePackIds[pack.id]) || 0)).fill(pack.accent))
+    : dotPacks.filter(pack => Math.floor(credits / pack.cost) > 0).map(pack => pack.accent);
+  const shownUnits = ownedUnits.slice(0, MAX_DOTS);
+  const overflow = ownedUnits.length - shownUnits.length;
   return (
     <div style={{
       display:"flex", alignItems:"center", gap:6,
@@ -544,22 +549,18 @@ function AnalysisDotsCounter({ credits, activePackIds = null, onAdd, hide = fals
       padding:"5px 7px 5px 10px",
     }}>
       <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-        {dotPacks.map((_, index) => {
-          const posFromRight = dotPacks.length - 1 - index;
-          const active = posFromRight < ownedPacks.length;
-          const color = active ? ownedPacks[ownedPacks.length - 1 - posFromRight].accent : null;
-          return (
-            <div
-              key={dotPacks[index].id}
-              title={active ? "Owned read" : "Locked read"}
-              style={{
-                width:8, height:8, borderRadius:"50%",
-                background: active ? color : (isLight ? "rgba(122,144,255,0.28)" : "rgba(255,255,255,0.16)"),
-                transition:"all 0.2s",
-              }}
-            />
-          );
-        })}
+        {shownUnits.length === 0 ? (
+          <div title="No reads yet" style={{ width:8, height:8, borderRadius:"50%", background: isLight ? "rgba(122,144,255,0.28)" : "rgba(255,255,255,0.16)" }} />
+        ) : shownUnits.map((color, index) => (
+          <div
+            key={index}
+            title="Available read"
+            style={{ width:8, height:8, borderRadius:"50%", background: color, transition:"all 0.2s" }}
+          />
+        ))}
+        {overflow > 0 && (
+          <span style={{ fontSize:11, fontWeight:800, color: isLight ? "#7A90FF" : "rgba(255,255,255,0.7)", marginLeft:1 }}>+{overflow}</span>
+        )}
       </div>
       <div style={{ width:1, height:14, background: isLight ? "rgba(122,144,255,0.3)" : "rgba(255,255,255,0.12)", margin:"0 1px" }} />
       <button
@@ -3943,14 +3944,7 @@ export function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdat
   return (
     <>
       <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
-        <div style={{
-          alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", gap:14,
-          margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-          padding:"0 20px calc(40px + env(safe-area-inset-bottom, 0px))",
-          minHeight:0,
-          overflowY:"auto", overscrollBehavior:"contain",
-        }}>
-          <div style={getStickyHeaderStyle(isLight, { pullTop: 0, alpha: 0.9, blur: 8 })}>
+          <div style={getStickyHeaderStyle(isLight, { alpha: 0.9, blur: 8 })}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
 
@@ -4177,7 +4171,6 @@ export function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdat
               <span style={{ fontSize:15, fontWeight:800, letterSpacing:-0.2, color:"#FF8E8E" }}>{t("Delete my account")}</span>
               <span style={{ fontSize:18, lineHeight:1, color:"rgba(255,142,142,0.55)" }}>›</span>
             </button>
-        </div>
       </Shell>
 
       {confirmOpen && (
@@ -4541,14 +4534,7 @@ export function PaymentScreen({ preselect = null, credits = null, userId = null,
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
-      <div style={{
-        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
-        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        padding:"0 20px 56px",
-        minHeight:0,
-        overflowY:"auto", overscrollBehavior:"contain",
-      }}>
-        <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0 })}>
+        <div style={getStickyHeaderStyle(theme === "light", { alpha: 0.94, blur: 8 })}>
           <ScreenHeader back={onBack} title="Add Credits" />
         </div>
         <div style={{ fontSize:14, color:da.muted, lineHeight:1.5, marginBottom:18 }}>Add credits once. Use them whenever you want.</div>
@@ -4640,7 +4626,6 @@ export function PaymentScreen({ preselect = null, credits = null, userId = null,
         <div style={{ textAlign:"center", fontSize:12, color:da.faint, lineHeight:1.6 }}>
           <strong style={{ color:da.muted, fontWeight:600 }}>Credits never expire.</strong> One-time purchases only.<br/>No subscriptions. Leftover credits stay in your account.
         </div>
-      </div>
     </Shell>
   );
 }
@@ -4919,7 +4904,10 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
     if (!canUnlockSelection) return;
     setBuying(true);
     try {
-      await onBuyPacks(selectedPacks, selectedCreditTotal);
+      // Expand by quantity: one entry per unit so the buyer charges and the DB
+      // increments for every copy the stepper selected.
+      const expandedPacks = selectedIds.flatMap(id => Array(selected[id] || 0).fill(PACK_DEFS[id]));
+      await onBuyPacks(expandedPacks, selectedCreditTotal);
     } finally {
       setBuying(false);
     }
@@ -4927,14 +4915,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
-      <div style={{
-        alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", gap:10,
-        margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
-        padding:"0 20px 56px",
-        minHeight:0,
-        overflowY:"auto", overscrollBehavior:"contain",
-      }}>
-      <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0, alpha: 0.94, blur: 8 })}>
+      <div style={getStickyHeaderStyle(theme === "light", { alpha: 0.94, blur: 8 })}>
       {canUnlockWithCredits && (
         <div style={{ position:"absolute", top:SCREEN_HEADER_CONTROL_TOP, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
           <div style={{
@@ -5111,7 +5092,6 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
       ) : (
         <Sub mt={2}>{info?.message || t("You need credits to run these reports. Ask an admin to add credits to your account.")}</Sub>
       )}
-      </div>
     </Shell>
   );
 }

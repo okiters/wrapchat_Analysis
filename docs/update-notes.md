@@ -6,7 +6,19 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
-_Nothing pending._
+### Pack multi-buy fixes + unlock/settings scroll clipping
+**Files:** `supabase/migrations/20260716120000_pack_multi_buy.sql` (new), `src/App.jsx`, `src/screens/Screens.jsx`
+
+Packs are consumable stock (the DB tracked quantities since `20260531120000_pack_quantity.sql`) but the client treated `unlockedPackIds` as boolean ownership, so three things were broken:
+- **Owned packs couldn't be re-bought:** `buyPacksWithCredits` filtered out any pack you already owned and silently returned (no charge, no buffer). Removed the filter — owning a pack never blocks buying more; every successful buy now shows the "You're in" buffer.
+- **Quantity stepper did nothing:** the Unlock screen's per-pack +/- selected quantities, but `selectedPacks` dropped them (unique ids only) AND the DB de-duplicated the array. Now `handlePrimary` expands by quantity (one entry per unit) and the new migration makes `unlock_report_packs` honor duplicate ids — buying Vibe ×3 charges 3× and increments quantity by 3, atomically in one transaction.
+- **Dots showed presence, not amount:** `AnalysisDotsCounter` now renders one dot per owned unit (coloured by pack, capped at 10 with a +N overflow) instead of one lit dot per owned pack type.
+
+**Scroll clipping (Unlock reads, Add Credits, Settings):** these used a full-bleed inner scroller (negative margins) nested inside Shell's pane, whose negative *bottom* margin pushed the scroll container past the pane's clip line — so the Unlock button landed under the safe area and couldn't be reached. Removed the inner scroller entirely and made the Shell pane itself the single scroll container (the pattern the review/relationship screens already use): the frosted header is now a direct sticky child of the pane. `getStickyHeaderStyle` now sets `top: -pullTop` (was `top: 0`) so a bled header stays glued to the very top edge while content scrolls under it, instead of detaching by `pullTop` px.
+
+**My Results shift on return:** the My Results drawer (`SHELL_DRAWER_PADDING`, top `safe+6`) and the full "history" phase (Shell pane, top `safe+16`) sat at different heights, so opening a result and coming back — which lands you in the drawer rather than the full phase — visibly shifted the whole page up ~10px. Aligned `SHELL_DRAWER_PADDING` to `safe+16` to match.
+
+**Deploy:** needs `supabase db push` (the multi-buy migration) plus the app build. No edge-function change.
 
 ---
 

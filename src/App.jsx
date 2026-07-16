@@ -666,19 +666,13 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
+  // packs is an expanded list — one entry per unit bought, duplicates allowed
+  // (buying the same pack 3x = three entries). Packs are consumable stock, so
+  // owning one never blocks buying another; the DB increments quantity.
   const buyPacksWithCredits = async (packs) => {
     const selectedPacks = (Array.isArray(packs) ? packs : []).filter(pack => pack?.id && Array.isArray(pack.reports));
     if (!selectedPacks.length) return;
-    const lockedPacks = selectedPacks.filter(pack => !unlockedPackIds?.[pack.id]);
-    if (!lockedPacks.length) {
-      setAnalysisError("");
-      setUpgradeInfo(null);
-      setDir("bk");
-      setPhase(upgradeInfo?.backPhase || (messages?.length && math ? "select" : "upload"));
-      setSid(s => s + 1);
-      return;
-    }
-    const amount = lockedPacks.reduce((sum, pack) => sum + pack.cost, 0);
+    const amount = selectedPacks.reduce((sum, pack) => sum + pack.cost, 0);
 
     let availableCredits = credits;
     try {
@@ -699,7 +693,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     }
 
     try {
-      const unlockState = await unlockReportPacks(authedUser?.id, lockedPacks.map(pack => pack.id));
+      const unlockState = await unlockReportPacks(authedUser?.id, selectedPacks.map(pack => pack.id));
       setCredits(unlockState.balance);
       setUnlockedPackIds(unlockState.unlockedPackIds);
       cacheUserCredits(authedUser?.id, unlockState.balance);

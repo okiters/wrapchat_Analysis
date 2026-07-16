@@ -619,7 +619,10 @@ export const SLIDE_MS   = 480;
 export const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 export const SHELL_SAFE_TOP = "max(20px, env(safe-area-inset-top, 0px))";
 export const SHELL_PANE_PADDING = "16px 20px calc(24px + env(safe-area-inset-bottom, 0px))";
-export const SHELL_DRAWER_PADDING = `calc(${SHELL_SAFE_TOP} + 6px) 20px 0`;
+// Matches the full Shell's content top (root safe-area + pane's 16px top) so
+// the My Results drawer and the full "history" phase sit at the same height —
+// otherwise returning to My Results via one path shifts the page vs. the other.
+export const SHELL_DRAWER_PADDING = `calc(${SHELL_SAFE_TOP} + 16px) 20px 0`;
 export const SCREEN_HEADER_CONTROL_TOP = "36px";
 export const SCREEN_CONTENT_STYLE = {
   alignSelf:"stretch",
@@ -645,14 +648,16 @@ export const SCREEN_BODY_SCROLL_STYLE = {
   paddingBottom:"calc(24px + env(safe-area-inset-bottom, 0px))",
 };
 // Pins a header row to the top of a scrolling page. pullTop 16 bleeds over
-// the Shell pane's top padding (pages that scroll the pane itself); pullTop 0
-// is for pages with their own full-bleed scroll wrapper (paddingTop 0).
+// the Shell pane's top padding (the header is a direct child of the pane and
+// the pane itself scrolls) so the frosted bar reaches the very top edge and
+// stays glued there; the matching negative `top` keeps it stuck while content
+// scrolls under. pullTop 0 is for pages with their own paddingTop:0 wrapper.
 // alpha < 1 lets content scrolling under the header show through faintly;
 // blur (px) frosts whatever shows through so it reads as a glow, not text.
 export function getStickyHeaderStyle(isLight, { pullTop = 16, alpha = 1, blur = 0 } = {}) {
   return {
     position:"sticky",
-    top:0,
+    top:`${-pullTop}px`,
     zIndex:20,
     background: isLight ? `rgba(237,232,220,${alpha})` : `rgba(31,24,78,${alpha})`,
     ...(blur > 0 ? {
