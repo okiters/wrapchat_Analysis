@@ -28,3 +28,8 @@ dist-ssr
 
 # Golden harness data — real chat exports and AI outputs, never commit
 tests/golden/
+
+# Local tooling artifacts and reference copies
+.agents/
+skills-lock.json
+src-old-to-check/
