@@ -6,6 +6,37 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
+_Nothing pending — everything below shipped in 0bb6e69 (v3.6) and earlier._
+
+---
+
+## v3.6 — Quote-first results: quote bank, spine sampling, reveal choreography, card cleanup
+
+### Quote bank — moment cards anchor on real extracted quotes (0bb6e69)
+**Files:** `src/analysis/aiAnalysis.js`, `supabase/functions/_shared/prompts.js`, `supabase/functions/analyse-chat/schemas.ts`, `src/analysis/voiceLint.js`, `src/analysis/voice.js`
+
+Moment cards had melted into long quote-less paragraphs (digest specs asked for "full shape" narration; the quote grounder silently stripped paraphrased quotes' marks). Now local math extracts a typed quote bank per chat (funny / care / tension / drama / affection / apology / energy-high / energy-low, each entry = verbatim quote + the other person's reaction), and the connection digest's six moment fields return `{candidateId, text}` picks anchored on it. The client verifies the picked quote appears verbatim in the text, rebuilds the field from the bank if the model paraphrased, and enforces one-candidate-one-card across the whole report — the same moment can never appear on two cards. Risk digest copies candidate quotes verbatim for red flags. Calibration examples are now exported, marked as a made-up chat in the prompt, and a `calibration-copy` lint error catches output that parrots them (the fabricated "Barcelona" cards). PROMPT_VERSION 7, CORE_ANALYSIS_CACHE_VERSION 8 — **edge fn deployed**.
+
+### Funny accuracy — graded laughter, cascades resolve to the joke (0bb6e69)
+**Files:** `src/analysis/aiAnalysis.js`
+
+`isLaughReaction` was binary ("contains laughter anywhere"), so laugh cascades made laughing messages the "joke" and "content lol" trailers counted as reactions. New `laughStrength()` grades 0–3 (weak trailer / clear laugh / hard laugh: keyboard mash, 💀🤣, multi-😂, caps howl); laugh triggers must not themselves be laughing, funny candidates require a real receipt and keep the hardest one, and no card type can anchor on a laughing message or media placeholder. Mash detection hardened (consonant-only runs or long near-vowel-free tokens with 5+ consonant clusters; "combing"/"thank"/"pfffff" no longer count).
+
+### Timeline spine — the early smartSample idea, upgraded (0bb6e69)
+**Files:** `src/analysis/aiAnalysis.js`, `supabase/functions/_shared/prompts.js`
+
+Large chats now send a two-layer corpus: a TIMELINE SPINE (55 contiguous 10-message runs evenly spaced across the full history — the chat's true proportions, storyline-following allowed) plus trimmed MOMENT WINDOWS (28 event excerpts; the timeline-fill pass is gone). Prompt rules route summary fields to the spine and moment fields to the windows, and state that moment windows over-represent the loudest moments by design. Chats up to 1,600 messages go to Claude in full (was 600) — restoring the early-version behaviour that made small-chat reports feel so grounded.
+
+### Card cleanup + energy report rework (0bb6e69)
+**Files:** `src/screens/Screens.jsx`, `src/analysis/localMath.js`, `src/i18n/translations.js`
+
+Removed "A moment from the chat" (its fallback re-rendered sweetMoment — the duplication users saw), "Top 3 most active months" (duo + group), and the "Powered by AI" footers. Duo general is now 13 cards, group 16. Energy report (9 cards): opens with "The energy read" — name/energy-type chips plus the pair-chemistry read, no rings — and the rings + overall compatibility appear only on the closing card, so the first and last cards no longer duplicate.
+
+### Reveal choreography + pinned nav (0bb6e69)
+**Files:** `src/ui/Shell.jsx`, `src/screens/Screens.jsx`
+
+Card content now arrives in beats after the slide settles: headline value pops at +80ms, payload card at +360ms, footnotes at +640ms, list items cascade. Sections keep their emotional tempo (roast/funny snappier, lovely softer, toxicity pure fades with no pop). GuessCard reveals compress the beats so the payoff stays immediate; reduced-motion collapses to a plain fade. Fixed two latent bugs: exiting cards replayed their entrance fades while sliding out, and share capture could snapshot mid-reveal invisible elements. Nav buttons are pinned to the bottom of the pane with bottom padding, content stays centered above them.
+
 ### Signature phrases: distinctive multi-word extraction + "Your language" card cleanup
 **Files:** `src/analysis/localMath.js`, `analysis-test/aiDebugHelpers.js`, `supabase/functions/_shared/prompts.js`, `src/screens/Screens.jsx`
 

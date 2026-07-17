@@ -708,7 +708,7 @@ export const CORE_ANALYSIS_CACHE_VERSION = 8;
 // these below it so the request budget is honoured, not silently truncated.
 export const CORE_A_MAX_TOKENS = 4200;
 export const CORE_B_MAX_TOKENS = 3400;
-export const HOMEPAGE_VERSION = "67537";
+export const HOMEPAGE_VERSION = "67538";
 export const HOMEPAGE_VERSION_LABEL = (_updateNotesRaw.match(/^## (v\d+\.\d+)/m) || [])[1] ?? "v?";
 
 // Prompt construction is server-owned since the edge refactor: the shared
