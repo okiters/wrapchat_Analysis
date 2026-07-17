@@ -244,8 +244,8 @@ function buildChunks(messages) {
                                    //   — captures the reaction(s) that follow the funny line
   const CONTEXT_AFTER_CARE  = 7;   // keep the support response and the gratitude / reaction after it
   const EVENT_SCORE_MIN     = 4;   // minimum score to qualify as an event center
-  const MAX_EVENT_WINDOWS   = 28;  // hard cap on event-based windows
-  const MSG_LINE_LIMIT      = 700; // hard cap on total message lines (headers not counted)
+  const MAX_EVENT_WINDOWS   = 40;  // hard cap on event-based windows
+  const MSG_LINE_LIMIT      = 1000; // hard cap on total message lines (headers not counted)
 
   const n      = messages.length;
   const scores = scoreMessages(messages);
@@ -338,9 +338,9 @@ function formatChunksForAI(messages, chunks) {
 
 // Chats up to this size go to Claude in full — the early versions used 2000
 // and it was the single biggest reason small-chat reports felt so grounded.
-const FULL_CHAT_LIMIT = 1600;
+const FULL_CHAT_LIMIT = 2000;
 
-function buildSpineRuns(messages, { runs = 55, runLen = 10 } = {}) {
+function buildSpineRuns(messages, { runs = 70, runLen = 12 } = {}) {
   const n = messages.length;
   if (n <= runs * runLen) return [[0, n - 1]];
   const step = n / runs;
@@ -476,7 +476,7 @@ function scoreEnergyMessage(msg, index, messages) {
 function buildEnergyChunks(messages) {
   if (!messages.length) return [];
   const n = messages.length;
-  const MSG_LINE_LIMIT = 700;
+  const MSG_LINE_LIMIT = 1000;
   const energyCandidates = messages
     .map((msg, index) => scoreEnergyMessage(msg, index, messages))
     .filter(Boolean)
@@ -641,7 +641,7 @@ function scoreAccountabilityMessage(msg, index, messages) {
 function buildAccountabilityChunks(messages) {
   if (!messages.length) return [];
   const n = messages.length;
-  const MSG_LINE_LIMIT = 700;
+  const MSG_LINE_LIMIT = 1000;
   const candidates = messages
     .map((msg, index) => scoreAccountabilityMessage(msg, index, messages))
     .filter(Boolean)
@@ -703,7 +703,7 @@ export function buildAccountabilitySampleText(messages) {
 }
 
 export const CORE_ANALYSIS_VERSION = 2;
-export const CORE_ANALYSIS_CACHE_VERSION = 8;
+export const CORE_ANALYSIS_CACHE_VERSION = 9;
 // Server clamp is MAX_PROVIDER_TOKENS in analyse-chat/index.ts (5000) — keep
 // these below it so the request budget is honoured, not silently truncated.
 export const CORE_A_MAX_TOKENS = 4200;
@@ -729,19 +729,19 @@ export function buildCoreASystemPrompt(role, relationshipType, extraRules = "", 
 // ─────────────────────────────────────────────────────────────────
 
 const CANDIDATE_TYPE_DEFS = [
-  { type: "funny",     take: 5, match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
-  { type: "care",      take: 4, match: tags => tags.includes("care-response") || tags.includes("support") },
-  { type: "tension",   take: 4, match: tags => tags.includes("conflict") },
-  { type: "drama",     take: 3, match: tags => tags.includes("distress") && !tags.includes("conflict") },
-  { type: "affection", take: 4, match: tags => tags.includes("affection") },
-  { type: "apology",   take: 2, match: tags => tags.includes("apology") },
+  { type: "funny",     take: 7, match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
+  { type: "care",      take: 5, match: tags => tags.includes("care-response") || tags.includes("support") },
+  { type: "tension",   take: 5, match: tags => tags.includes("conflict") },
+  { type: "drama",     take: 4, match: tags => tags.includes("distress") && !tags.includes("conflict") },
+  { type: "affection", take: 5, match: tags => tags.includes("affection") },
+  { type: "apology",   take: 3, match: tags => tags.includes("apology") },
 ];
 
 // Energy highs/lows come from the dedicated energy scorer, not scoreMessages,
 // so the bank can also feed mostEnergising / mostDraining with real lines.
 const CANDIDATE_ENERGY_DEFS = [
-  { type: "energy-high", take: 3, match: tags => tags.includes("energy-high") },
-  { type: "energy-low",  take: 3, match: tags => tags.includes("energy-low") && !tags.includes("energy-high") },
+  { type: "energy-high", take: 4, match: tags => tags.includes("energy-high") },
+  { type: "energy-low",  take: 4, match: tags => tags.includes("energy-low") && !tags.includes("energy-high") },
 ];
 
 function candidateContentTokens(body) {
