@@ -7741,12 +7741,11 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
   }
 
   const mainInnerContent = (
-    <div style={{
-      ...SCREEN_CONTENT_STYLE,
-      position:"relative",
-    }}>
-      {/* Fixed header */}
-      <div style={SCREEN_HEADER_BLOCK_STYLE}>
+    <>
+      {/* Frosted sticky header (the Settings pattern): the pane/drawer is the
+          scroll container and the list slides under this bar. Sort tabs live
+          inside the bar so they stay visible. */}
+      <div style={getStickyHeaderStyle(isLight, { alpha: 0.9, blur: 8 })}>
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
@@ -7775,38 +7774,8 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
           </div>
         )}
       </div>
-        {/* Floating edit FAB */}
-        {rows?.length > 0 && (
-          <button
-            type="button"
-            onClick={() => editing ? exitEditing() : setEditing(true)}
-            className="wc-btn"
-            aria-label={editing ? "Done editing" : "Edit results"}
-            style={{
-              position:"absolute",
-              bottom:"calc(20px + env(safe-area-inset-bottom, 0px))",
-              right:20,
-              width:48, height:48,
-              borderRadius:"50%",
-              background: editing ? PAL.upload.accent : "rgba(var(--wc-p),0.22)",
-              border:`1px solid ${editing ? PAL.upload.accent : "rgba(var(--wc-p),0.38)"}`,
-              color: editing ? PAL.upload.bg : da.text,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
-              cursor:"pointer",
-              zIndex:10,
-            }}
-          >
-            {editing
-              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            }
-          </button>
-        )}
-
         {viewMode === "reports" && (
-        <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-          padding:`4px 0 calc(80px + env(safe-area-inset-bottom, 0px))`,
+        <div style={{ padding:`4px 0 calc(88px + env(safe-area-inset-bottom, 0px))`,
           display:"flex", flexDirection:"column", gap:10 }}>
           {rows === null && !err && (
             <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
@@ -7825,8 +7794,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
         </div>
         )}
         {viewMode === "names" && (
-          <div style={{ flex:1, overflowY:"auto", overscrollBehavior:"contain", minHeight:0,
-            padding:`4px 0 calc(80px + env(safe-area-inset-bottom, 0px))`,
+          <div style={{ padding:`4px 0 calc(88px + env(safe-area-inset-bottom, 0px))`,
             display:"flex", flexDirection:"column", gap:10 }}>
             {rows === null && !err && (
               <div style={{ width:"100%", display:"flex", justifyContent:"center", padding:"24px 0" }}><Dots /></div>
@@ -7920,10 +7888,42 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
             </StaggerList>
           </div>
         )}
-      </div>
+        {/* Edit FAB — sticky to the scrollport bottom so it stays in reach
+            while the pane scrolls; marginTop:auto pins it low on short lists. */}
+        {rows?.length > 0 && (
+          <button
+            type="button"
+            onClick={() => editing ? exitEditing() : setEditing(true)}
+            className="wc-btn"
+            aria-label={editing ? "Done editing" : "Edit results"}
+            style={{
+              position:"sticky",
+              bottom:"calc(20px + env(safe-area-inset-bottom, 0px))",
+              alignSelf:"flex-end",
+              marginTop:"auto",
+              marginBottom:0,
+              flexShrink:0,
+              width:48, height:48,
+              borderRadius:"50%",
+              background: editing ? PAL.upload.accent : "rgba(var(--wc-p),0.22)",
+              border:`1px solid ${editing ? PAL.upload.accent : "rgba(var(--wc-p),0.38)"}`,
+              color: editing ? PAL.upload.bg : da.text,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
+              cursor:"pointer",
+              zIndex:10,
+            }}
+          >
+            {editing
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            }
+          </button>
+        )}
+    </>
   );
   return drawerMode ? (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative" }}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", overscrollBehavior:"contain", position:"relative" }}>
       {mainInnerContent}
     </div>
   ) : (
