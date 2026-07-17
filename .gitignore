@@ -31,5 +31,9 @@ tests/golden/
 
 # Local tooling artifacts and reference copies
 .agents/
+.claude/skills/
 skills-lock.json
 src-old-to-check/
+
+# Generated brand / social assets (Firefly masters + composited posts)
+WrapChat/Wrapchat-social-assets/
