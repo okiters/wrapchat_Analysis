@@ -13,7 +13,7 @@
 // logged per call in ai_usage_log so output changes can be correlated.
 // ─────────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = 7;
+export const PROMPT_VERSION = 8;
 
 // ── Voice (moved from src/analysis/voice.js — that file re-exports) ──
 
@@ -429,24 +429,30 @@ function connectionFields(coreAnalysisVersion) {
     "biggestTopic": "the dominant recurring storyline in this chat - something both repeated and important to the dynamic, not a trivial side debate",
     "ghostContext": "1 sentence explaining the slower replier's pattern",
     "funniestPerson": "ONLY the first name of the funniest person, or 'None clearly identified'",
-    "funniestReason": { "candidateId": "[#id of the funny CANDIDATE MOMENT this is built on, or 0 if none fits]", "text": "the funniest person's actual joke line, verbatim in quote marks, then the other person's reaction, then one short read (max 15 words) on why it hit" },
+    "funniestReason": "the funniest person's actual joke line, copied verbatim in quote marks, then the other person's reaction, then one short read (max 15 words) on why it hit",
+    "funniestReasonCandidateId": "[number: #id of the funny CANDIDATE MOMENT funniestReason is built on, or 0 if none fits]",
     "dramaStarter": "ONLY a first name, 'Shared', or 'None clearly identified'",
     "dramaContext": "1 sentence describing the real recurring drama pattern",
     "signaturePhrases": ["a multi-word expression person 1 repeats that is recognizably THEIRS - never a greeting or daily formula", "same for person 2"],
     "relationshipSummary": "1 sentence - a specific human read on what's actually going on between them, not a label or diagnosis",
     "groupDynamic": "1 sentence - honest read of this group's energy",
-    "tensionMoment": { "candidateId": "[#id of the tension CANDIDATE MOMENT this is built on, or 0 if none fits]", "text": "who said the charged line, the line verbatim in quote marks, how the other responded, then one short read (max 15 words). Describe clearly, don't amplify" },
+    "tensionMoment": "who said the charged line, the line verbatim in quote marks, how the other responded, then one short read (max 15 words). Describe clearly, don't amplify",
+    "tensionMomentCandidateId": "[number: #id of the tension CANDIDATE MOMENT tensionMoment is built on, or 0 if none fits]",
     "kindestPerson": "ONLY a first name, or 'None clearly identified'",
-    "sweetMoment": { "candidateId": "[#id of the care CANDIDATE MOMENT this is built on, or 0 if none fits]", "text": "who said the caring line, the line verbatim in quote marks, how the other received it, then one short read (max 15 words) on why it landed" },
+    "sweetMoment": "who said the caring line, the line verbatim in quote marks, how the other received it, then one short read (max 15 words) on why it landed",
+    "sweetMomentCandidateId": "[number: #id of the care CANDIDATE MOMENT sweetMoment is built on, or 0 if none fits]",
     "mostMissed": "group only: ONLY a first name, or 'None clearly identified'",
     "insideJoke": "group only: 1 sentence naming a recurring inside joke or reference",
     "hypePersonReason": "group only: 1 sentence describing how this person energises the group",
     "loveLanguageMismatch": "1 sentence describing how their care styles align or mismatch",
-    "mostLovingMoment": { "candidateId": "[#id of the affection CANDIDATE MOMENT this is built on, or 0 if none fits]", "text": "who said the warm line, the line verbatim in quote marks, how the other answered, then one short read (max 15 words) on why it felt real" },
+    "mostLovingMoment": "who said the warm line, the line verbatim in quote marks, how the other answered, then one short read (max 15 words) on why it felt real",
+    "mostLovingMomentCandidateId": "[number: #id of the affection CANDIDATE MOMENT mostLovingMoment is built on, or 0 if none fits]",
     "compatibilityScore": [1-10],
     "compatibilityRead": "1 short sentence - love-language compatibility summary",
-    "mostEnergising": { "candidateId": "[#id of the energy-high CANDIDATE MOMENT this is built on, or 0 if none fits]", "text": "the line that sparked the energy, verbatim in quote marks with its speaker, how the other met it, then one short read (max 15 words)" },
-    "mostDraining": { "candidateId": "[#id of the energy-low CANDIDATE MOMENT this is built on, or 0 if none fits]", "text": "the line that shows the drain, verbatim in quote marks with its speaker, how the other responded, then one short read (max 15 words)" },
+    "mostEnergising": "the line that sparked the energy, verbatim in quote marks with its speaker, how the other met it, then one short read (max 15 words)",
+    "mostEnergisingCandidateId": "[number: #id of the energy-high CANDIDATE MOMENT mostEnergising is built on, or 0 if none fits]",
+    "mostDraining": "the line that shows the drain, verbatim in quote marks with its speaker, how the other responded, then one short read (max 15 words)",
+    "mostDrainingCandidateId": "[number: #id of the energy-low CANDIDATE MOMENT mostDraining is built on, or 0 if none fits]",
     "energyCompatibility": "1 sentence - how their energy styles work together",
     "timeOfDay": {
       "personA": { "name": "first name", "peakHour": "peak hour as a readable string e.g. '10pm' or '9am'", "peakDaypart": "one of: morning / afternoon / evening / late night" },
@@ -622,7 +628,7 @@ GUESS THRESHOLDS: Set loveLanguageGuessValid to true only if person A's love lan
 LOVE MISS: A miss is ONE specific exchange where both sides are visible: one person offers care in their language (an act, an offer, a gift, time) and the other wants or answers in a DIFFERENT language (words instead of the act, deflecting the offer, asking for presence not solutions). Both halves must be in the same exchange. If no single exchange shows both sides, use empty string: an empty miss is correct, a stretched one is a category error. Never reuse a moment that already appears in careStyle examples or any other field.
 LOVE MISS UNSPOKEN: Care shown purely through behaviour, with no caring words in that exchange: showing up, a fast reply at a bad hour, silently handling a task, staying present through a hard stretch. If the care is spoken aloud anywhere in the moment, it does not qualify. Empty string when nothing qualifies.
 ENERGY DYNAMIC: always populate, describing the chemistry of the pair, not the individuals.
-MOMENT PICKING: funniestReason, sweetMoment, tensionMoment, mostLovingMoment, mostEnergising, and mostDraining are objects: { "candidateId": number, "text": string }. Anchor each on the strongest CANDIDATE MOMENT of a fitting type (funniestReason: funny · sweetMoment: care · mostLovingMoment: affection or care · tensionMoment: tension or drama · mostEnergising: energy-high or funny · mostDraining: energy-low or drama) and set candidateId to that candidate's number. Use candidateId 0 ONLY when no listed candidate fits and you anchor on a window line instead. TEXT SHAPE: the speaker's name + their line copied VERBATIM inside quote marks + how the other person reacted (quote the reaction verbatim when short) + one read of max 15 words. The quote is the card: never replace it with your own summary of the dialog. Each candidateId may anchor AT MOST ONE field across the whole output; never build two fields on the same candidate or the same underlying exchange.
+MOMENT PICKING: funniestReason, sweetMoment, tensionMoment, mostLovingMoment, mostEnergising, and mostDraining each have a sibling <field>CandidateId number. Anchor each field on the strongest CANDIDATE MOMENT of a fitting type (funniestReason: funny · sweetMoment: care · mostLovingMoment: affection or care · tensionMoment: tension or drama · mostEnergising: energy-high or funny · mostDraining: energy-low or drama) and set its CandidateId to that candidate's number. Use 0 ONLY when no listed candidate fits and you anchor on a window line instead. TEXT SHAPE: the speaker's name + their line copied VERBATIM inside quote marks + how the other person reacted (quote the reaction verbatim when short) + one read of max 15 words. The quote is the card: never replace it with your own summary of the dialog. Each candidate may anchor AT MOST ONE field across the whole output; never build two fields on the same candidate or the same underlying exchange.
 RECURRING CAST: Outside names that keep coming back across windows (a partner, an ex, a boss, a recurring friend) are storylines, not noise. When a third party recurs, prefer that storyline for biggestTopic, dramaContext, and moment fields over one-off events, always within the third-party evidence rules.
 SUMMARY FIELDS: vibeOneLiner must be a sharp, memorable read of the dynamic specific to this chat. biggestTopic must name the recurring theme with real references, not a broad category: not "relationships" but the actual recurring storyline with its people. ghostContext explains WHY the slower replier takes longer, from observable patterns, without repeating the numeric reply time. insideJoke must recur across multiple windows, not a single funny line. Each summary should feel like it could only belong to this chat. ${data.energyFocus ? ENERGY_FOCUS_RULE : ""}`,
     chatLang,

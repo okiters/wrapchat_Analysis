@@ -46,12 +46,6 @@ const DAYPART_ENUM = enumOf("morning", "afternoon", "evening", "late night");
 
 const timeOfDayPerson = obj({ name: str, peakHour: str, peakDaypart: DAYPART_ENUM });
 
-// Moment fields anchor on a locally pre-extracted candidate quote: candidateId
-// points into the CANDIDATE MOMENTS list in the prompt (0 = no candidate fits),
-// text carries the quote-first sentence. The client verifies the quote against
-// the bank and repairs drift, so quotes stay verbatim by construction.
-const momentPick = obj({ candidateId: int, text: str });
-
 const connectionPerson = obj({
   name: str,
   careStyle: obj({
@@ -77,24 +71,35 @@ const connectionSchema = obj({
     biggestTopic: str,
     ghostContext: str,
     funniestPerson: str,
-    funniestReason: momentPick,
+    // Moment fields anchor on a locally pre-extracted candidate quote: the
+    // sibling <field>CandidateId points into the CANDIDATE MOMENTS list in the
+    // prompt (0 = no candidate fits). Flat int + string pairs instead of
+    // nested objects — six nested objects pushed the compiled structured-
+    // outputs grammar over the API's size limit (400 invalid_request).
+    funniestReason: str,
+    funniestReasonCandidateId: int,
     dramaStarter: str,
     dramaContext: str,
     signaturePhrases: arr(str),
     relationshipSummary: str,
     groupDynamic: str,
-    tensionMoment: momentPick,
+    tensionMoment: str,
+    tensionMomentCandidateId: int,
     kindestPerson: str,
-    sweetMoment: momentPick,
+    sweetMoment: str,
+    sweetMomentCandidateId: int,
     mostMissed: str,
     insideJoke: str,
     hypePersonReason: str,
     loveLanguageMismatch: str,
-    mostLovingMoment: momentPick,
+    mostLovingMoment: str,
+    mostLovingMomentCandidateId: int,
     compatibilityScore: int,
     compatibilityRead: str,
-    mostEnergising: momentPick,
-    mostDraining: momentPick,
+    mostEnergising: str,
+    mostEnergisingCandidateId: int,
+    mostDraining: str,
+    mostDrainingCandidateId: int,
     energyCompatibility: str,
     timeOfDay: obj({ personA: timeOfDayPerson, personB: timeOfDayPerson, contrast: str }),
     loveLanguageIntro: str,

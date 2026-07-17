@@ -1064,9 +1064,13 @@ export function resolveMomentPicks(rawShared, normalizedShared, quoteBank) {
   const used = new Set();
   const out = { ...normalizedShared };
   for (const field of MOMENT_PICK_FIELDS) {
+    // Picks arrive as a sibling <field>CandidateId number (flat, to keep the
+    // structured-outputs grammar small); the nested {candidateId, text} shape
+    // is still accepted for older cached results.
     const rawValue = rawShared?.[field];
-    if (!rawValue || typeof rawValue !== "object") continue;
-    const id = Math.round(Number(rawValue.candidateId) || 0);
+    const id = rawValue && typeof rawValue === "object"
+      ? Math.round(Number(rawValue.candidateId) || 0)
+      : Math.round(Number(rawShared?.[`${field}CandidateId`]) || 0);
     const candidate = id > 0 ? byId.get(id) : null;
     const text = strOr(out[field]);
     if (!candidate || !text) continue;
