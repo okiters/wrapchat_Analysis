@@ -437,15 +437,33 @@ export const ROMANCE_RE = /\b(love you|luv you|miss you|my love|baby|babe|bb|dar
 export const FRIEND_RE = /\b(bestie|bro|broski|dude|girl|sis|mate|homie|kanka|knk|abi|abla)\b/i;
 export const WORK_RE = /\b(meeting|deadline|project|client|invoice|brief|office|shift|deck|review this|sunum|mesai|müşteri|musteri|patron|toplantı|toplanti)\b/i;
 export const DATE_RE = /\b(date|dinner tonight|movie night|see you tonight|come over|valentine|anniversary)\b/i;
+
+// Affection STATEMENTS only — used for event scoring (the "affection moment"
+// candidates). ROMANCE_RE stays broad (it also matches address terms like
+// askim/baby, valid cues for relationship classification), but in chats where
+// partners address each other with pet names constantly, address terms fire
+// on 4%+ of all messages and make the affection tag meaningless as an event.
+export const AFFECTION_RE = /\b(love you|luv you|miss you|missing you|kiss you|can'?t wait to see you|seni seviyorum|seni çok seviyorum|seni cok seviyorum|çok özledim|cok ozledim|özledim seni|ozledim seni|ich liebe dich|liebe dich|hab dich lieb|vermisse dich|te amo|te quiero|te extraño|te extrano|amo você|amo voce|saudades?( de você| de voce)?|je t'aime|tu me manques|ti amo|ti voglio bene|mi manchi|أحبك|احبك|بحبك|اشتقت لك|اشتقتلك)\b/i;
 export const FLIRTY_EMOJI_RE = /(❤️|❤|💕|💖|💗|💘|😍|🥰|😘|💋)/;
 
-export const CONTROL_RE = /\b(where are you|who are you with|why are you online|why were you online|why didn't you reply|why dont you reply|why didn't you answer|why didnt you answer|answer me|pick up|call me now|send me your location|share your location|send your location|reply now|reply to me|neredesin|nerde kaldın|kimlesin|kimleydin|neden cevap vermedin|niye cevap vermedin|cevap ver|cvp ver|aç telefonu|telefonu aç|konum at|konumunu at|konum paylaş|konumunu paylaş|wo bist du|mit wem bist du|warum antwortest du nicht|wieso antwortest du nicht|antworte mir|geh ran|ruf mich sofort an|schick mir deinen standort|melde dich sofort)\b/i;
-export const AGGRO_RE = /\b(stupid|idiot|shut up|hate you|leave me alone|you're crazy|you are crazy|disgusting|pathetic|annoying|i'm sick of this|i am sick of this|salak|gerizekal[ıi]|aptal|mal|siktir|siktir git|defol|yeter|bıktım|biktim|nefret ediyorum|manyak|saçma|sacma|halt die klappe|halt den mund|du nervst|ich hasse dich|lass mich in ruhe|widerlich|erbärmlich|erbaermlich|mir reichts|mir reicht es|verpiss dich)\b/i;
-export const BREAKUP_RE = /\b(it'?s over|we'?re done|i'?m done|im done|done with you|break up|breakup|goodbye forever|don't text me|dont text me|blocked you|bitti|bitsin|ayrıl|ayrilelim|ayrılalım|beni arama|yazma bana|engelledim|sildim seni|es ist aus|es ist vorbei|schluss machen|machen wir schluss|wir sind fertig|ich bin fertig mit dir|schreib mir nicht mehr|hab dich blockiert|hab dich gelöscht|hab dich geloescht)\b/i;
-export const APOLOGY_RE = /\b(sorry|i'm sorry|i am sorry|my fault|forgive me|özür dilerim|ozur dilerim|affet|hata bendeydi|haklısın|haklisin|tut mir leid|entschuldige|entschuldigung|verzeih mir|mein fehler|du hast recht|hast recht)\b/i;
-export const SUPPORT_RE = /\b(i'm here|i am here|here for you|got you|proud of you|take care|rest up|go rest|get some rest|drink water|eat something|text me when you|get home safe|call me if|let me know if|i can help|i'll help|i will help|i'll come|i will come|feel better|hope you feel better|hope it gets better|sending love|yanındayım|yanindayim|buradayım|buradayim|iyi misin|iyi mısın|kendine iyi bak|dinlen|uyu biraz|su iç|su ic|bir şey yedin mi|bir sey yedin mi|haber ver|arayayım|arayim|gelirim|yardım ederim|yardim ederim|geçer|gecer|hallolur|hallederiz|bin für dich da|bin fuer dich da|ich bin da für|hast du was gegessen|gute besserung|ruh dich aus|schlaf dich aus|trink was|melde dich wenn|komm gut heim|komm gut nach hause|ich helf dir|ich helfe dir|wird schon|kriegen wir hin|pass auf dich auf|alles wird gut)\b/i;
-export const GRATITUDE_RE = /\b(thank you|thanks|thank u|appreciate it|you’re the best|you're the best|sağ ol|sag ol|saol|teşekkür|tesekkur|iyi ki varsın|iyi ki varsin|danke dir|vielen dank|tausend dank|du bist die beste|du bist der beste|zum glück gibt es dich|zum glueck gibt es dich)\b/i;
-export const DISTRESS_RE = /\b(sad|cry|crying|tired|stressed|anxious|scared|worried|hurt|hard|difficult|broken|lost|alone|upset|angry|panic|panicking|faint|fainted|feel sick|bad day|burnt out|hasta|üzgün|uzgun|stresli|yorgun|yalnız|yalniz|korktum|kötü|kotu|bayıl|bayil|ağla|agla|yardım|yardim|traurig|weine|weinen|müde|muede|gestresst|ängstlich|aengstlich|besorgt|verletzt|kaputt|einsam|sauer|wütend|wuetend|panik|krank|schlechter tag|ausgebrannt)\b/i;
+// Interrogation and reply-demands only. Bare "where are you" / "neredesin" /
+// "wo bist du" and "pick up" are ordinary couple logistics (measured: nearly
+// all hits were meetup coordination), so they no longer count as control.
+export const CONTROL_RE = /\b(who are you with|why are you online|why were you online|why didn't you reply|why dont you reply|why didn't you answer|why didnt you answer|answer me|pick up the phone|call me now|call me back now|send me your location|share your location|send your location|reply now|reply to me|nerde kaldın|nerede kaldın|kimlesin|kimleydin|neden cevap vermedin|niye cevap vermedin|cevap ver|cvp ver|aç telefonu|telefonu aç|konum at|konumunu at|konum paylaş|konumunu paylaş|mit wem bist du|warum antwortest du nicht|wieso antwortest du nicht|antworte mir|geh ran|ruf mich sofort an|schick mir deinen standort|melde dich sofort|con quién estás|con quien estas|por qué no contestas|por que no contestas|contéstame|contestame|responde ya|por que não responde|por que nao responde|me responde logo|pourquoi tu ne réponds pas|pourquoi tu reponds pas|réponds-moi|reponds-moi|perché non rispondi|perche non rispondi|rispondimi|ليش ما ترد|رد عليا|رد علي|ليه مش بترد)\b/i;
+// Directed hostility only. Bare insult words matched banter and third-party
+// talk ("stupid pigeons", "they would be stupid to not take you"), so English
+// insults now require a second-person frame; inherently charged phrases stay.
+export const AGGRO_RE = /\b(you'?re (so )?(stupid|an idiot|pathetic|disgusting|annoying)|you are (so )?(stupid|an idiot|pathetic|disgusting|annoying)|you idiot|shut up|hate you|leave me alone|you're crazy|you are crazy|i'm sick of this|i am sick of this|i'm sick of you|i am sick of you|salak|gerizekal[ıi]|aptal|malsın|malsin|mal mısın|mal misin|siktir|siktir git|defol|yeter artık|yeter artik|bıktım|biktim|nefret ediyorum|manyak mısın|manyak misin|saçmalama|sacmalama|halt die klappe|halt den mund|du nervst|ich hasse dich|lass mich in ruhe|widerlich|erbärmlich|erbaermlich|mir reichts|mir reicht es|verpiss dich|cállate|callate|te odio|eres idiota|déjame en paz|dejame en paz|cala a boca|te odeio|me deixa em paz|ta gueule|tais-toi|je te déteste|je te deteste|laisse-moi tranquille|sta zitto|stai zitta|ti odio|lasciami in pace|اخرس|اكرهك|سيبني في حالي|بطل تحكي معي)\b/i;
+// Bare "i'm done" removed — it matched "I'm done for today" (work), the most
+// common false positive. Ending language must reference the relationship.
+export const BREAKUP_RE = /\b(it'?s over|we'?re done|i'?m done with you|im done with you|done with you|i'?m so done with you|break up|breakup|goodbye forever|don't text me|dont text me|blocked you|bitti|bitsin|ayrıl|ayrilelim|ayrılalım|beni arama|yazma bana|engelledim|sildim seni|es ist aus|es ist vorbei|schluss machen|machen wir schluss|wir sind fertig|ich bin fertig mit dir|schreib mir nicht mehr|hab dich blockiert|hab dich gelöscht|hab dich geloescht|hemos terminado|se acabó lo nuestro|se acabo lo nuestro|no me escribas más|no me escribas mas|acabou entre nós|acabou entre nos|não me escreve mais|nao me escreve mais|c'est fini entre nous|ne m'écris plus|ne m'ecris plus|è finita tra noi|e finita tra noi|non scrivermi più|non scrivermi piu|خلاص انتهينا|انتهت علاقتنا|لا تراسلني)\b/i;
+export const APOLOGY_RE = /\b(sorry|i'm sorry|i am sorry|my fault|forgive me|özür dilerim|ozur dilerim|affet|hata bendeydi|haklısın|haklisin|tut mir leid|entschuldige|entschuldigung|verzeih mir|mein fehler|du hast recht|hast recht|perdón|perdon|perdóname|perdoname|lo siento|fue mi culpa|desculpa|me desculpa|foi minha culpa|désolé|desole|désolée|desolee|je suis désolé|pardonne-moi|pardonne moi|c'est ma faute|scusa|scusami|mi dispiace|colpa mia|آسف|اسف|سامحني|حقك عليا|غلطتي)\b/i;
+export const SUPPORT_RE = /\b(i'm here|i am here|here for you|got you|proud of you|take care of yourself|rest up|go rest|get some rest|drink water|eat something|text me when you|get home safe|call me if|let me know if|i can help|i'll help|i will help|i'll come over|i will come over|i'll come get|i will come get|i'll come to you|i will come to you|feel better|hope you feel better|hope it gets better|sending love|yanındayım|yanindayim|buradayım|buradayim|iyi misin|iyi mısın|kendine iyi bak|dinlen|uyu biraz|su iç|su ic|bir şey yedin mi|bir sey yedin mi|haber ver|arayayım|arayim|gelirim|yardım ederim|yardim ederim|geçer|gecer|hallolur|hallederiz|bin für dich da|bin fuer dich da|ich bin da für|hast du was gegessen|gute besserung|ruh dich aus|schlaf dich aus|trink was|melde dich wenn|komm gut heim|komm gut nach hause|ich helf dir|ich helfe dir|wird schon|kriegen wir hin|pass auf dich auf|alles wird gut|estoy aquí|estoy aqui|aquí estoy|aqui estoy|cuídate|cuidate|descansa|come algo|avísame|avisame|todo va a estar bien|estou aqui|se cuida|me avisa|vai ficar tudo bem|je suis là|je suis la|repose-toi|repose toi|prends soin de toi|tiens-moi au courant|tout ira bien|sono qui|riposati|prenditi cura di te|fammi sapere|andrà tutto bene|andra tutto bene|أنا معك|انا معك|اعتني بنفسك|ارتاح شوي|خبرني|كله بيصير منيح)\b/i;
+export const GRATITUDE_RE = /\b(thank you|thanks|thank u|appreciate it|you’re the best|you're the best|sağ ol|sag ol|saol|teşekkür|tesekkur|iyi ki varsın|iyi ki varsin|danke dir|vielen dank|tausend dank|du bist die beste|du bist der beste|zum glück gibt es dich|zum glueck gibt es dich|gracias|mil gracias|eres el mejor|eres la mejor|obrigado|obrigada|brigado|brigada|valeu|você é o melhor|voce e o melhor|merci|merci beaucoup|t'es le meilleur|t'es la meilleure|grazie|grazie mille|sei il migliore|sei la migliore|شكرا|تسلم|يعطيك العافية|انت الافضل)\b/i;
+// Emotional distress, not everyday vocabulary. Measured on a real 61k chat:
+// bare "tired" (129 hits), "hard" (97), "difficult" (78), "lost" (32, gaming),
+// "alone" (69) were almost all mundane — those now require an emotional frame.
+export const DISTRESS_RE = /\b(so sad|really sad|feel(ing)? (sad|awful|horrible|terrible|alone|lonely|sick)|cry|crying|cried|so tired of|exhausted|overwhelmed|burnt out|burned out|stressed|anxious|anxiety|scared|worried|panic|panicking|heartbroken|depress(ed|ing)?|miserable|can'?t take (it|this)|can'?t do this anymore|fed up|worst day|terrible day|hasta oldum|hastayım|hastayim|üzgün|uzgun|üzüldüm|uzuldum|stresli|çok yorgunum|cok yorgunum|bittim|tükendim|tukendim|yalnız hissediyorum|yalniz hissediyorum|korktum|korkuyorum|çok kötü|cok kotu|kötü hissediyorum|kotu hissediyorum|bayıl|bayil|ağlıyorum|agliyorum|ağladım|agladim|bunaldım|bunaldim|traurig|weine|weinen|so müde|so muede|erschöpft|erschoepft|gestresst|ängstlich|aengstlich|besorgt|verletzt|am ende|einsam|wütend|wuetend|panik|krank|schlechter tag|ausgebrannt|agotado|agotada|agobiado|agobiada|deprimido|deprimida|llorando|estresado|estresada|no puedo más|no puedo mas|me siento fatal|esgotado|esgotada|chorando|estressado|estressada|não aguento mais|nao aguento mais|me sinto péssimo|me sinto pessimo|épuisé|epuise|épuisée|epuisee|déprimé|deprime|je pleure|stressé|stresse|j'en peux plus|je n'en peux plus|esausto|esausta|depresso|depressa|sto piangendo|stressato|stressata|non ce la faccio|تعبان نفسيا|مكتئب|عم ابكي|ما عاد فيي|متضايق|مخنوق)\b/i;
 const LAUGH_RE = new RegExp(
   [
     // Standard laugh patterns
@@ -472,6 +490,54 @@ function isKeyboardMashLaugh(body = "") {
 export function isLaughReaction(body = "") {
   const b = String(body || "").trim().toLowerCase();
   return LAUGH_RE.test(b) || isKeyboardMashLaugh(b);
+}
+
+// ── Graded laughter ──
+// isLaughReaction() only answers "does this contain laughter anywhere?".
+// Grading distinguishes a dedicated laugh from a "content lol" trailer and a
+// hard laugh from a polite one — used by funny-moment extraction (aiAnalysis)
+// and by the local funniest-person count below.
+const LAUGH_WORD_RE = /^(a?ha(?:ha)+h*|ha+h|lo+l+z?|lmf?ao+|hehe+h*|heh|xd+|dying|dead|ded|deceased|jaja(?:ja)+|kk{2,}|wkwk\w*|mdr+|ptdr+)$/i;
+
+// A keyboard-mash laugh token: either a pure consonant run ("sksk",
+// "skdjfhdf"), or a long token that is almost vowel-free AND contains a 5+
+// consonant cluster ("ahshshsgsg", "Agahhssggsgd"). Both conditions together
+// keep ordinary consonant-heavy words ("combing", "thank", "strength") out.
+function isMashToken(word) {
+  if (!/^[a-zçğıöşü]+$/i.test(word)) return false;
+  // Interjections ("pfffff", "hmmm", "shhh") are one letter repeated, not a
+  // mash: random-key laughs spread across the keyboard.
+  const counts = {};
+  for (const ch of word.toLowerCase()) counts[ch] = (counts[ch] || 0) + 1;
+  if (Math.max(...Object.values(counts)) / word.length >= 0.7) return false;
+  if (/^[bcdfghjklmnpqrsştvwxyzçğ]{4,}$/i.test(word)) return true;
+  if (word.length < 8) return false;
+  const vowels = (word.match(/[aeiouöüıi]/gi) || []).length;
+  return vowels / word.length <= 0.2 && /[^aeiouöüıi]{5,}/i.test(word);
+}
+
+// 0 = no laughter · 1 = weak trailer (content with a laugh token tacked on)
+// 2 = clear laugh · 3 = hard laugh (keyboard mash, 💀/🤣, multi-😂, caps howl)
+export function laughStrength(body) {
+  const text = String(body || "").trim();
+  if (!text) return 0;
+  const tokens = text.split(/\s+/);
+  let laughCount = 0;
+  let contentCount = 0;
+  let hard = /[💀🤣]/u.test(text) || /😂[^😂]*😂/u.test(text);
+  for (const token of tokens) {
+    const word = token.replace(/[^\p{L}\p{N}'’]/gu, "");
+    const mash = isMashToken(word);
+    if (mash) hard = true;
+    if (mash || LAUGH_WORD_RE.test(word) || /[😂💀🤣]/u.test(token)) laughCount += 1;
+    else if (word) contentCount += 1;
+  }
+  // A shouted all-caps laugh ("AHAHAHA", "LMAOOO") is hard laughter too.
+  if (!/[a-zçğıöşü]/.test(text) && /HA(HA)+|LMF?AO|LO+L/.test(text)) hard = true;
+  if (!laughCount && !hard) return 0;
+  const dedicated = contentCount <= Math.max(1, tokens.length * 0.25);
+  if (hard) return dedicated ? 3 : 2;
+  return dedicated ? 2 : 1;
 }
 
 
@@ -1655,7 +1721,10 @@ export function localStats(messages) {
     const curr = messages[i], next = messages[i+1];
     if (curr.name === next.name) continue;
     if (!(curr.name in laughCausedBy)) continue;
-    if (isLaughReaction(next.body)) laughCausedBy[curr.name]++;
+    // Graded: a dedicated laugh (strength ≥ 2) from the next speaker counts;
+    // "content lol" trailers don't, and a message that is itself laughing
+    // can't be the joke that caused the laugh.
+    if (laughStrength(next.body) >= 2 && laughStrength(curr.body) < 2) laughCausedBy[curr.name]++;
   }
   const funniestPerson = !isGroup && namesAll.length >= 2
     ? [...namesAll].sort((a,b) => laughCausedBy[b] - laughCausedBy[a])[0]

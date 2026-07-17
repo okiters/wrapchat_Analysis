@@ -22,8 +22,8 @@ import {
 import {
   resolveRelationshipContext, normalizeRedFlags, normalizeTimeline,
   normalizeMemorableMoments, LOCAL_STATS_VERSION,
-  CONTROL_RE, AGGRO_RE, BREAKUP_RE, APOLOGY_RE, ROMANCE_RE, DATE_RE, FLIRTY_EMOJI_RE,
-  SUPPORT_RE, GRATITUDE_RE, DISTRESS_RE, HEART_REPLY_RE,
+  CONTROL_RE, AGGRO_RE, BREAKUP_RE, APOLOGY_RE, AFFECTION_RE, DATE_RE, FLIRTY_EMOJI_RE,
+  SUPPORT_RE, GRATITUDE_RE, DISTRESS_RE, HEART_REPLY_RE, laughStrength,
   coerceRelationshipCategory, coerceRelationshipSpecificLabel, sanitizeRelationshipStatus,
   STOP_WORDS, TOKEN_STOP_WORDS, foldToken, cleanQuote, sanitizeResultText,
 } from "./localMath";
@@ -48,56 +48,9 @@ export function formatForAI(messages) {
   return messages.map(formatMessageLine).join("\n");
 }
 
-// ── Laugh grading ──
-// isLaughReaction() only answers "does this contain laughter anywhere?",
-// which produced two failure modes in funny extraction: a message that is
-// itself laughter scored as the laugh TRIGGER (in a cascade every line
-// "causes" the next laugh, so we picked laughing messages instead of the
-// joke), and "content lol" trailers counted as full reactions. Grading the
-// laughter fixes both: triggers must not be laughing themselves, and
-// reactions must be dedicated laughs, ranked by how hard they are.
-const LAUGH_WORD_RE = /^(a?ha(?:ha)+h*|ha+h|lo+l+z?|lmf?ao+|hehe+h*|heh|xd+|dying|dead|ded|deceased|jaja(?:ja)+|kk{2,}|wkwk\w*|mdr+|ptdr+)$/i;
-
-// A keyboard-mash laugh token: either a pure consonant run ("sksk",
-// "skdjfhdf"), or a long token that is almost vowel-free AND contains a 5+
-// consonant cluster ("ahshshsgsg", "Agahhssggsgd"). Both conditions together
-// keep ordinary consonant-heavy words ("combing", "thank", "strength") out.
-function isMashToken(word) {
-  if (!/^[a-zçğıöşü]+$/i.test(word)) return false;
-  // Interjections ("pfffff", "hmmm", "shhh") are one letter repeated, not a
-  // mash: random-key laughs spread across the keyboard.
-  const counts = {};
-  for (const ch of word.toLowerCase()) counts[ch] = (counts[ch] || 0) + 1;
-  if (Math.max(...Object.values(counts)) / word.length >= 0.7) return false;
-  if (/^[bcdfghjklmnpqrsştvwxyzçğ]{4,}$/i.test(word)) return true;
-  if (word.length < 8) return false;
-  const vowels = (word.match(/[aeiouöüıi]/gi) || []).length;
-  return vowels / word.length <= 0.2 && /[^aeiouöüıi]{5,}/i.test(word);
-}
-
-// 0 = no laughter · 1 = weak trailer (content with a laugh token tacked on)
-// 2 = clear laugh · 3 = hard laugh (keyboard mash, 💀/🤣, multi-😂, caps howl)
-export function laughStrength(body) {
-  const text = String(body || "").trim();
-  if (!text) return 0;
-  const tokens = text.split(/\s+/);
-  let laughCount = 0;
-  let contentCount = 0;
-  let hard = /[💀🤣]/u.test(text) || /😂[^😂]*😂/u.test(text);
-  for (const token of tokens) {
-    const word = token.replace(/[^\p{L}\p{N}'’]/gu, "");
-    const mash = isMashToken(word);
-    if (mash) hard = true;
-    if (mash || LAUGH_WORD_RE.test(word) || /[😂💀🤣]/u.test(token)) laughCount += 1;
-    else if (word) contentCount += 1;
-  }
-  // A shouted all-caps laugh ("AHAHAHA", "LMAOOO") is hard laughter too.
-  if (!/[a-zçğıöşü]/.test(text) && /HA(HA)+|LMF?AO|LO+L/.test(text)) hard = true;
-  if (!laughCount && !hard) return 0;
-  const dedicated = contentCount <= Math.max(1, tokens.length * 0.25);
-  if (hard) return dedicated ? 3 : 2;
-  return dedicated ? 2 : 1;
-}
+// Laugh grading (laughStrength) lives in localMath — shared with the local
+// funniest-person count. Triggers must not be laughing themselves (cascades
+// resolve to the joke at their root) and reactions must be dedicated laughs.
 
 // Assign an event score and tag set to every message position.
 // Higher score = more valuable to anchor a context window on.
@@ -127,8 +80,10 @@ function scoreMessages(messages) {
       score += 4; tags.push("apology");
     }
 
-    // Romantic / affection spikes
-    if (body && (ROMANCE_RE.test(body) || DATE_RE.test(body) || FLIRTY_EMOJI_RE.test(body))) {
+    // Affection spikes — statements only (AFFECTION_RE), not address terms:
+    // in pet-name-heavy chats ROMANCE_RE fires on 4%+ of all messages and
+    // makes the affection tag meaningless as an event signal.
+    if (body && (AFFECTION_RE.test(body) || DATE_RE.test(body) || FLIRTY_EMOJI_RE.test(body))) {
       score += 4; tags.push("affection");
     }
 
@@ -703,7 +658,7 @@ export function buildAccountabilitySampleText(messages) {
 }
 
 export const CORE_ANALYSIS_VERSION = 2;
-export const CORE_ANALYSIS_CACHE_VERSION = 9;
+export const CORE_ANALYSIS_CACHE_VERSION = 10;
 // Server clamp is MAX_PROVIDER_TOKENS in analyse-chat/index.ts (5000) — keep
 // these below it so the request budget is honoured, not silently truncated.
 export const CORE_A_MAX_TOKENS = 4200;
@@ -779,6 +734,9 @@ export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } =
       // laughter is a reaction, never a good anchor for ANY type.
       if (/^<(Voice|Media) omitted>$/.test(anchorBody)) continue;
       if (laughStrength(anchorBody) >= 2) continue;
+      // Substance: a bare emoji or a two-word fragment makes a useless card
+      // quote — the anchor needs enough text to stand on its own.
+      if ((anchorBody.match(/\p{L}/gu) || []).length < 8) continue;
       // Distance dedupe: two anchors inside the same exchange are one moment.
       if (chosen.some(existing => Math.abs(existing.index - candidate.index) < minGap)) continue;
       const tokens = candidateContentTokens(anchorBody);
