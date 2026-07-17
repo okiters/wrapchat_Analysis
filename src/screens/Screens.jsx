@@ -124,13 +124,13 @@ const T   = ({s=26,children}) => {
 const Big = ({children}) => {
   const ink = useInk();
   return (
-    <div className="wc-fadeup-2" style={{ fontSize:44, fontWeight:900, textAlign:"center", color:ink.text, letterSpacing:-1.5, width:"100%", lineHeight:1.05, wordBreak:"break-word", margin:"6px 0 2px" }}>{children}</div>
+    <div className="wc-beat-1" style={{ fontSize:44, fontWeight:900, textAlign:"center", color:ink.text, letterSpacing:-1.5, width:"100%", lineHeight:1.05, wordBreak:"break-word", margin:"6px 0 2px" }}>{children}</div>
   );
 };
 const Sub = ({children, mt=6}) => {
   const ink = useInk();
   return (
-    <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:ink.muted, lineHeight:1.6, width:"100%", marginTop:mt, fontWeight:400 }}>{children}</div>
+    <div className="wc-beat-3" style={{ fontSize:14, textAlign:"center", color:ink.muted, lineHeight:1.6, width:"100%", marginTop:mt, fontWeight:400 }}>{children}</div>
   );
 };
 
@@ -139,7 +139,7 @@ function Card({ children, accent, style={} }) {
   const p = accent || PAL.upload;
   const bg = typeof p === "string" ? p : p.inner;
   return (
-    <div className="wc-fadeup-2" style={{ width:"100%", background:bg, borderRadius:24, padding:"16px 18px", ...style }}>
+    <div className="wc-beat-2" style={{ width:"100%", background:bg, borderRadius:24, padding:"16px 18px", ...style }}>
       {children}
     </div>
   );
@@ -160,7 +160,7 @@ const pick = (arr, key = "") => {
   return arr[idx];
 };
 
-const Quip = ({children}) => <div className="wc-fadeup-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.82)", background:"rgba(255,255,255,0.07)", padding:"13px 18px", borderRadius:18, width:"100%", lineHeight:1.55, fontStyle:"italic", fontWeight:500 }}>{children}</div>;
+const Quip = ({children}) => <div className="wc-beat-3" style={{ fontSize:14, textAlign:"center", color:"rgba(255,255,255,0.82)", background:"rgba(255,255,255,0.07)", padding:"13px 18px", borderRadius:18, width:"100%", lineHeight:1.55, fontStyle:"italic", fontWeight:500 }}>{children}</div>;
 
 // Ink colors for the current Shell surface: white-family on the fixed dark
 // report palettes, da.* on themed (upload/trial) sections in light mode.
@@ -193,7 +193,7 @@ function Dots({ color }) {
 function AICard({ label, value, loading }) {
   const p = useContext(SectionPaletteContext) || PAL.upload;
   return (
-    <div className="wc-fadeup-2" style={{
+    <div className="wc-beat-2" style={{
       background: p.inner,
       border: `1.5px solid ${p.accent}70`,
       borderRadius: 24,
@@ -424,7 +424,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
   const p = useContext(SectionPaletteContext) || PAL.upload;
   const ink = useInk();
   return (
-    <div data-share-hide data-nav-row="true" style={{ display:"flex", gap:10, marginTop:8, width:"100%" }}>
+    <div data-share-hide data-nav-row="true" style={{ display:"flex", gap:10, marginTop:"auto", paddingTop:8, paddingBottom:10, width:"100%" }}>
       {showBack && (
         <button onClick={back} className="wc-btn" style={{
           flex:1, padding:"14px", borderRadius:999,
@@ -623,16 +623,6 @@ function Bar({ value, max, color, label, delay=0 }) {
     </div>
   );
 }
-function MonthBadge({ month, count, medal }) {
-  const t = useT();
-  return (
-    <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"16px 12px", textAlign:"center", flex:1, minWidth:80 }}>
-      <div style={{ fontSize:26 }}>{medal}</div>
-      <div className="" style={{ fontSize:15, fontWeight:800, color:"#fff", marginTop:8, letterSpacing:-0.3 }}>{month}</div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginTop:4, fontWeight:500 }}>{count.toLocaleString()} {t("msgs")}</div>
-    </div>
-  );
-}
 function Words({ words, bigrams }) {
   const ink = useInk();
   const M=["🥇","🥈","🥉"];
@@ -674,7 +664,7 @@ function FlagList({ flags, loading }) {
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
       {items.map((flag, index) => (
-        <div key={`${flag.title}-${index}`} style={{ background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
+        <div key={`${flag.title}-${index}`} className="wc-beat-2" style={{ animationDelay:`calc(${SLIDE_MS}ms + 360ms*var(--wc-tempo, 1) + ${Math.min(index, 4) * 90}ms)`, background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
           <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:7 }}>
             {t("Red flag {index}", { index: index + 1 })}
           </div>
@@ -708,7 +698,7 @@ function EvidenceList({ items, loading }) {
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
       {entries.map((item, index) => (
-        <div key={`${item.date}-${index}`} style={{ background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
+        <div key={`${item.date}-${index}`} className="wc-beat-2" style={{ animationDelay:`calc(${SLIDE_MS}ms + 360ms*var(--wc-tempo, 1) + ${Math.min(index, 4) * 90}ms)`, background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
           <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:7 }}>
             {item.date}
           </div>
@@ -748,7 +738,7 @@ function MomentsRow({ moments, loading }) {
   if (loading) return null;
   if (!moments?.length) return null;
   return (
-    <div style={{ width:"100%", marginTop:14 }}>
+    <div className="wc-beat-3" style={{ width:"100%", marginTop:14 }}>
       <div style={{ fontSize:11, color:"rgba(255,255,255,0.38)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Moments</div>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {moments.map((m, i) => (
@@ -798,7 +788,6 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
   const toxicityReport = ai?.toxicityReport || s.toxicityReport;
   const toxicityLevel = chatHealthLabel(ai?.chatHealthScore) || s.toxicityLevel;
   const toxicityBreakdown = s.toxicityBreakdown;
-  const attrMoment = (ai?.memorableMoments || []).find(m => m.quote && m.people?.length >= 1 && m.read) ?? null;
   const casualScreens = [
     // Card 1 — Who's more obsessed (animated bars, smooth opener)
     <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("Who's more obsessed?", 1)}>
@@ -873,19 +862,9 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 5 — Top 3 most active months
-    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("Top 3 most active months", 5)}>
-      <T>{t("Top 3 most active months")}</T>
-      <div style={{display:"flex",gap:10,marginTop:16,width:"100%",justifyContent:"center"}}>
-        {s.topMonths.map((m,i)=><MonthBadge key={i} month={m[0]} count={m[1]} medal={["🥇","🥈","🥉"][i]} />)}
-      </div>
-      <Sub mt={14}>{t("{month} was your month. Something was going on.", { month: s.topMonths[0][0] })}</Sub>
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 6 — Who always reaches out first?
+    // Card 5 — Who always reaches out first?
     // GuessCard when ghost is balanced (prioritise ghost as the interactive card; fall back here)
-    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("Who always reaches out first?", 6)}>
+    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("Who always reaches out first?", 5)}>
       {s.ghostEqual ? (
         <GuessCard
           question={t("Who reaches out first?")}
@@ -914,16 +893,16 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       )}
     </Shell>,
 
-    // Card 7 — The Funny One
-    <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("The Funny One", 7)}>
+    // Card 6 — The Funny One
+    <Shell sec="funny" prog={6} total={TOTAL} feedback={feedback("The Funny One", 6)}>
       <T>{t("The Funny One")}</T>
       <Big>{aiLoading?"...":(ai?.funniestPerson||s.names[0])}</Big>
       <AICard label={t("Drops lines like")} value={ai?.funniestReason} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 8 — Spirit emojis
-    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Spirit emojis", 8)}>
+    // Card 7 — Spirit emojis
+    <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("Spirit emojis", 7)}>
       <T>{t("Spirit emojis")}</T>
       <div style={{display:"flex",gap:0,marginTop:16,width:"100%",justifyContent:"space-around"}}>
         {[0,1].map(i=>(
@@ -937,8 +916,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 9 — Your Language (Top 10 Words + Signature Phrases merged)
-    <Shell sec="funny" prog={9} total={TOTAL} feedback={feedback("Your language", 9)}>
+    // Card 8 — Your Language (Top 10 Words + Signature Phrases merged)
+    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Your language", 8)}>
       <T>{t("Your language")}</T>
       <Words words={s.topWords} bigrams={s.topBigrams} />
       <div style={{display:"flex",gap:"1rem",marginTop:16,width:"100%",justifyContent:"center"}}>
@@ -953,24 +932,24 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 10 — What you actually talk about
-    <Shell sec="ai" prog={10} total={TOTAL} feedback={feedback("What you actually talk about", 10)}>
+    // Card 9 — What you actually talk about
+    <Shell sec="ai" prog={9} total={TOTAL} feedback={feedback("What you actually talk about", 9)}>
       <T>{t("What you actually talk about")}</T>
       <AICard label={t("Biggest topic")} value={ai?.biggestTopic} loading={aiLoading} />
       <AICard label={t("Most tense moment")} value={ai?.tensionMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 11 — The Drama Report
-    <Shell sec="ai" prog={11} total={TOTAL} feedback={feedback("The Drama Report", 11)}>
+    // Card 10 — The Drama Report
+    <Shell sec="ai" prog={10} total={TOTAL} feedback={feedback("The Drama Report", 10)}>
       <T>{t("The Drama Report")}</T>
       <Big>{aiLoading?"...":(ai?.dramaStarter||s.names[0])}</Big>
       <AICard label={t("How they do it")} value={ai?.dramaContext} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 12 — Time of Day
-    <Shell sec="stats" prog={12} total={TOTAL} feedback={feedback("Time of day", 12)}>
+    // Card 11 — Time of Day
+    <Shell sec="stats" prog={11} total={TOTAL} feedback={feedback("Time of day", 11)}>
       <T>{t("Time of day")}</T>
       {ai?.timeOfDay ? (
         <>
@@ -993,44 +972,19 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 13 — A moment from the chat (Attribution)
-    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("A moment from the chat", 13)}>
-      {aiLoading && !attrMoment ? (
-        <>
-          <T>{t("A moment from the chat")}</T>
-          <div style={{marginTop:24}}><Dots /></div>
-        </>
-      ) : attrMoment ? (
-        <AttributionCard
-          quote={attrMoment.quote}
-          participants={s.names}
-          correctSender={attrMoment.people[0]}
-          contextParagraph={attrMoment.read || attrMoment.title || ""}
-          isSensitive={false}
-          label={t("Who said this?")}
-        />
-      ) : (
-        <>
-          <T>{t("A moment from the chat")}</T>
-          <AICard label={t("Most memorable moment")} value={ai?.memorableMoments?.[0]?.read || ai?.sweetMoment} loading={aiLoading} />
-        </>
-      )}
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 14 — Chat vibe
-    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("Chat vibe", 14)}>
+    // Card 12 — Chat vibe
+    <Shell sec="ai" prog={12} total={TOTAL} feedback={feedback("Chat vibe", 12)}>
       <T>{t("Chat vibe")}</T>
-      <div style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
+      {/* Closing card breathes at lovely tempo — same beat system, softer pace */}
+      <div className="wc-beat-2" style={{["--wc-tempo"]:1.15,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("A chaotic, wholesome connection."))}
       </div>
       <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
-      <Sub mt={14}>{t("Powered by AI — analysed securely, never stored.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 15 — What's really going on (last)
-    <Shell sec="ai" prog={15} total={TOTAL} feedback={feedback("What's really going on", 15)}>
+    // Card 13 — What's really going on (last)
+    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("What's really going on", 13)}>
       <T>{t("What's really going on")}</T>
       <AICard label={t(relationshipReadTitle)} value={ai?.relationshipSummary} loading={aiLoading} />
       <Nav back={back} next={next} nextLabel="See summary" />
@@ -1160,16 +1114,7 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={4} total={TOTAL} feedback={feedback("Top 3 most active months", 4)}>
-      <T>{t("Top 3 most active months")}</T>
-      <div style={{display:"flex",gap:10,marginTop:16,width:"100%",justifyContent:"center"}}>
-        {s.topMonths.map((m,i)=><MonthBadge key={i} month={m[0]} count={m[1]} medal={["🥇","🥈","🥉"][i]} />)}
-      </div>
-      <Sub mt={14}>{t("The group was most alive in {month}.", { month: s.topMonths[0][0] })}</Sub>
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("Longest active streak", 5)}>
+    <Shell sec="lovely" prog={4} total={TOTAL} feedback={feedback("Longest active streak", 4)}>
       <T>{t("Longest active streak")}</T>
       <Big>{t("{count} days", { count: s.streak })}</Big>
       <Sub>{t("The group kept the chat alive for {count} days straight.", { count: s.streak })}</Sub>
@@ -1186,7 +1131,7 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("The Hype Person", 6)}>
+    <Shell sec="lovely" prog={5} total={TOTAL} feedback={feedback("The Hype Person", 5)}>
       <T>{t("The Hype Person")}</T>
       <Big>{s.hype}</Big>
       <Sub>{t("Started {pct} of all conversations. The engine of this group.", { pct: s.convStarterPct })}</Sub>
@@ -1194,34 +1139,34 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="lovely" prog={7} total={TOTAL} feedback={feedback("The Kindest One", 7)}>
+    <Shell sec="lovely" prog={6} total={TOTAL} feedback={feedback("The Kindest One", 6)}>
       <T>{t("The Kindest One")}</T>
       <Big>{aiLoading ? "..." : (ai?.kindestPerson || "—")}</Big>
       <AICard label={t("The sweetest moment")} value={ai?.sweetMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("The Funny One", 8)}>
+    <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("The Funny One", 7)}>
       <T>{t("The Funny One")}</T>
       <Big>{aiLoading?"...":(ai?.funniestPerson||s.names[0])}</Big>
       <AICard label={t("Drops lines like")} value={ai?.funniestReason} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="funny" prog={9} total={TOTAL} feedback={feedback("Group spirit emoji", 9)}>
+    <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Group spirit emoji", 8)}>
       <T>{t("Group spirit emoji")}</T>
       <div style={{fontSize:90,textAlign:"center",marginTop:16,lineHeight:1,width:"100%"}}>{s.spiritEmoji[0]}</div>
       <Sub>{t("This one emoji basically summarises the entire group energy.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="funny" prog={10} total={TOTAL} feedback={feedback("Top 10 most used words", 10)}>
+    <Shell sec="funny" prog={9} total={TOTAL} feedback={feedback("Top 10 most used words", 9)}>
       <T>{t("Top 10 most used words")}</T>
       <Words words={s.topWords} bigrams={s.topBigrams} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="stats" prog={11} total={TOTAL} feedback={feedback("The Novelist", 11)}>
+    <Shell sec="stats" prog={10} total={TOTAL} feedback={feedback("The Novelist", 10)}>
       <T>{t("The Novelist")}</T>
       <Big>{s.novelist}</Big>
       <div style={{display:"flex",gap:0,marginTop:12,width:"100%",justifyContent:"space-around"}}>
@@ -1239,7 +1184,7 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="stats" prog={12} total={TOTAL} feedback={feedback("Group roles", 12)}>
+    <Shell sec="stats" prog={11} total={TOTAL} feedback={feedback("Group roles", 11)}>
       <T>Group roles</T>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:16,width:"100%"}}>
         <Cell label={s.photographerIsVoice ? "Voice Note Addict" : "Photographer"} value={s.photographer} />
@@ -1251,41 +1196,41 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("What you actually talk about", 13)}>
+    <Shell sec="ai" prog={12} total={TOTAL} feedback={feedback("What you actually talk about", 12)}>
       <T>{t("What you actually talk about")}</T>
       <AICard label={t("Biggest topic")} value={ai?.biggestTopic} loading={aiLoading} />
       <AICard label={t("The inside joke")} value={ai?.insideJoke} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("The Drama Report", 14)}>
+    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("The Drama Report", 13)}>
       <T>{t("The Drama Report")}</T>
       <Big>{aiLoading?"...":(ai?.dramaStarter||s.names[0])}</Big>
       <AICard label={t("How they do it")} value={ai?.dramaContext} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={15} total={TOTAL} feedback={feedback("Most missed member", 15)}>
+    <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("Most missed member", 14)}>
       <T>{t("Most missed member")}</T>
       <Big>{aiLoading?"...":(ai?.mostMissed||s.names[0])}</Big>
       <Sub>{t("When they go quiet, the group feels it.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={16} total={TOTAL} feedback={feedback("The group read", 16)}>
+    <Shell sec="ai" prog={15} total={TOTAL} feedback={feedback("The group read", 15)}>
       <T>{t("The group read")}</T>
       <AICard label={t("Group dynamic")} value={ai?.groupDynamic} loading={aiLoading} />
       <AICard label={t("Most tense moment")} value={ai?.tensionMoment} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    <Shell sec="ai" prog={17} total={TOTAL} feedback={feedback("Group vibe", 17)}>
+    <Shell sec="ai" prog={16} total={TOTAL} feedback={feedback("Group vibe", 16)}>
       <T>{t("Group vibe")}</T>
-      <div style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
+      {/* Closing card breathes at lovely tempo — same beat system, softer pace */}
+      <div className="wc-beat-2" style={{["--wc-tempo"]:1.15,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
         {aiLoading?<Dots />:(ai?.vibeOneLiner||t("Chaotic. Wholesome. Somehow still going."))}
       </div>
       <MomentsRow moments={ai?.memorableMoments} loading={aiLoading} />
-      <Sub mt={14}>{t("Powered by AI — analysed securely, never stored.")}</Sub>
       <Nav back={back} next={next} nextLabel="See summary" />
     </Shell>,
   ];
@@ -2270,12 +2215,12 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ENERGY REPORT SCREENS  (10 cards)
+// ENERGY REPORT SCREENS  (9 cards)
 // ─────────────────────────────────────────────────────────────────
-export const ENERGY_SCREENS = 10;
+export const ENERGY_SCREENS = 9;
 export function getEnergyScreenCount(ai, aiLoading) {
   const loading = aiLoading && !ai;
-  return 9 + ((loading || ai?.chargeAttribution?.quote) ? 1 : 0);
+  return 8 + ((loading || ai?.chargeAttribution?.quote) ? 1 : 0);
 }
 export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultId }) {
   const t = useT();
@@ -2289,19 +2234,19 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
     enabled && resultId ? { resultId, reportType: "energy", cardIndex, cardTitle } : null
   );
   const screens = [
-    // Card 1 — Net energy scores
-    <Shell sec="energy" prog={1} total={ENERGY_SCREENS} feedback={feedback("Net energy scores", 1)}>
-      <T>{t("Net energy scores")}</T>
-      <div style={{ width:"100%", display:"flex", gap:16, marginTop:16, justifyContent:"center" }}>
-        {(loading ? s.names.slice(0,2).map(n=>({name:n,netScore:5,type:""})) : [ai?.personA,ai?.personB].filter(Boolean)).map((p, i) => (
-          <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
-            <ScoreRing score={loading ? 0 : (p.netScore||5)} max={10} size={90} color={i===0?"#F0A040":"#F0C860"} />
-            <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.7)" }}>{p.name}</div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", textAlign:"center" }}>{loading ? "…" : reportControl(p.type || "")}</div>
+    // Card 1 — The energy read (common read opener — scores and rings are
+    // saved for the closing card so the finale still has a payoff)
+    <Shell sec="energy" prog={1} total={ENERGY_SCREENS} feedback={feedback("The energy read", 1)}>
+      <T>{t("The energy read")}</T>
+      <div style={{ width:"100%", display:"flex", gap:12, marginTop:16, justifyContent:"center" }}>
+        {(loading ? s.names.slice(0,2).map(n=>({name:n,type:""})) : [ai?.personA,ai?.personB].filter(Boolean)).map((p, i) => (
+          <div key={i} style={{ flex:1, background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"14px 12px", textAlign:"center" }}>
+            <div style={{ fontSize:13, fontWeight:700, color:"#fff" }}>{p.name}</div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", marginTop:6 }}>{loading ? "…" : reportControl(p.type || "")}</div>
           </div>
         ))}
       </div>
-      <AICard label={t("Energy compatibility")} value={ai?.compatibility} loading={loading} />
+      <AICard label={t("What happens when these two energies meet")} value={ai?.energyDynamic} loading={loading} />
       <Nav back={back} next={next} showBack={false} />
     </Shell>,
 
@@ -2341,29 +2286,22 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
       />
     </Shell>,
 
-    // Card 5 — The Dynamic (new)
-    <Shell sec="energy" prog={5} total={ENERGY_SCREENS} feedback={feedback("The dynamic", 5)}>
-      <T>{t("The dynamic")}</T>
-      <AICard label={t("What happens when these two energies meet")} value={ai?.energyDynamic} loading={loading} />
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 6 — Most energising moment
-    <Shell sec="energy" prog={6} total={ENERGY_SCREENS} feedback={feedback("Most energising moment", 6)}>
+    // Card 5 — Most energising moment
+    <Shell sec="energy" prog={5} total={ENERGY_SCREENS} feedback={feedback("Most energising moment", 5)}>
       <T>{t("Most energising moment")}</T>
       <AICard label={t("The moment")} value={ai?.mostEnergising} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 7 — Most draining moment
-    <Shell sec="energy" prog={7} total={ENERGY_SCREENS} feedback={feedback("Most draining moment", 7)}>
+    // Card 6 — Most draining moment
+    <Shell sec="energy" prog={6} total={ENERGY_SCREENS} feedback={feedback("Most draining moment", 6)}>
       <T>{t("Most draining moment")}</T>
       <AICard label={t("The moment")} value={ai?.mostDraining} loading={loading} />
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 8 — Energy by Time (new)
-    <Shell sec="energy" prog={8} total={ENERGY_SCREENS} feedback={feedback("Energy by time", 8)}>
+    // Card 7 — Energy by Time (new)
+    <Shell sec="energy" prog={7} total={ENERGY_SCREENS} feedback={feedback("Energy by time", 7)}>
       <T>{t("Energy by time")}</T>
       {ai?.timeOfDay ? (
         <>
@@ -2386,10 +2324,10 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 9 — The Charge. Only exists with a real attribution quote: never
+    // Card 8 — The Charge. Only exists with a real attribution quote: never
     // repeats Most Energising as filler.
     (aiLoading && !ai) || ai?.chargeAttribution?.quote ? (
-    <Shell sec="energy" prog={9} total={ENERGY_SCREENS} feedback={feedback("The charge", 9)}>
+    <Shell sec="energy" prog={8} total={ENERGY_SCREENS} feedback={feedback("The charge", 8)}>
       {aiLoading && !ai?.chargeAttribution ? (
         <>
           <T>{t("The charge")}</T>
@@ -2409,8 +2347,8 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
     </Shell>
     ) : null,
 
-    // Card 10 — Energy compatibility (closing)
-    <Shell sec="energy" prog={10} total={ENERGY_SCREENS} feedback={feedback("Energy compatibility", 10)}>
+    // Card 9 — Energy compatibility (closing)
+    <Shell sec="energy" prog={9} total={ENERGY_SCREENS} feedback={feedback("Energy compatibility", 9)}>
       <T>{t("Energy compatibility")}</T>
       <div style={{ width:"100%", display:"flex", gap:12, marginTop:16, justifyContent:"center" }}>
         {(loading ? s.names.slice(0,2).map(n=>({name:n,netScore:5})) : [ai?.personA,ai?.personB].filter(Boolean)).map((p, i) => (
@@ -5764,23 +5702,23 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
         pushSummaryRow(rows, "Ghost", math.ghostName);
         pushSummaryRow(rows, "Reply times", `${math.names?.[0] || "A"} ${math.ghostAvg?.[0] || "—"} • ${math.names?.[1] || "B"} ${math.ghostAvg?.[1] || "—"}`, 90);
         pushSummaryRow(rows, "AI read", ai.ghostContext);
-      } else if (card === 5) {
+      } else if (card === 4) {
         pushSummaryRow(rows, "Kindest", ai.kindestPerson);
         pushSummaryRow(rows, "Sweetest moment", ai.sweetMoment);
-      } else if (card === 8) {
+      } else if (card === 6) {
         pushSummaryRow(rows, "Funniest", ai.funniestPerson || math.names?.[0]);
         pushSummaryRow(rows, "Reason", ai.funniestReason);
-      } else if (card === 14) {
+      } else if (card === 9) {
         pushSummaryRow(rows, "Biggest topic", ai.biggestTopic);
         pushSummaryRow(rows, "Tense moment", ai.tensionMoment);
-      } else if (card === 15) {
+      } else if (card === 10) {
         pushSummaryRow(rows, "Drama starter", ai.dramaStarter);
         pushSummaryRow(rows, "How", ai.dramaContext);
-      } else if (card === 16) {
+      } else if (card === 12) {
+        pushSummaryRow(rows, "Vibe", ai.vibeOneLiner);
+      } else if (card === 13) {
         pushSummaryRow(rows, relReadTitle(ai.relationshipType, ai.relationshipSpecific), ai.relationshipSummary);
         pushSummaryRow(rows, "Detected relationship", ai.relationshipSpecific ? `${ai.relationshipSpecific}${ai.relationshipConfidence ? ` (${ai.relationshipConfidence} confidence)` : ""}` : "");
-      } else if (card === 17) {
-        pushSummaryRow(rows, "Vibe", ai.vibeOneLiner);
       } else if (card >= DUO_CASUAL_SCREENS + 1) {
         pushSummaryRow(rows, "Funniest", ai.funniestPerson);
         pushSummaryRow(rows, "Drama", ai.dramaStarter);
@@ -5790,27 +5728,27 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
       if (card === 2) {
         pushSummaryRow(rows, "Ghost", math.ghost);
         pushSummaryRow(rows, "AI read", ai.ghostContext);
-      } else if (card === 6) {
+      } else if (card === 5) {
         pushSummaryRow(rows, "Hype person", math.hype);
         pushSummaryRow(rows, "Reason", ai.hypePersonReason);
-      } else if (card === 7) {
+      } else if (card === 6) {
         pushSummaryRow(rows, "Kindest", ai.kindestPerson);
         pushSummaryRow(rows, "Sweetest moment", ai.sweetMoment);
-      } else if (card === 8) {
+      } else if (card === 7) {
         pushSummaryRow(rows, "Funniest", ai.funniestPerson);
         pushSummaryRow(rows, "Reason", ai.funniestReason);
-      } else if (card === 13) {
+      } else if (card === 12) {
         pushSummaryRow(rows, "Biggest topic", ai.biggestTopic);
         pushSummaryRow(rows, "Inside joke", ai.insideJoke);
-      } else if (card === 14) {
+      } else if (card === 13) {
         pushSummaryRow(rows, "Drama starter", ai.dramaStarter);
         pushSummaryRow(rows, "How", ai.dramaContext);
-      } else if (card === 15) {
+      } else if (card === 14) {
         pushSummaryRow(rows, "Most missed", ai.mostMissed);
-      } else if (card === 16) {
+      } else if (card === 15) {
         pushSummaryRow(rows, "Group dynamic", ai.groupDynamic);
         pushSummaryRow(rows, "Tense moment", ai.tensionMoment);
-      } else if (card === 17) {
+      } else if (card === 16) {
         pushSummaryRow(rows, "Vibe", ai.vibeOneLiner);
       } else if (card >= GROUP_CASUAL_SCREENS + 1) {
         pushSummaryRow(rows, "Funniest", ai.funniestPerson);
@@ -5899,9 +5837,8 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
       pushSummaryRow(rows, "Outcome", ai.notableKept?.outcome);
     }
   } else if (feedbackRow.report_type === "energy") {
-    if (card === 1 || card === 6) {
-      pushSummaryRow(rows, "Scores", `${ai.personA?.name || math.names?.[0] || "A"} ${ai.personA?.netScore ?? "—"}/10 • ${ai.personB?.name || math.names?.[1] || "B"} ${ai.personB?.netScore ?? "—"}/10`, 100);
-      pushSummaryRow(rows, "Compatibility", ai.compatibility);
+    if (card === 1) {
+      pushSummaryRow(rows, "Common read", ai.energyDynamic);
     } else if (card === 2) {
       pushSummaryRow(rows, "Person", ai.personA?.name);
       pushSummaryRow(rows, "Positive", ai.personA?.goodNews);
@@ -5910,10 +5847,13 @@ function buildFeedbackSummary(feedbackRow, resultRow, viewLang = "en") {
       pushSummaryRow(rows, "Person", ai.personB?.name);
       pushSummaryRow(rows, "Positive", ai.personB?.goodNews);
       pushSummaryRow(rows, "Draining", ai.personB?.venting);
-    } else if (card === 4) {
-      pushSummaryRow(rows, "Most energising", ai.mostEnergising);
     } else if (card === 5) {
+      pushSummaryRow(rows, "Most energising", ai.mostEnergising);
+    } else if (card === 6) {
       pushSummaryRow(rows, "Most draining", ai.mostDraining);
+    } else if (card === 9) {
+      pushSummaryRow(rows, "Scores", `${ai.personA?.name || math.names?.[0] || "A"} ${ai.personA?.netScore ?? "—"}/10 • ${ai.personB?.name || math.names?.[1] || "B"} ${ai.personB?.netScore ?? "—"}/10`, 100);
+      pushSummaryRow(rows, "Compatibility", ai.compatibility);
     }
   }
 

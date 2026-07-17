@@ -24,7 +24,7 @@ import {
   normalizeMemorableMoments, LOCAL_STATS_VERSION,
   CONTROL_RE, AGGRO_RE, BREAKUP_RE, APOLOGY_RE, ROMANCE_RE, DATE_RE, FLIRTY_EMOJI_RE,
   SUPPORT_RE, GRATITUDE_RE, DISTRESS_RE, HEART_REPLY_RE,
-  isLaughReaction, coerceRelationshipCategory, coerceRelationshipSpecificLabel, sanitizeRelationshipStatus,
+  coerceRelationshipCategory, coerceRelationshipSpecificLabel, sanitizeRelationshipStatus,
   STOP_WORDS, TOKEN_STOP_WORDS, foldToken, cleanQuote, sanitizeResultText,
 } from "./localMath";
 
@@ -46,6 +46,57 @@ export function formatMessageLine(m) {
 // Flat formatter kept for growth analysis early/late contiguous slices
 export function formatForAI(messages) {
   return messages.map(formatMessageLine).join("\n");
+}
+
+// ── Laugh grading ──
+// isLaughReaction() only answers "does this contain laughter anywhere?",
+// which produced two failure modes in funny extraction: a message that is
+// itself laughter scored as the laugh TRIGGER (in a cascade every line
+// "causes" the next laugh, so we picked laughing messages instead of the
+// joke), and "content lol" trailers counted as full reactions. Grading the
+// laughter fixes both: triggers must not be laughing themselves, and
+// reactions must be dedicated laughs, ranked by how hard they are.
+const LAUGH_WORD_RE = /^(a?ha(?:ha)+h*|ha+h|lo+l+z?|lmf?ao+|hehe+h*|heh|xd+|dying|dead|ded|deceased|jaja(?:ja)+|kk{2,}|wkwk\w*|mdr+|ptdr+)$/i;
+
+// A keyboard-mash laugh token: either a pure consonant run ("sksk",
+// "skdjfhdf"), or a long token that is almost vowel-free AND contains a 5+
+// consonant cluster ("ahshshsgsg", "Agahhssggsgd"). Both conditions together
+// keep ordinary consonant-heavy words ("combing", "thank", "strength") out.
+function isMashToken(word) {
+  if (!/^[a-zçğıöşü]+$/i.test(word)) return false;
+  // Interjections ("pfffff", "hmmm", "shhh") are one letter repeated, not a
+  // mash: random-key laughs spread across the keyboard.
+  const counts = {};
+  for (const ch of word.toLowerCase()) counts[ch] = (counts[ch] || 0) + 1;
+  if (Math.max(...Object.values(counts)) / word.length >= 0.7) return false;
+  if (/^[bcdfghjklmnpqrsştvwxyzçğ]{4,}$/i.test(word)) return true;
+  if (word.length < 8) return false;
+  const vowels = (word.match(/[aeiouöüıi]/gi) || []).length;
+  return vowels / word.length <= 0.2 && /[^aeiouöüıi]{5,}/i.test(word);
+}
+
+// 0 = no laughter · 1 = weak trailer (content with a laugh token tacked on)
+// 2 = clear laugh · 3 = hard laugh (keyboard mash, 💀/🤣, multi-😂, caps howl)
+export function laughStrength(body) {
+  const text = String(body || "").trim();
+  if (!text) return 0;
+  const tokens = text.split(/\s+/);
+  let laughCount = 0;
+  let contentCount = 0;
+  let hard = /[💀🤣]/u.test(text) || /😂[^😂]*😂/u.test(text);
+  for (const token of tokens) {
+    const word = token.replace(/[^\p{L}\p{N}'’]/gu, "");
+    const mash = isMashToken(word);
+    if (mash) hard = true;
+    if (mash || LAUGH_WORD_RE.test(word) || /[😂💀🤣]/u.test(token)) laughCount += 1;
+    else if (word) contentCount += 1;
+  }
+  // A shouted all-caps laugh ("AHAHAHA", "LMAOOO") is hard laughter too.
+  if (!/[a-zçğıöşü]/.test(text) && /HA(HA)+|LMF?AO|LO+L/.test(text)) hard = true;
+  if (!laughCount && !hard) return 0;
+  const dedicated = contentCount <= Math.max(1, tokens.length * 0.25);
+  if (hard) return dedicated ? 3 : 2;
+  return dedicated ? 2 : 1;
 }
 
 // Assign an event score and tag set to every message position.
@@ -106,17 +157,27 @@ function scoreMessages(messages) {
     // Long message — likely something substantive
     if (body.length > 200) { score += 2; tags.push("long-msg"); }
 
-    // Laugh-trigger: this message caused a laugh reaction from a DIFFERENT speaker
-    // in the next 1–3 messages. Preserving these windows (with their tail) lets
-    // Claude see exactly whose line made someone laugh — not just what sounds funny.
-    for (let j = i + 1; j <= Math.min(i + 4, messages.length - 1); j++) {
-      const reactionBody = messages[j].body || "";
-      if (messages[j].name !== msg.name && isLaughReaction(reactionBody)) {
-        const isHardLaugh = /\b[ŞSKDGJFHBNMZXCVWQÇÖÜİ]{4,}\b/.test(reactionBody) || /😂.*😂|🤣|💀/i.test(reactionBody);
-        const boost = isHardLaugh ? 9 : 6;
-        score += boost;
-        tags.push(isHardLaugh ? "laugh-trigger-hard" : "laugh-trigger");
-        break;
+    // Laugh-trigger: this message caused a laugh reaction from a DIFFERENT
+    // speaker in the next 1–3 messages. A message that is itself laughing
+    // (strength ≥ 2) can never be the trigger — that's how cascades resolve
+    // to the joke at their root instead of to the loudest laugher. Reactions
+    // must be dedicated laughs (strength ≥ 2): "nice one lol" is filler, not
+    // a receipt. Multiple distinct laughers (groups) boost the score.
+    if (body && laughStrength(body) < 2) {
+      let reactionStrength = 0;
+      const laughers = new Set();
+      for (let j = i + 1; j <= Math.min(i + 4, messages.length - 1); j++) {
+        const reply = messages[j];
+        if (reply.name === msg.name) continue;
+        const strength = laughStrength(reply.body);
+        if (strength >= 2) {
+          reactionStrength = Math.max(reactionStrength, strength);
+          laughers.add(reply.name);
+        }
+      }
+      if (reactionStrength >= 2) {
+        score += (reactionStrength >= 3 ? 9 : 6) + Math.max(0, laughers.size - 1) * 2;
+        tags.push(reactionStrength >= 3 ? "laugh-trigger-hard" : "laugh-trigger");
       }
     }
 
@@ -168,13 +229,12 @@ function chunkLabel(tags = []) {
   return "excerpt";
 }
 
-// Build the ordered list of [startIdx, endIdx, tags[]] windows to send to Claude.
-//
-// Two-pass strategy:
-//   1. Event windows  — anchor on high-scoring messages, include enough surrounding
-//      context that speaker direction and laugh reactions are unambiguous.
-//   2. Timeline fill  — add short baseline windows for time buckets not yet covered,
-//      so Claude always sees something from every major period of the chat.
+// Build the ordered list of [startIdx, endIdx, tags[]] MOMENT windows.
+// Event windows anchor on high-scoring messages with enough surrounding
+// context that speaker direction and laugh reactions are unambiguous.
+// Baseline timeline coverage is no longer filled here: the TIMELINE SPINE
+// (buildSpineRuns) carries the chat's ordinary flow, so these windows can
+// stay a smaller, denser set of genuine events.
 function buildChunks(messages) {
   if (!messages.length) return [];
 
@@ -184,10 +244,8 @@ function buildChunks(messages) {
                                    //   — captures the reaction(s) that follow the funny line
   const CONTEXT_AFTER_CARE  = 7;   // keep the support response and the gratitude / reaction after it
   const EVENT_SCORE_MIN     = 4;   // minimum score to qualify as an event center
-  const MAX_EVENT_WINDOWS   = 55;  // hard cap on event-based windows
-  const TIMELINE_BUCKETS    = 28;  // time segments for baseline coverage
-  const LINES_PER_BUCKET    = 5;   // messages per uncovered timeline window
-  const MSG_LINE_LIMIT      = 1400; // hard cap on total message lines (headers not counted)
+  const MAX_EVENT_WINDOWS   = 28;  // hard cap on event-based windows
+  const MSG_LINE_LIMIT      = 700; // hard cap on total message lines (headers not counted)
 
   const n      = messages.length;
   const scores = scoreMessages(messages);
@@ -236,37 +294,8 @@ function buildChunks(messages) {
     if (eventWindows.length >= MAX_EVENT_WINDOWS) break;
   }
 
-  // ── Pass 2: timeline fill ──
-  // Divide the chat's time span into equal buckets.  Any bucket with no event
-  // coverage gets a short window centred on its midpoint message.
-  const firstTs = messages[0].date.getTime();
-  const lastTs  = messages[n - 1].date.getTime();
-  const span    = Math.max(lastTs - firstTs, 1);
-
-  const mergedEvents = mergeIntervals(eventWindows);
-  const coveredSet   = new Set();
-  mergedEvents.forEach(([s, e]) => { for (let k = s; k <= e; k++) coveredSet.add(k); });
-
-  const timelineWindows = [];
-  for (let b = 0; b < TIMELINE_BUCKETS; b++) {
-    const lo = firstTs + (b / TIMELINE_BUCKETS) * span;
-    const hi = firstTs + ((b + 1) / TIMELINE_BUCKETS) * span;
-    const bucket = [];
-    for (let i = 0; i < n; i++) {
-      const ts = messages[i].date.getTime();
-      if (ts >= lo && ts < hi) bucket.push(i);
-    }
-    if (!bucket.length || bucket.some(i => coveredSet.has(i))) continue;
-    const center = bucket[Math.floor(bucket.length / 2)];
-    timelineWindows.push([
-      Math.max(0, center - 2),
-      Math.min(n - 1, center + LINES_PER_BUCKET - 1),
-      ["timeline"],
-    ]);
-  }
-
   // ── Merge, sort, enforce line budget ──
-  const all = mergeIntervals([...eventWindows, ...timelineWindows])
+  const all = mergeIntervals(eventWindows)
     .sort((a, b) => a[0] - b[0]);
 
   let msgLines = 0;
@@ -295,14 +324,68 @@ function formatChunksForAI(messages, chunks) {
   return parts.join("\n");
 }
 
-// Main entry point — replaces the old smartSample(messages,N) + formatForAI(sample) pair.
-// Short chats (≤600 messages) are delivered in full as a single window.
+// ─────────────────────────────────────────────────────────────────
+// TIMELINE SPINE — evenly spaced contiguous runs across the full history.
+//
+// The earliest versions sampled every Nth message across the whole chat and
+// sent it as one continuous stream; global reads (vibe, topics, dynamic)
+// were noticeably better because the sample preserved the chat's true
+// proportions instead of a curated highlight reel. Its flaw was that single
+// strided messages destroyed exchanges (jokes without their laughs). The
+// spine keeps the even coverage but samples short CONTIGUOUS runs, so every
+// excerpt is a readable exchange. Moment windows still carry the events.
+// ─────────────────────────────────────────────────────────────────
+
+// Chats up to this size go to Claude in full — the early versions used 2000
+// and it was the single biggest reason small-chat reports felt so grounded.
+const FULL_CHAT_LIMIT = 1600;
+
+function buildSpineRuns(messages, { runs = 55, runLen = 10 } = {}) {
+  const n = messages.length;
+  if (n <= runs * runLen) return [[0, n - 1]];
+  const step = n / runs;
+  const out = [];
+  for (let r = 0; r < runs; r += 1) {
+    const start = Math.max(0, Math.min(n - runLen, Math.round(r * step)));
+    const end = Math.min(n - 1, start + runLen - 1);
+    if (out.length && start <= out[out.length - 1][1]) {
+      out[out.length - 1][1] = Math.max(out[out.length - 1][1], end);
+    } else {
+      out.push([start, end]);
+    }
+  }
+  return out;
+}
+
+function formatSpine(messages, runs) {
+  const parts = ["TIMELINE SPINE (evenly spaced excerpts across the FULL history, in chronological order — the chat's ordinary flow):"];
+  runs.forEach(([start, end]) => {
+    const d = messages[start].date;
+    parts.push(`\n⋯ ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${DAY_ABBR[d.getDay()]} ⋯`);
+    for (let i = start; i <= end; i += 1) parts.push(formatMessageLine(messages[i]));
+  });
+  return parts.join("\n");
+}
+
+// Two-layer corpus: the spine carries the chat's real proportions for
+// summary-level fields; the moment windows carry the events for moment
+// fields. The prompt rules route which fields ground where.
+function composeSampleText(messages, eventChunks) {
+  const spine = formatSpine(messages, buildSpineRuns(messages));
+  const moments = eventChunks.length
+    ? `\n\nMOMENT WINDOWS (isolated excerpts selected around single events):\n${formatChunksForAI(messages, eventChunks)}`
+    : "";
+  return `${spine}${moments}`;
+}
+
+// Main entry point. Short chats (≤${FULL_CHAT_LIMIT} messages) are delivered
+// in full as a single window; larger chats get spine + moment windows.
 export function buildSampleText(messages) {
   if (!messages.length) return "";
-  if (messages.length <= 600) {
+  if (messages.length <= FULL_CHAT_LIMIT) {
     return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
   }
-  return formatChunksForAI(messages, buildChunks(messages));
+  return composeSampleText(messages, buildChunks(messages));
 }
 
 const ENERGY_KEYWORDS = Object.freeze({
@@ -393,7 +476,7 @@ function scoreEnergyMessage(msg, index, messages) {
 function buildEnergyChunks(messages) {
   if (!messages.length) return [];
   const n = messages.length;
-  const MSG_LINE_LIMIT = 1400;
+  const MSG_LINE_LIMIT = 700;
   const energyCandidates = messages
     .map((msg, index) => scoreEnergyMessage(msg, index, messages))
     .filter(Boolean)
@@ -427,13 +510,9 @@ function buildEnergyChunks(messages) {
     addCandidateWindow(candidate);
   }
 
-  const baseline = buildChunks(messages);
+  // Baseline coverage now comes from the TIMELINE SPINE in the composed
+  // sample, so only the focused energy windows are kept here.
   const mergedEnergy = mergeIntervals(windows);
-  const covered = new Set();
-  mergedEnergy.forEach(([start, end]) => {
-    for (let i = start; i <= end; i += 1) covered.add(i);
-  });
-
   let lines = 0;
   const selected = [];
   for (const chunk of mergedEnergy) {
@@ -443,28 +522,15 @@ function buildEnergyChunks(messages) {
     lines += size;
   }
 
-  const baselineFill = baseline.filter(([start, end]) => {
-    for (let i = start; i <= end; i += 1) {
-      if (covered.has(i)) return false;
-    }
-    return true;
-  });
-  for (const chunk of baselineFill) {
-    const size = chunk[1] - chunk[0] + 1;
-    if (lines + size > MSG_LINE_LIMIT) break;
-    selected.push(chunk);
-    lines += size;
-  }
-
   return mergeIntervals(selected).sort((a, b) => a[0] - b[0]);
 }
 
 export function buildEnergySampleText(messages) {
   if (!messages.length) return "";
-  if (messages.length <= 600) {
+  if (messages.length <= FULL_CHAT_LIMIT) {
     return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
   }
-  return formatChunksForAI(messages, buildEnergyChunks(messages));
+  return composeSampleText(messages, buildEnergyChunks(messages));
 }
 
 const ACCOUNTABILITY_KEYWORDS = Object.freeze({
@@ -575,7 +641,7 @@ function scoreAccountabilityMessage(msg, index, messages) {
 function buildAccountabilityChunks(messages) {
   if (!messages.length) return [];
   const n = messages.length;
-  const MSG_LINE_LIMIT = 1400;
+  const MSG_LINE_LIMIT = 700;
   const candidates = messages
     .map((msg, index) => scoreAccountabilityMessage(msg, index, messages))
     .filter(Boolean)
@@ -613,13 +679,9 @@ function buildAccountabilityChunks(messages) {
     addWindow(candidate);
   }
 
-  const baseline = buildChunks(messages);
+  // Baseline coverage now comes from the TIMELINE SPINE in the composed
+  // sample, so only the focused accountability windows are kept here.
   const focused = mergeIntervals(windows);
-  const covered = new Set();
-  focused.forEach(([start, end]) => {
-    for (let i = start; i <= end; i += 1) covered.add(i);
-  });
-
   let lines = 0;
   const selected = [];
   for (const chunk of focused) {
@@ -629,33 +691,19 @@ function buildAccountabilityChunks(messages) {
     lines += size;
   }
 
-  for (const chunk of baseline) {
-    const overlapsFocused = (() => {
-      for (let i = chunk[0]; i <= chunk[1]; i += 1) {
-        if (covered.has(i)) return true;
-      }
-      return false;
-    })();
-    if (overlapsFocused) continue;
-    const size = chunk[1] - chunk[0] + 1;
-    if (lines + size > MSG_LINE_LIMIT) break;
-    selected.push(chunk);
-    lines += size;
-  }
-
   return mergeIntervals(selected).sort((a, b) => a[0] - b[0]);
 }
 
 export function buildAccountabilitySampleText(messages) {
   if (!messages.length) return "";
-  if (messages.length <= 600) {
+  if (messages.length <= FULL_CHAT_LIMIT) {
     return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
   }
-  return formatChunksForAI(messages, buildAccountabilityChunks(messages));
+  return composeSampleText(messages, buildAccountabilityChunks(messages));
 }
 
 export const CORE_ANALYSIS_VERSION = 2;
-export const CORE_ANALYSIS_CACHE_VERSION = 6;
+export const CORE_ANALYSIS_CACHE_VERSION = 8;
 // Server clamp is MAX_PROVIDER_TOKENS in analyse-chat/index.ts (5000) — keep
 // these below it so the request budget is honoured, not silently truncated.
 export const CORE_A_MAX_TOKENS = 4200;
@@ -681,12 +729,19 @@ export function buildCoreASystemPrompt(role, relationshipType, extraRules = "", 
 // ─────────────────────────────────────────────────────────────────
 
 const CANDIDATE_TYPE_DEFS = [
-  { type: "funny",     match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
-  { type: "care",      match: tags => tags.includes("care-response") || tags.includes("support") },
-  { type: "tension",   match: tags => tags.includes("conflict") },
-  { type: "drama",     match: tags => tags.includes("distress") && !tags.includes("conflict") },
-  { type: "affection", match: tags => tags.includes("affection") },
-  { type: "apology",   match: tags => tags.includes("apology") },
+  { type: "funny",     take: 5, match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
+  { type: "care",      take: 4, match: tags => tags.includes("care-response") || tags.includes("support") },
+  { type: "tension",   take: 4, match: tags => tags.includes("conflict") },
+  { type: "drama",     take: 3, match: tags => tags.includes("distress") && !tags.includes("conflict") },
+  { type: "affection", take: 4, match: tags => tags.includes("affection") },
+  { type: "apology",   take: 2, match: tags => tags.includes("apology") },
+];
+
+// Energy highs/lows come from the dedicated energy scorer, not scoreMessages,
+// so the bank can also feed mostEnergising / mostDraining with real lines.
+const CANDIDATE_ENERGY_DEFS = [
+  { type: "energy-high", take: 3, match: tags => tags.includes("energy-high") },
+  { type: "energy-low",  take: 3, match: tags => tags.includes("energy-low") && !tags.includes("energy-high") },
 ];
 
 function candidateContentTokens(body) {
@@ -707,40 +762,52 @@ function candidateTokenOverlap(a, b) {
   return shared / (a.size + b.size - shared);
 }
 
-export function extractCandidateMoments(messages, { perType = 3, minGap = 30 } = {}) {
+export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } = {}) {
   if (!Array.isArray(messages) || messages.length < 20) return [];
   const n = messages.length;
   const scores = scoreMessages(messages);
   const periodOf = index => (index < n / 3 ? "early on" : index < (2 * n) / 3 ? "mid-chat" : "recently");
   const chosen = [];
 
-  for (const def of CANDIDATE_TYPE_DEFS) {
-    const candidates = scores
-      .map((entry, index) => ({ index, score: entry.score, tags: entry.tags }))
-      .filter(candidate => candidate.score >= 4 && def.match(candidate.tags))
-      .sort((a, b) => b.score - a.score);
-
+  const takeCandidates = (def, candidates) => {
+    const limit = perType > 0 ? perType : (def.take || 3);
     let taken = 0;
     for (const candidate of candidates) {
-      if (taken >= perType) break;
+      if (taken >= limit) break;
+      const anchorBody = messages[candidate.index].body || "";
+      // A media placeholder can't be quoted; a message that is itself
+      // laughter is a reaction, never a good anchor for ANY type.
+      if (/^<(Voice|Media) omitted>$/.test(anchorBody)) continue;
+      if (laughStrength(anchorBody) >= 2) continue;
       // Distance dedupe: two anchors inside the same exchange are one moment.
       if (chosen.some(existing => Math.abs(existing.index - candidate.index) < minGap)) continue;
-      const tokens = candidateContentTokens(messages[candidate.index].body);
+      const tokens = candidateContentTokens(anchorBody);
       // Topic dedupe: near-identical wording elsewhere means the same story.
       if (chosen.some(existing => candidateTokenOverlap(existing.tokens, tokens) > 0.45)) continue;
 
       // Every candidate carries how the other person reacted: the exchange is
-      // the moment, not the single line. Funny requires a laugh reaction;
+      // the moment, not the single line. Funny requires a dedicated laugh
+      // (strength ≥ 2) and takes the HARDEST one — the receipt is the point;
       // other types take the first reply from a different speaker.
       let reaction = null;
+      let bestStrength = 0;
       for (let j = candidate.index + 1; j <= Math.min(candidate.index + 4, n - 1); j += 1) {
         const reply = messages[j];
         if (reply.name === messages[candidate.index].name) continue;
-        if (def.type === "funny" && !isLaughReaction(reply.body)) continue;
         if (/^<(Voice|Media) omitted>$/.test(reply.body)) continue;
-        reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(reply.body), def.type === "funny" ? 40 : 90) };
+        if (def.type === "funny") {
+          const strength = laughStrength(reply.body);
+          if (strength < 2 || strength <= bestStrength) continue;
+          bestStrength = strength;
+          reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(reply.body), 40) };
+          continue;
+        }
+        reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(reply.body), 90) };
         break;
       }
+      // A "funniest" candidate without a visible laugh receipt is exactly the
+      // unfunny content we're trying to keep out of the bank.
+      if (def.type === "funny" && !reaction) continue;
 
       chosen.push({
         index: candidate.index,
@@ -748,11 +815,28 @@ export function extractCandidateMoments(messages, { perType = 3, minGap = 30 } =
         type: def.type,
         period: periodOf(candidate.index),
         speaker: messages[candidate.index].name,
-        quote: cleanQuote(redactSensitiveText(messages[candidate.index].body), 110),
+        quote: cleanQuote(redactSensitiveText(anchorBody), 110),
         reaction,
       });
       taken += 1;
     }
+  };
+
+  for (const def of CANDIDATE_TYPE_DEFS) {
+    takeCandidates(def, scores
+      .map((entry, index) => ({ index, score: entry.score, tags: entry.tags }))
+      .filter(candidate => candidate.score >= 4 && def.match(candidate.tags))
+      .sort((a, b) => b.score - a.score));
+  }
+
+  const energyScores = messages
+    .map((msg, index) => scoreEnergyMessage(msg, index, messages))
+    .filter(Boolean);
+  for (const def of CANDIDATE_ENERGY_DEFS) {
+    takeCandidates(def, energyScores
+      .map(entry => ({ index: entry.i, score: entry.score, tags: entry.tags }))
+      .filter(candidate => candidate.score >= 8 && def.match(candidate.tags))
+      .sort((a, b) => b.score - a.score));
   }
 
   return chosen
@@ -772,7 +856,7 @@ export function formatCandidateMoments(candidates) {
   });
   return `CANDIDATE MOMENTS (pre-extracted locally from the full history):
 ${lines.join("\n")}
-RESERVATION RULE: Each candidate may anchor AT MOST ONE output field. Prefer these candidates for moment fields (funniest, sweetest, most loving, tension, drama example, energising, draining). Never anchor two fields on the same candidate or on the same underlying event, even reworded. If no candidate fits a field, use a different real moment from the windows instead. Spread fields across different people and different stories wherever the evidence allows.`;
+RESERVATION RULE: Each candidate may anchor AT MOST ONE output field; reference it by its # number wherever a candidateId is requested. Prefer these candidates for moment fields (funniest, sweetest, most loving, tension, drama example, energising, draining) and copy their quotes VERBATIM. Never anchor two fields on the same candidate or on the same underlying event, even reworded. If no candidate fits a field, use candidateId 0 and a different real moment from the windows instead. Spread fields across different people and different stories wherever the evidence allows.`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -933,6 +1017,72 @@ export function normalizePromiseMoment(item) {
     date: strOr(safe.date),
     outcome: strOr(safe.outcome),
   };
+}
+
+// Moment fields arrive either as plain strings (legacy coreA/coreB pipelines)
+// or as { candidateId, text } picks anchored on the local quote bank.
+export function momentFieldText(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return strOr(value.text);
+  return strOr(value);
+}
+
+// Same normalisation as voiceLint's squash: substring matching across
+// diacritics, case, emoji, and punctuation.
+function squashForMatch(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[ıi̇]/g, "i")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+// Remove the quote marks around a specific quote inside a text (used when two
+// fields anchored on the same candidate: the later one loses the quote marks
+// so no two cards flash the same line as a quote).
+function dequoteSpecificQuote(text, quote) {
+  const target = squashForMatch(quote);
+  const fix = (match, inner) => (squashForMatch(inner) === target ? inner : match);
+  return String(text || "")
+    .replace(/["“”]([^"“”\n]{2,}?)["“”]/gu, fix)
+    .replace(/(?<![\p{L}\p{N}])['‘]([^'‘’\n]{2,}?)['’](?![\p{L}\p{N}])/gu, fix);
+}
+
+const MOMENT_PICK_FIELDS = ["funniestReason", "sweetMoment", "mostLovingMoment", "tensionMoment", "mostEnergising", "mostDraining"];
+
+// Enforce the quote-bank contract on the normalized shared object:
+// - a picked candidate's quote must appear verbatim in the field text; if the
+//   model paraphrased or dropped it, rebuild the field from the bank entry
+//   (speaker: "quote" + reaction + the model's read), so the exact line the
+//   math extracted is always what the card shows;
+// - each candidate anchors at most one field across the whole result, in
+//   field-priority order; a duplicate pick keeps its text but loses the
+//   repeated quote's marks.
+export function resolveMomentPicks(rawShared, normalizedShared, quoteBank) {
+  if (!Array.isArray(quoteBank) || !quoteBank.length) return normalizedShared;
+  const byId = new Map(quoteBank.map(candidate => [candidate.id, candidate]));
+  const used = new Set();
+  const out = { ...normalizedShared };
+  for (const field of MOMENT_PICK_FIELDS) {
+    const rawValue = rawShared?.[field];
+    if (!rawValue || typeof rawValue !== "object") continue;
+    const id = Math.round(Number(rawValue.candidateId) || 0);
+    const candidate = id > 0 ? byId.get(id) : null;
+    const text = strOr(out[field]);
+    if (!candidate || !text) continue;
+    if (used.has(id)) {
+      out[field] = sanitizeResultText(dequoteSpecificQuote(text, candidate.quote));
+      continue;
+    }
+    used.add(id);
+    if (!squashForMatch(text).includes(squashForMatch(candidate.quote))) {
+      const reaction = candidate.reaction
+        ? ` ${candidate.reaction.speaker}: "${candidate.reaction.quote}"`
+        : "";
+      out[field] = sanitizeResultText(`${candidate.speaker}: "${candidate.quote}"${reaction} ${dequoteSpecificQuote(text, candidate.quote)}`.trim());
+    }
+  }
+  return out;
 }
 
 export function normalizeAttributionQuote(item) {
@@ -1141,7 +1291,7 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       biggestTopic: strOr(shared.biggestTopic),
       ghostContext: strOr(shared.ghostContext),
       funniestPerson: strOr(shared.funniestPerson),
-      funniestReason: strOr(shared.funniestReason),
+      funniestReason: momentFieldText(shared.funniestReason),
       dramaStarter: strOr(shared.dramaStarter),
       dramaContext: strOr(shared.dramaContext),
       signaturePhrases: cleanStringArray(shared.signaturePhrases, 2),
@@ -1159,18 +1309,18 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       evidenceTimeline: normalizeTimeline(shared.evidenceTimeline),
       relationshipSummary: strOr(shared.relationshipSummary),
       groupDynamic: strOr(shared.groupDynamic),
-      tensionMoment: strOr(shared.tensionMoment),
+      tensionMoment: momentFieldText(shared.tensionMoment),
       kindestPerson: strOr(shared.kindestPerson),
-      sweetMoment: strOr(shared.sweetMoment),
+      sweetMoment: momentFieldText(shared.sweetMoment),
       mostMissed: strOr(shared.mostMissed),
       insideJoke: strOr(shared.insideJoke),
       hypePersonReason: strOr(shared.hypePersonReason),
       loveLanguageMismatch: strOr(shared.loveLanguageMismatch),
-      mostLovingMoment: strOr(shared.mostLovingMoment),
+      mostLovingMoment: momentFieldText(shared.mostLovingMoment),
       compatibilityScore: clampScore(shared.compatibilityScore, 5),
       compatibilityRead: strOr(shared.compatibilityRead),
-      mostEnergising: strOr(shared.mostEnergising),
-      mostDraining: strOr(shared.mostDraining),
+      mostEnergising: momentFieldText(shared.mostEnergising),
+      mostDraining: momentFieldText(shared.mostDraining),
       energyCompatibility: strOr(shared.energyCompatibility),
       timeOfDay: normalizeTimeOfDay(shared.timeOfDay, math),
       loveLanguageIntro: strOr(shared.loveLanguageIntro),
@@ -1200,10 +1350,12 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
   };
 }
 
-export function normalizeConnectionDigest(raw, math, relationshipType, relationshipContext = null) {
+export function normalizeConnectionDigest(raw, math, relationshipType, relationshipContext = null, quoteBank = []) {
   const normalized = normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
+  const rawShared = raw && typeof raw === "object" && raw.shared && typeof raw.shared === "object" ? raw.shared : {};
   return {
     ...normalized,
+    shared: resolveMomentPicks(rawShared, normalized.shared, quoteBank),
     part: "connection",
   };
 }
@@ -1630,13 +1782,16 @@ export async function generateConnectionDigest(messages, math, relationshipType,
   const isGroup = !!math?.isGroup;
   const relationshipContext = !isGroup ? await resolveRelationshipContext(messages, names, relationshipType) : null;
   const energyFocus = options?.energyFocus === true;
+  // The bank is built once and shared between the prompt (candidate list) and
+  // the normalizer (verbatim-quote verification + single-use enforcement).
+  const quoteBank = extractCandidateMoments(messages);
   const request = prepareConnectionDigestRequest({
     messages,
     math,
     relationshipType,
     chatLang,
     relationshipContext,
-    candidatesText: formatCandidateMoments(extractCandidateMoments(messages)),
+    candidatesText: formatCandidateMoments(quoteBank),
     recurringCast: buildRecurringCast(messages, math, chatLang),
     buildSampleText: energyFocus ? buildEnergySampleText : buildSampleText,
     extraConnectionRules: energyFocus
@@ -1647,7 +1802,7 @@ export async function generateConnectionDigest(messages, math, relationshipType,
 
   if (import.meta.env.DEV) console.log("[ConnectionDigest] chatLang:", chatLang, "| energyFocus:", energyFocus, "| system prompt tail:", request.systemPrompt.slice(-200));
   const raw = await callAnalysis(request.pipeline, request.payload);
-  return groundResultQuotes(normalizeConnectionDigest(raw, math, relationshipType, relationshipContext), chatCorpus(messages));
+  return groundResultQuotes(normalizeConnectionDigest(raw, math, relationshipType, relationshipContext, quoteBank), chatCorpus(messages));
 }
 
 export async function generateGrowthDigest(messages, math, relationshipType, chatLang = "en") {

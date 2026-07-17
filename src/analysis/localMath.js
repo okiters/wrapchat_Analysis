@@ -896,9 +896,9 @@ const MODE_META = {
     blurb: "Relationship status, toxicity, and warning signs.",
   },
 };
-export const DUO_CASUAL_SCREENS = 15;
+export const DUO_CASUAL_SCREENS = 13;
 export const DUO_REDFLAG_SCREENS = 7;
-export const GROUP_CASUAL_SCREENS = 17;
+export const GROUP_CASUAL_SCREENS = 16;
 export const GROUP_REDFLAG_SCREENS = 6;
 
 export function isPassiveAggressive(body) {

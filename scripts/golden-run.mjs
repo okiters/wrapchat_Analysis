@@ -191,7 +191,7 @@ async function callAnthropic(request) {
 
 const groundCorpus = messages.map(message => message.body || "").join("\n");
 const NORMALIZERS = {
-  connection: raw => lint.groundResultQuotes(ai.normalizeConnectionDigest(raw, math, common.relationshipType), groundCorpus),
+  connection: raw => lint.groundResultQuotes(ai.normalizeConnectionDigest(raw, math, common.relationshipType, null, candidates), groundCorpus),
   growth: raw => lint.groundResultQuotes(ai.normalizeGrowthDigest(raw, math, common.relationshipType), groundCorpus),
   risk: raw => lint.groundResultQuotes(ai.normalizeRiskDigest(raw, math, common.relationshipType), groundCorpus),
 };

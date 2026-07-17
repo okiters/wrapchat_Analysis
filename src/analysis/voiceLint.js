@@ -3,12 +3,12 @@
 // WrapChat voice contract. Used by the golden harness (and safe to run
 // anywhere: pure JS, imports only the voice module).
 // ─────────────────────────────────────────────────────────────────
-import { BANNED_PHRASES } from "./voice.js";
+import { BANNED_PHRASES, CALIBRATION_EXAMPLES, LANGUAGE_REGISTER_EXAMPLES } from "./voice.js";
 import { EMOJI_RE } from "./textSanitize.js";
 
 const LONG_DASH_RE = /[—–]/;
 // Analysis mechanics must never surface in user-facing text.
-const MECHANICS_RE = /(━|\[(?:number|email|account|redacted)\]|(?:early|recent) snapshot|bridge window|candidate (?:moment|#\d)|window \d+\/\d+|\bwindow \d\b|evidence window)/i;
+const MECHANICS_RE = /(━|⋯|\[(?:number|email|account|redacted)\]|(?:early|recent) snapshot|bridge window|candidate (?:moment|#\d)|window \d+\/\d+|\bwindow \d\b|evidence window|timeline spine|moment window)/i;
 const MECHANICS_UPPER_RE = /\bWINDOW\b/;
 // Double quotes and guillemets always delimit quotes. Single quotes only
 // count when they are not intra-word suffix apostrophes (Ozge'nin, Josh'tan),
@@ -41,6 +41,18 @@ function contentTokens(text) {
     .split(/[^\p{L}\p{N}']+/u)
     .filter(word => word.length > 3);
 }
+
+// The prompt's calibration and register examples describe a chat that does
+// not exist. Output that mirrors one of them (names swapped) is fabricated
+// content, not analysis — the exact failure behind the "Barcelona" cards.
+const STYLE_EXAMPLE_SOURCES = [
+  ...CALIBRATION_EXAMPLES,
+  ...Object.values(LANGUAGE_REGISTER_EXAMPLES),
+];
+const STYLE_EXAMPLE_TOKENS = STYLE_EXAMPLE_SOURCES.map(example => contentTokens(example));
+const STYLE_EXAMPLE_QUOTES = STYLE_EXAMPLE_SOURCES
+  .flatMap(example => extractQuotes(example))
+  .map(quote => quote.trim().toLowerCase());
 
 function tokenJaccard(a, b) {
   const setA = new Set(a);
@@ -109,6 +121,16 @@ export function lintResult(result) {
 
   for (const [path, text] of prose) {
     issues.push(...lintText(text, path));
+
+    // Calibration parroting: quoting an example's invented chat line, or a
+    // sentence that heavily overlaps an example's wording.
+    const lowerText = text.toLowerCase();
+    if (
+      STYLE_EXAMPLE_QUOTES.some(quote => lowerText.includes(quote)) ||
+      STYLE_EXAMPLE_TOKENS.some(exampleTokens => tokenJaccard(contentTokens(text), exampleTokens) > 0.4)
+    ) {
+      issues.push({ path, level: "error", rule: "calibration-copy", detail: "mirrors a calibration/register example from the prompt" });
+    }
 
     // Genericity: a "moment" field with neither a name-like capital nor a quote
     // could describe any random chat. Judged by the leaf field name only, and

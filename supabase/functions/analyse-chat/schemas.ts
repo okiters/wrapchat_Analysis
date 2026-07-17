@@ -46,6 +46,12 @@ const DAYPART_ENUM = enumOf("morning", "afternoon", "evening", "late night");
 
 const timeOfDayPerson = obj({ name: str, peakHour: str, peakDaypart: DAYPART_ENUM });
 
+// Moment fields anchor on a locally pre-extracted candidate quote: candidateId
+// points into the CANDIDATE MOMENTS list in the prompt (0 = no candidate fits),
+// text carries the quote-first sentence. The client verifies the quote against
+// the bank and repairs drift, so quotes stay verbatim by construction.
+const momentPick = obj({ candidateId: int, text: str });
+
 const connectionPerson = obj({
   name: str,
   careStyle: obj({
@@ -71,24 +77,24 @@ const connectionSchema = obj({
     biggestTopic: str,
     ghostContext: str,
     funniestPerson: str,
-    funniestReason: str,
+    funniestReason: momentPick,
     dramaStarter: str,
     dramaContext: str,
     signaturePhrases: arr(str),
     relationshipSummary: str,
     groupDynamic: str,
-    tensionMoment: str,
+    tensionMoment: momentPick,
     kindestPerson: str,
-    sweetMoment: str,
+    sweetMoment: momentPick,
     mostMissed: str,
     insideJoke: str,
     hypePersonReason: str,
     loveLanguageMismatch: str,
-    mostLovingMoment: str,
+    mostLovingMoment: momentPick,
     compatibilityScore: int,
     compatibilityRead: str,
-    mostEnergising: str,
-    mostDraining: str,
+    mostEnergising: momentPick,
+    mostDraining: momentPick,
     energyCompatibility: str,
     timeOfDay: obj({ personA: timeOfDayPerson, personB: timeOfDayPerson, contrast: str }),
     loveLanguageIntro: str,

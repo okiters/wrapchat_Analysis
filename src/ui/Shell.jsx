@@ -195,7 +195,10 @@ export async function buildShareCanvas(type, logoSrc) {
           }
           [data-share-active="true"] .wc-fadeup,
           [data-share-active="true"] .wc-fadeup-2,
-          [data-share-active="true"] .wc-fadeup-3 {
+          [data-share-active="true"] .wc-fadeup-3,
+          [data-share-active="true"] .wc-beat-1,
+          [data-share-active="true"] .wc-beat-2,
+          [data-share-active="true"] .wc-beat-3 {
             opacity: 1 !important;
             transform: none !important;
           }
@@ -617,6 +620,14 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 
 export const SLIDE_MS   = 480;
 export const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
+// Reveal choreography — after the pane slide settles (SLIDE_MS), card content
+// arrives in beats via .wc-beat-1/2/3: headline value first (with a subtle
+// scale pop), payload card second, footnote last. Beat offsets scale with the
+// section's emotional tempo: roast/funny snap, lovely lingers, everything
+// else is neutral. Restrained sections drop the pop entirely (pure fades) —
+// a red-flag reveal should never feel like a prize.
+export const SECTION_TEMPO = { roast: 0.85, funny: 0.85, lovely: 1.15 };
+export const RESTRAINED_SECS = new Set(["toxicity"]);
 export const SHELL_SAFE_TOP = "max(20px, env(safe-area-inset-top, 0px))";
 export const SHELL_PANE_PADDING = "16px 20px calc(24px + env(safe-area-inset-bottom, 0px))";
 // Matches the full Shell's content top (root safe-area + pane's 16px top) so
@@ -746,8 +757,22 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         .wc-fadeup   { animation: fadeUp 0.4s cubic-bezier(.2,0,.1,1) both; }
         .wc-fadeup-2 { animation: fadeUp 0.4s 0.07s cubic-bezier(.2,0,.1,1) both; }
         .wc-fadeup-3 { animation: fadeUp 0.4s 0.14s cubic-bezier(.2,0,.1,1) both; }
+        @keyframes wcBeatIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes wcBeatPop { from{opacity:0;transform:translateY(8px) scale(0.94)} to{opacity:1;transform:translateY(0) scale(1)} }
+        .wc-beat-1, .wc-beat-2, .wc-beat-3 { animation-name:wcBeatIn; animation-duration:420ms; animation-timing-function:cubic-bezier(.2,0,.1,1); animation-fill-mode:both; }
+        .wc-beat-1 { animation-name:var(--wc-pop, wcBeatPop); animation-delay:calc(${SLIDE_MS}ms + 80ms*var(--wc-tempo, 1)); }
+        .wc-beat-2 { animation-delay:calc(${SLIDE_MS}ms + 360ms*var(--wc-tempo, 1)); }
+        .wc-beat-3 { animation-delay:calc(${SLIDE_MS}ms + 640ms*var(--wc-tempo, 1)); }
+        /* Content revealed by interaction (GuessCard): the slide settled long
+           ago, so beats compress — payoff stays immediate. */
+        .wc-reveal-now .wc-beat-1 { animation-delay:120ms; }
+        .wc-reveal-now .wc-beat-2 { animation-delay:260ms !important; }
+        .wc-reveal-now .wc-beat-3 { animation-delay:400ms; }
         .wc-btn:hover { opacity:0.82; transform:scale(0.98); }
         .wc-exit-pane [data-nav-row="true"] { visibility:hidden; }
+        .wc-exit-pane .wc-fadeup, .wc-exit-pane .wc-fadeup-2, .wc-exit-pane .wc-fadeup-3,
+        .wc-exit-pane .wc-beat-1, .wc-exit-pane .wc-beat-2, .wc-exit-pane .wc-beat-3 { animation:none !important; opacity:1; transform:none; }
+        .wc-pane:has(> [data-nav-row="true"]) > :first-child { margin-top:auto; }
         .wc-snap-scroll { scrollbar-width:none; -ms-overflow-style:none; }
         .wc-snap-scroll::-webkit-scrollbar { width:0; height:0; display:none; }
         @media (max-width: 430px) { .wc-root { border-radius: 0 !important; } }
@@ -782,12 +807,15 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         @media (prefers-reduced-motion: reduce) {
           .wc-fade-scale { animation-name: wcFadeIn !important; animation-duration: 150ms !important; }
           .wc-stagger-item { animation-name: wcFadeIn !important; animation-duration: 150ms !important; }
+          .wc-beat-1, .wc-beat-2, .wc-beat-3 { animation-name: wcFadeIn !important; animation-duration: 150ms !important; animation-delay: 0ms !important; }
           .wc-auth-fade { animation-duration: 120ms !important; animation-delay: 0ms !important; }
           .wc-segmented-indicator { transition-duration: 0.01ms !important; }
           .wc-wave-layer { animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
         }
       `}</style>
       <div ref={rootRef} className="wc-root" data-share-type={shareType} data-share-accent={p.accent} style={{
+        ["--wc-tempo"]: SECTION_TEMPO[sec] ?? 1,
+        ["--wc-pop"]: RESTRAINED_SECS.has(sec) ? "wcBeatIn" : "wcBeatPop",
         width: "min(420px, 100vw)",
         height: "100svh",
         margin: "0 auto",
@@ -982,7 +1010,9 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
   const [phase, setPhase] = useState("guess");
 
   // Shared nav button styles — inlined since GhostButton/PrimaryButton live in theme.jsx
-  const navRow  = { display:"flex", gap:10, marginTop:8, width:"100%" };
+  // marginTop:auto pins the row to the pane bottom (the pane's :has() rule
+  // adds the matching top counterweight so content stays centered above it).
+  const navRow  = { display:"flex", gap:10, marginTop:"auto", paddingTop:8, paddingBottom:10, width:"100%" };
   const backBtn = { flex:1, padding:"13px 18px", borderRadius:999, background:"rgba(255,255,255,0.07)", border:"1.5px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.72)", fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit" };
   const nextBtn = { flex:1, padding:"13px 18px", borderRadius:999, background:p.accent, border:"none", color:p.bg, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"inherit" };
 
@@ -991,7 +1021,7 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
     return (
       <>
         {revealContent ?? null}
-        <div data-share-hide style={navRow}>
+        <div data-share-hide data-nav-row="true" style={navRow}>
           {back   && <button type="button" onClick={back}   className="wc-btn" style={backBtn}>← Back</button>}
           {nextFn && <button type="button" onClick={nextFn} className="wc-btn" style={nextBtn}>Next ▶</button>}
         </div>
@@ -1013,11 +1043,11 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
   if (phase === "revealed") {
     return (
       <>
-        <div style={{ width: "100%", animation: `wcFadeIn 320ms cubic-bezier(.2,0,.1,1) both` }}>
+        <div className="wc-reveal-now" style={{ width: "100%", animation: `wcFadeIn 320ms cubic-bezier(.2,0,.1,1) both` }}>
           {revealContent}
         </div>
         {!onReveal && (
-          <div data-share-hide style={navRow}>
+          <div data-share-hide data-nav-row="true" style={navRow}>
             {back   && <button type="button" onClick={back}   className="wc-btn" style={backBtn}>← Back</button>}
             {nextFn && <button type="button" onClick={nextFn} className="wc-btn" style={nextBtn}>Next ▶</button>}
           </div>

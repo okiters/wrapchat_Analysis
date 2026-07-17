@@ -49,9 +49,17 @@ test("flags generic moment fields without name or quote", () => {
 
 test("accepts a reference-tone field", () => {
   const issues = lintResult({
-    sweetMoment: `When they're planning to meet up and Derin says 'Sensiz atlatamam bu ayı'. Pure wholesome friendship dependency.`,
+    sweetMoment: `Aslı was sick at home and Melis dropped 'kapına çorba bıraktım' with zero warning. Soup-on-the-doorstep energy, classic Melis.`,
   });
   assert.equal(issues.filter(i => i.level === "error").length, 0);
+});
+
+test("flags output that parrots a prompt calibration example", () => {
+  const issues = lintResult({
+    sweetMoment: `When they're planning to meet up and Aynüke says 'Sensiz atlatamam bu ayı'. Pure wholesome friendship dependency.`,
+    vibeOneLiner: `Ozge literally lives in Barcelona while Aynüke is in Turkey, so their timezone chaos creates natural ghosting: one is asleep while the other is having a life crisis.`,
+  });
+  assert.equal(issues.filter(i => i.rule === "calibration-copy").length, 2);
 });
 
 test("ignores the embedded coreAnalysis metadata subtree", () => {
