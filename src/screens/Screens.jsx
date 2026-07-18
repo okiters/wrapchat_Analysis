@@ -46,6 +46,9 @@ import coinIcon from "../../assets/wrpcht-coin.svg";
 import bundle1Icon from "../../assets/bundle1.svg";
 import bundle2Icon from "../../assets/bundle2.svg";
 import bundle3Icon from "../../assets/bundle3.svg";
+import { Capacitor } from "@capacitor/core";
+import { Share } from "@capacitor/share";
+import { Clipboard } from "@capacitor/clipboard";
 import {
   UILanguageContext, useUILanguage, useT, useControlT, translateUI, translateControlValue,
   normalizeUiLangCode, normalizeUiLangPref, LANG_META, SUPPORTED_UI_LANGS,
@@ -2407,15 +2410,25 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
     const url = await createQuizChallenge(resultId, s, ai?.signaturePhrase);
     setQuizBusy(false);
     if (!url) { setQuizToast("Couldn't create link — try again."); return; }
+    const text = t("How well do you actually remember our chat? 6 questions.");
     try {
-      if (navigator.share) {
-        await navigator.share({ text: t("How well do you actually remember our chat? 6 questions."), url });
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({ text, url });
+      } else if (navigator.share) {
+        await navigator.share({ text, url });
       } else {
         await navigator.clipboard.writeText(url);
         setQuizToast("Link copied!");
         setTimeout(() => setQuizToast(""), 2500);
       }
-    } catch { setQuizToast("Link ready — check your clipboard."); setTimeout(() => setQuizToast(""), 2500); }
+    } catch (e) {
+      if (e?.name === "AbortError") return; // user dismissed the share sheet — say nothing
+      try {
+        await Clipboard.write({ string: url });
+        setQuizToast("Link copied!");
+      } catch { setQuizToast("Couldn't share — try again."); }
+      setTimeout(() => setQuizToast(""), 2500);
+    }
   }
   const feedback = resultId && (mode === "redflags" || ai?.vibeOneLiner)
     ? { resultId, reportType: mode === "redflags" ? "toxicity" : "general", cardIndex: prog, cardTitle: mode === "redflags" ? "Red flags, unwrapped." : (s.isGroup ? "Your group, unwrapped." : "Your chat, unwrapped.") }

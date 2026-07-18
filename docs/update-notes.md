@@ -6,7 +6,36 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
-_Nothing pending — everything below shipped in 0bb6e69 (v3.6) and earlier._
+_Nothing pending — everything below shipped in v3.7 and earlier._
+
+---
+
+## v3.7 — Extraction quality, reliability fixes, and native share
+
+### Bundle reports no longer randomly drop + one automatic retry (1b82168, e82597a)
+**Files:** `src/App.jsx`
+
+Running a pack (e.g. Vibe: General + Love Language + Energy) sometimes returned only 2 of 3 reports, and which one was missing alternated between runs while Energy always survived — with no error in the edge logs. Cause: the per-family core caches (`connectionDigest` etc.) were read through a closure frozen at render time, so inside a single multi-report run their setters never updated the value the loop saw. Reports that should share a core (General + Love Language both use the plain "connection" key) each regenerated it instead — doubling the API cost and creating two independent failure points, so a transient hiccup on one call silently dropped one report client-side. Fixed with a synchronous `batchCoreCacheRef` (readable across loop iterations, cleared each run) so shared-core reports truly share one generation: atomic and half the calls. Plus a targeted single retry: a report that fails on a transient error (timeout, 5xx, cut-off/garbled answer) is retried once; non-recoverable errors (no credits, rate limited, misconfig) fail through as before.
+
+### Grammar-limit fix — reports were silently running on Sonnet 4.5 (cb0e819)
+**Files:** `supabase/functions/analyse-chat/schemas.ts`, `supabase/functions/_shared/prompts.js`, `src/analysis/aiAnalysis.js`
+
+The six nested `{candidateId, text}` moment-pick objects pushed the compiled structured-outputs grammar over the API limit, so every connection call 400'd and silently fell back to Sonnet 4.5 without schema enforcement (visible only as 4.5 spend in the Anthropic console). Flattened to sibling `<field>CandidateId` integer fields, which keep the grammar small; the client accepts both shapes. PROMPT_VERSION 8.
+
+### Signal precision pass — measured on a real 61k-message chat (d9a5ba2)
+**Files:** `src/analysis/localMath.js`, `src/analysis/aiAnalysis.js`
+
+The moment-detection regexes were firing on ordinary chatter: CONTROL matched "where are you heading" (46 hits → 3), AGGRO matched "stupid pigeons" banter (135 → 2), DISTRESS matched bare "tired/hard/lost" (604 → 109). Reworked all of them for precision (insults require a second-person target, distress needs an emotional frame, breakup no longer matches "I'm done for today"), added a statements-only AFFECTION_RE so pet-name-heavy chats stop tagging 4% of all messages as affection, and extended every signal to Spanish/Portuguese/French/Italian/Arabic (they were English/Turkish/German only). `laughStrength` grading now also feeds the local funniest-person count.
+
+### Signature phrases carry personality + wider extraction budgets (69b1ddb)
+**Files:** `supabase/functions/_shared/prompts.js`, `src/analysis/aiAnalysis.js`
+
+Signature phrase redefined as "the line you'd use to impersonate that person" (a pet name, exaggeration, hype line, or recurring complaint) — repetition alone no longer qualifies, and logistics/fillers are excluded. Timeline spine widened to 70×12 runs, moment windows to 40/1000 lines, the candidate quote bank to ~37 entries, and the full-chat threshold to 2000 messages (~+3-4¢ per analysis). PROMPT_VERSION 9.
+
+### Native share sheet for quiz challenge links
+**Files:** `src/screens/Screens.jsx`, `package.json` (+`@capacitor/share`, `@capacitor/clipboard`)
+
+On native (iOS/Android) the quiz challenge link now opens the OS share sheet via Capacitor Share instead of the web `navigator.share`, with a Capacitor Clipboard fallback and silent handling when the user dismisses the sheet.
 
 ---
 
