@@ -199,8 +199,8 @@ function buildChunks(messages) {
                                    //   — captures the reaction(s) that follow the funny line
   const CONTEXT_AFTER_CARE  = 7;   // keep the support response and the gratitude / reaction after it
   const EVENT_SCORE_MIN     = 4;   // minimum score to qualify as an event center
-  const MAX_EVENT_WINDOWS   = 40;  // hard cap on event-based windows
-  const MSG_LINE_LIMIT      = 1000; // hard cap on total message lines (headers not counted)
+  const MAX_EVENT_WINDOWS   = 75;  // hard cap on event-based windows
+  const MSG_LINE_LIMIT      = 2000; // hard cap on total message lines (headers not counted)
 
   const n      = messages.length;
   const scores = scoreMessages(messages);
@@ -234,12 +234,12 @@ function buildChunks(messages) {
   let preservedFunny = 0;
   let preservedCare = 0;
   for (const c of candidates) {
-    if ((c.tags.includes("laugh-trigger-hard") || c.tags.includes("laugh-trigger")) && preservedFunny < 8) {
+    if ((c.tags.includes("laugh-trigger-hard") || c.tags.includes("laugh-trigger")) && preservedFunny < 14) {
       if (addEventWindow(c)) preservedFunny += 1;
     }
   }
   for (const c of candidates) {
-    if ((c.tags.includes("care-response") || c.tags.includes("support")) && preservedCare < 8) {
+    if ((c.tags.includes("care-response") || c.tags.includes("support")) && preservedCare < 14) {
       if (addEventWindow(c)) preservedCare += 1;
     }
   }
@@ -295,7 +295,7 @@ function formatChunksForAI(messages, chunks) {
 // and it was the single biggest reason small-chat reports felt so grounded.
 const FULL_CHAT_LIMIT = 2000;
 
-function buildSpineRuns(messages, { runs = 70, runLen = 12 } = {}) {
+function buildSpineRuns(messages, { runs = 120, runLen = 14 } = {}) {
   const n = messages.length;
   if (n <= runs * runLen) return [[0, n - 1]];
   const step = n / runs;
@@ -431,7 +431,7 @@ function scoreEnergyMessage(msg, index, messages) {
 function buildEnergyChunks(messages) {
   if (!messages.length) return [];
   const n = messages.length;
-  const MSG_LINE_LIMIT = 1000;
+  const MSG_LINE_LIMIT = 2000;
   const energyCandidates = messages
     .map((msg, index) => scoreEnergyMessage(msg, index, messages))
     .filter(Boolean)
@@ -455,13 +455,13 @@ function buildEnergyChunks(messages) {
   let highCount = 0;
   let lowCount = 0;
   for (const candidate of energyCandidates) {
-    if (candidate.tags.includes("energy-high") && highCount < 12 && addCandidateWindow(candidate)) highCount += 1;
+    if (candidate.tags.includes("energy-high") && highCount < 18 && addCandidateWindow(candidate)) highCount += 1;
   }
   for (const candidate of energyCandidates) {
-    if (candidate.tags.includes("energy-low") && lowCount < 12 && addCandidateWindow(candidate)) lowCount += 1;
+    if (candidate.tags.includes("energy-low") && lowCount < 18 && addCandidateWindow(candidate)) lowCount += 1;
   }
   for (const candidate of energyCandidates) {
-    if (windows.length >= 42) break;
+    if (windows.length >= 75) break;
     addCandidateWindow(candidate);
   }
 
@@ -596,7 +596,7 @@ function scoreAccountabilityMessage(msg, index, messages) {
 function buildAccountabilityChunks(messages) {
   if (!messages.length) return [];
   const n = messages.length;
-  const MSG_LINE_LIMIT = 1000;
+  const MSG_LINE_LIMIT = 2000;
   const candidates = messages
     .map((msg, index) => scoreAccountabilityMessage(msg, index, messages))
     .filter(Boolean)
@@ -621,16 +621,16 @@ function buildAccountabilityChunks(messages) {
   let keptCount = 0;
   let brokenCount = 0;
   for (const candidate of candidates) {
-    if (candidate.tags.includes("accountability-promise") && promiseCount < 12 && addWindow(candidate)) promiseCount += 1;
+    if (candidate.tags.includes("accountability-promise") && promiseCount < 18 && addWindow(candidate)) promiseCount += 1;
   }
   for (const candidate of candidates) {
-    if (candidate.tags.includes("accountability-kept") && keptCount < 10 && addWindow(candidate)) keptCount += 1;
+    if (candidate.tags.includes("accountability-kept") && keptCount < 15 && addWindow(candidate)) keptCount += 1;
   }
   for (const candidate of candidates) {
-    if (candidate.tags.includes("accountability-broken") && brokenCount < 10 && addWindow(candidate)) brokenCount += 1;
+    if (candidate.tags.includes("accountability-broken") && brokenCount < 15 && addWindow(candidate)) brokenCount += 1;
   }
   for (const candidate of candidates) {
-    if (windows.length >= 44) break;
+    if (windows.length >= 75) break;
     addWindow(candidate);
   }
 
@@ -658,7 +658,7 @@ export function buildAccountabilitySampleText(messages) {
 }
 
 export const CORE_ANALYSIS_VERSION = 2;
-export const CORE_ANALYSIS_CACHE_VERSION = 10;
+export const CORE_ANALYSIS_CACHE_VERSION = 11;
 // Server clamp is MAX_PROVIDER_TOKENS in analyse-chat/index.ts (5000) — keep
 // these below it so the request budget is honoured, not silently truncated.
 export const CORE_A_MAX_TOKENS = 4200;
@@ -684,19 +684,19 @@ export function buildCoreASystemPrompt(role, relationshipType, extraRules = "", 
 // ─────────────────────────────────────────────────────────────────
 
 const CANDIDATE_TYPE_DEFS = [
-  { type: "funny",     take: 7, match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
-  { type: "care",      take: 5, match: tags => tags.includes("care-response") || tags.includes("support") },
-  { type: "tension",   take: 5, match: tags => tags.includes("conflict") },
-  { type: "drama",     take: 4, match: tags => tags.includes("distress") && !tags.includes("conflict") },
-  { type: "affection", take: 5, match: tags => tags.includes("affection") },
-  { type: "apology",   take: 3, match: tags => tags.includes("apology") },
+  { type: "funny",     take: 10, match: tags => tags.includes("laugh-trigger-hard") || tags.includes("laugh-trigger") },
+  { type: "care",      take: 7, match: tags => tags.includes("care-response") || tags.includes("support") },
+  { type: "tension",   take: 7, match: tags => tags.includes("conflict") },
+  { type: "drama",     take: 6, match: tags => tags.includes("distress") && !tags.includes("conflict") },
+  { type: "affection", take: 7, match: tags => tags.includes("affection") },
+  { type: "apology",   take: 4, match: tags => tags.includes("apology") },
 ];
 
 // Energy highs/lows come from the dedicated energy scorer, not scoreMessages,
 // so the bank can also feed mostEnergising / mostDraining with real lines.
 const CANDIDATE_ENERGY_DEFS = [
-  { type: "energy-high", take: 4, match: tags => tags.includes("energy-high") },
-  { type: "energy-low",  take: 4, match: tags => tags.includes("energy-low") && !tags.includes("energy-high") },
+  { type: "energy-high", take: 6, match: tags => tags.includes("energy-high") },
+  { type: "energy-low",  take: 6, match: tags => tags.includes("energy-low") && !tags.includes("energy-high") },
 ];
 
 function candidateContentTokens(body) {

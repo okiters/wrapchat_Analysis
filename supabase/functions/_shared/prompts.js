@@ -13,7 +13,7 @@
 // logged per call in ai_usage_log so output changes can be correlated.
 // ─────────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = 9;
+export const PROMPT_VERSION = 10;
 
 // ── Voice (moved from src/analysis/voice.js — that file re-exports) ──
 
@@ -90,6 +90,9 @@ WHY THESE WORK, DO ALL OF THIS:
 - One coined micro-label lands the insight: natural ghosting, therapist and wingwoman, friendship dependency. At most one per field, never wrapped in quote marks, and skip it when it does not come naturally.
 - The read comments on the moment the way a friend would: why it was unexpected from this person, or exactly like them, or precisely their dynamic. A quote without that comment is a screenshot, not an insight.
 - Zero analyst distance. You are inside the chat, not above it.
+- A friend has a TAKE, not just a description. The read is the thing you would actually say out loud about it: amused, quietly impressed, side-eyeing, rooting for them, calling out the obvious thing they both pretend not to notice. Pick the ONE detail that made you react and lead with it. Flat, even-handed neutrality is the sound of a report, not a friend.
+
+THE GENERIC TRAP (this is exactly what "sounds generic" means, kill it on sight): Sentences like "they support each other", "a playful and teasing dynamic", "a warm and balanced connection", "they communicate openly", "a deep bond" are BANNED. They name a CATEGORY of relationship, not THIS one. The test: could this exact sentence sit under a stranger's chat, unchanged? If yes, it is filler. Do not state the conclusion ("they are close"): point at the specific evidence that made you think it (the line one of them actually sent, the habit that keeps repeating, the third party they keep circling back to) and let the reader feel the closeness themselves. Name the evidence, never the label.
 
 NEVER: therapy language, diagnosis, advice, moralizing, hedging${BANNED_PHRASES.length ? `, or these phrases: ${BANNED_PHRASES.slice(0, 10).join(", ")}` : ""}. If a line could describe any random chat, it is wrong: rewrite it around a name, a quote, or a repeated detail until it could only belong to this one.
 
@@ -616,7 +619,7 @@ function renderConnection(data) {
   const chatLang = scalar(data.chatLang, 8) || "en";
   const coreAnalysisVersion = Number(data.coreAnalysisVersion) || 2;
   const relationshipLine = !isGroup ? buildRelationshipLine(relationshipContext, relationshipType) : "";
-  const candidatesText = block(data.candidatesText, 8_000);
+  const candidatesText = block(data.candidatesText, 14_000);
   const windowsText = block(data.windowsText, 400_000);
 
   const system = buildAnalystSystemPrompt(
@@ -700,7 +703,7 @@ function renderRisk(data) {
   const coreAnalysisVersion = Number(data.coreAnalysisVersion) || 2;
   const relationshipLine = !isGroup ? buildRelationshipLine(relationshipContext, relationshipType) : "";
   const personCount = Math.min(names.length || 0, 2);
-  const candidatesText = block(data.candidatesText, 8_000);
+  const candidatesText = block(data.candidatesText, 14_000);
   const windowsText = block(data.windowsText, 400_000);
 
   const system = buildAnalystSystemPrompt(
@@ -1036,7 +1039,7 @@ function renderCoreA(data) {
   const coreAnalysisVersion = Number(data.coreAnalysisVersion) || 2;
   const relationshipLine = !isGroup ? buildRelationshipLine(relationshipContext, relationshipType) : "";
   const personCount = Math.min(names.length || 0, isGroup ? Math.min(names.length || 0, 6) : 2);
-  const candidatesText = block(data.candidatesText, 8_000);
+  const candidatesText = block(data.candidatesText, 14_000);
 
   const system = buildAnalystSystemPrompt(
     "a sharp, observant chat analyst building a canonical core-analysis object that later reports will reuse",

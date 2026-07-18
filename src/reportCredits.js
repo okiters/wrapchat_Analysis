@@ -10,7 +10,7 @@ export const QUICK_READ_TRIAL_CONFIG = Object.freeze({
 export const CREDIT_BUNDLES = Object.freeze([
   Object.freeze({ id: "starter", label: "Starter", credits: 100, price: 1.99, priceLabel: "€1.99" }),
   Object.freeze({ id: "plus", label: "Plus", credits: 250, price: 3.99, priceLabel: "€3.99", recommended: true }),
-  Object.freeze({ id: "all_access", label: "All Access", credits: 450, price: 7.99, priceLabel: "€7.99" }),
+  Object.freeze({ id: "all_access", label: "All Access", credits: 600, price: 7.99, priceLabel: "€7.99" }),
 ]);
 
 export const REPORT_PACKS = Object.freeze({

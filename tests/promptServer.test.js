@@ -78,7 +78,7 @@ test("oversized blocks are capped", () => {
     ...baseData,
     candidatesText: "x".repeat(50_000),
   });
-  assert.ok(r.userContent.length < 30_000 + 50_000, "candidates capped at 8k");
+  assert.ok(r.userContent.length < 30_000 + 50_000, "candidates capped well under the 50k input");
 });
 
 test("names and topics lists are bounded", () => {
