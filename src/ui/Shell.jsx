@@ -620,6 +620,10 @@ Email: privacy@wrapchat.app
 By accepting this Privacy Policy, you confirm you have read and understood it in full.`;
 
 export const SLIDE_MS   = 480;
+// Opener title choreography: the card title fades in centered on the page,
+// holds a beat, then rises to its slot. Content beats wait for the rise.
+export const OPENER_MS        = 1100;
+export const OPENER_SETTLE_MS = 880;
 export const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 // Reveal choreography — after the pane slide settles (SLIDE_MS), card content
 // arrives in beats via .wc-beat-1/2/3: headline value first (with a subtle
@@ -761,12 +765,17 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         /* Opener title: lands near the vertical center of the pane, holds a beat,
            then slides up to its natural slot as the rest of the card reveals. */
         @keyframes wcOpenerTitle {
-          0%   { opacity:0; transform: translateY(min(34vh, 230px)) scale(1.14); }
-          16%  { opacity:1; transform: translateY(min(34vh, 230px)) scale(1.14); }
-          50%  { opacity:1; transform: translateY(min(34vh, 230px)) scale(1.14); }
+          0%   { opacity:0; transform: translateY(min(30vh, 200px)) scale(1.12); }
+          18%  { opacity:1; transform: translateY(min(30vh, 200px)) scale(1.12); }
+          50%  { opacity:1; transform: translateY(min(30vh, 200px)) scale(1.12); }
           100% { opacity:1; transform: translateY(0) scale(1); }
         }
-        .wc-opener-title { animation: wcOpenerTitle 1.2s cubic-bezier(.2,0,.12,1) both; }
+        .wc-opener-title { animation: wcOpenerTitle ${OPENER_MS}ms cubic-bezier(.2,0,.12,1) both; }
+        /* Cards led by an opener title hold their content beats until the title
+           finishes rising, so nothing appears underneath the centered title. */
+        .wc-pane:has(.wc-opener-title) .wc-beat-1 { animation-delay:calc(${OPENER_SETTLE_MS}ms + 80ms*var(--wc-tempo, 1)); }
+        .wc-pane:has(.wc-opener-title) .wc-beat-2 { animation-delay:calc(${OPENER_SETTLE_MS}ms + 360ms*var(--wc-tempo, 1)); }
+        .wc-pane:has(.wc-opener-title) .wc-beat-3 { animation-delay:calc(${OPENER_SETTLE_MS}ms + 640ms*var(--wc-tempo, 1)); }
         @keyframes wcBeatIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes wcBeatPop { from{opacity:0;transform:translateY(8px) scale(0.94)} to{opacity:1;transform:translateY(0) scale(1)} }
         .wc-beat-1, .wc-beat-2, .wc-beat-3 { animation-name:wcBeatIn; animation-duration:420ms; animation-timing-function:cubic-bezier(.2,0,.1,1); animation-fill-mode:both; }
@@ -775,9 +784,9 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         .wc-beat-3 { animation-delay:calc(${SLIDE_MS}ms + 640ms*var(--wc-tempo, 1)); }
         /* Content revealed by interaction (GuessCard): the slide settled long
            ago, so beats compress — payoff stays immediate. */
-        .wc-reveal-now .wc-beat-1 { animation-delay:120ms; }
+        .wc-reveal-now .wc-beat-1 { animation-delay:120ms !important; }
         .wc-reveal-now .wc-beat-2 { animation-delay:260ms !important; }
-        .wc-reveal-now .wc-beat-3 { animation-delay:400ms; }
+        .wc-reveal-now .wc-beat-3 { animation-delay:400ms !important; }
         .wc-btn:hover { opacity:0.82; transform:scale(0.98); }
         .wc-exit-pane [data-nav-row="true"] { visibility:hidden; }
         .wc-exit-pane .wc-fadeup, .wc-exit-pane .wc-fadeup-2, .wc-exit-pane .wc-fadeup-3,

@@ -75,7 +75,7 @@ import {
   PAL, PILL_LABEL, PACK_DEFS, PACK_ORDER, PACK_COIN_FILTER, REPORT_BUFFER_STYLE, REPORT_BUFFER_STYLE_LIGHT,
   REPORT_TYPES, CREDIT_PACKS, reportTypeMeta, packForReports, packForSavedRows,
   normalizeSelectedReportTypes, buildShareCanvas, canShareFiles, downloadBlob, canvasToBlob,
-  chatHealthLabel, SLIDE_MS, SHELL_SAFE_TOP, SHELL_PANE_PADDING, SHELL_DRAWER_PADDING,
+  chatHealthLabel, SLIDE_MS, OPENER_SETTLE_MS, SHELL_SAFE_TOP, SHELL_PANE_PADDING, SHELL_DRAWER_PADDING,
   SCREEN_CONTENT_STYLE, SCREEN_HEADER_BLOCK_STYLE, SCREEN_HEADER_CONTROL_TOP,
   SCREEN_BODY_SCROLL_STYLE, getStickyHeaderStyle,
   LEGAL_VERSION, TERMS_OF_SERVICE_TEXT, PRIVACY_POLICY_TEXT,
@@ -115,10 +115,10 @@ const ADMIN_EMAILS = Array.from(new Set(
 
 // Typography — ink follows the surface: white on report palettes, da.* on
 // themed sections in light mode (see useInk).
-const T   = ({s=26,opener=false,children}) => {
+const T   = ({s=26,children}) => {
   const ink = useInk();
   return (
-    <div className={opener ? "wc-opener-title" : "wc-fadeup"} style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:ink.text, letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
+    <div className="wc-opener-title" style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:ink.text, letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
   );
 };
 const Big = ({children}) => {
@@ -589,7 +589,7 @@ function Bar({ value, max, color, label, delay=0 }) {
   const [showLabel, setShowLabel] = useState(false);
   const BAR_DURATION = 850;
   useEffect(() => {
-    const start = SLIDE_MS + 80 + delay;
+    const start = OPENER_SETTLE_MS + 80 + delay;
     const t1 = setTimeout(() => setFill(value / Math.max(max, 1)), start);
     const t2 = setTimeout(() => setShowLabel(true), start + BAR_DURATION + 40);
     return () => { clearTimeout(t1); clearTimeout(t2); };
@@ -633,7 +633,7 @@ function Words({ words, bigrams }) {
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:4 }}>
       {combined.map(({w,c},i)=>(
-        <div key={i} className="wc-beat-2" style={{ animationDelay:`calc(${SLIDE_MS}ms + 200ms*var(--wc-tempo, 1) + ${i * 110}ms)`, display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? (ink.light ? "rgba(31,24,78,0.10)" : "rgba(255,255,255,0.12)") : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.15)"), borderRadius:14 }}>
+        <div key={i} style={{ animation:`wcStaggerItemIn 280ms calc(${OPENER_SETTLE_MS}ms + ${i * 90}ms) ease-out both`, display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? (ink.light ? "rgba(31,24,78,0.10)" : "rgba(255,255,255,0.12)") : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.15)"), borderRadius:14 }}>
           <span style={{ width:26, fontSize:14, flexShrink:0 }}>{M[i]||i+1}</span>
           <span style={{ flex:1, fontWeight:700, color:ink.text, fontSize:15, letterSpacing:-0.2 }}>{w}</span>
           <span style={{ fontSize:13, color:ink.dim, fontWeight:600 }}>{c.toLocaleString()}x</span>
@@ -665,7 +665,7 @@ function FlagList({ flags, loading }) {
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
       {items.map((flag, index) => (
-        <div key={`${flag.title}-${index}`} className="wc-beat-2" style={{ animationDelay:`calc(${SLIDE_MS}ms + 360ms*var(--wc-tempo, 1) + ${Math.min(index, 4) * 90}ms)`, background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
+        <div key={`${flag.title}-${index}`} className="wc-beat-2" style={{ animationDelay:`calc(${OPENER_SETTLE_MS}ms + 360ms*var(--wc-tempo, 1) + ${Math.min(index, 4) * 90}ms)`, background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
           <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:7 }}>
             {t("Red flag {index}", { index: index + 1 })}
           </div>
@@ -699,7 +699,7 @@ function EvidenceList({ items, loading }) {
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:10 }}>
       {entries.map((item, index) => (
-        <div key={`${item.date}-${index}`} className="wc-beat-2" style={{ animationDelay:`calc(${SLIDE_MS}ms + 360ms*var(--wc-tempo, 1) + ${Math.min(index, 4) * 90}ms)`, background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
+        <div key={`${item.date}-${index}`} className="wc-beat-2" style={{ animationDelay:`calc(${OPENER_SETTLE_MS}ms + 360ms*var(--wc-tempo, 1) + ${Math.min(index, 4) * 90}ms)`, background:"rgba(0,0,0,0.2)", borderRadius:18, padding:"14px 16px", textAlign:"left" }}>
           <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(255,255,255,0.45)", marginBottom:7 }}>
             {item.date}
           </div>
@@ -792,7 +792,7 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
   const casualScreens = [
     // Card 1 — Who's more obsessed (animated bars, smooth opener)
     <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("Who's more obsessed?", 1)}>
-      <T opener>{t("Who's more obsessed?")}</T>
+      <T>{t("Who's more obsessed?")}</T>
       <div style={{width:"100%",marginTop:16}}>
         <Bar value={s.msgCounts[0]} max={mMax} color="#E06030" label={s.names[0]} />
         <Bar value={s.msgCounts[1]} max={mMax} color="#4A90D4" label={s.names[1]} delay={160} />
@@ -921,7 +921,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
     <Shell sec="funny" prog={8} total={TOTAL} feedback={feedback("Your language", 8)}>
       <T>{t("Your language")}</T>
       <Words words={s.topWords} bigrams={s.topBigrams} />
-      <div style={{display:"flex",gap:"1rem",marginTop:16,width:"100%",justifyContent:"center"}}>
+      {/* Signature phrases land after the 6-item word reveal completes */}
+      <div style={{animation:`wcStaggerItemIn 320ms calc(${OPENER_SETTLE_MS}ms + 780ms) ease-out both`,display:"flex",gap:"1rem",marginTop:16,width:"100%",justifyContent:"center"}}>
         {[0,1].map(i=>(
           <div key={i} style={{background:"rgba(255,255,255,0.08)",padding:"14px 18px",borderRadius:12,textAlign:"center",flex:1,minWidth:0}}>
             <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"rgba(255,255,255,0.38)",marginBottom:6}}>{t("Signature phrase")}</div>
@@ -2377,17 +2378,13 @@ export function PremiumFinale({ s, restart, back, reportType, fromHistory = fals
   const closeResults = useContext(CloseResultsContext);
   const rtype = REPORT_TYPES.find(r => r.id === reportType);
   const sec = rtype?.palette || "upload";
-  const p = PAL[sec] || PAL.upload;
   const primaryAction = fromHistory ? closeResults : restart;
-  const primaryLabel  = fromHistory ? t("My Results") : t("Start over");
   return (
     <Shell sec={sec} prog={1} total={1} shareType="summary">
       <T s={22}>{t(rtype?.label || "Report complete")}</T>
       <Sub mt={4}>{s.names?.join(" & ") || ""} · {s.totalMessages?.toLocaleString()} {t("messages")}</Sub>
-      <div data-share-hide style={{ display:"flex", gap:10, marginTop:24, width:"100%" }}>
-        <GhostButton onClick={back} style={{ flex:1, width:"auto", color:"rgba(255,255,255,0.78)", border:"1.5px solid rgba(255,255,255,0.22)" }}>← {t("Back")}</GhostButton>
-        <PrimaryButton onClick={primaryAction} color={p.accent} textColor={p.bg} style={{ flex:1, width:"auto" }}>{primaryLabel}</PrimaryButton>
-      </div>
+      {/* Shared Nav so placement matches every other card */}
+      <Nav back={back} next={primaryAction} nextLabel={fromHistory ? "My Results" : "Start over"} showArrow={false} />
     </Shell>
   );
 }
@@ -2531,14 +2528,8 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
         </div>
       )}
 
-      {/* Action buttons */}
-      <div data-share-hide style={{ display:"flex", gap:10, marginBottom:20, width:"100%" }}>
-        <GhostButton onClick={back} style={{ flex:1, width:"auto", color:"rgba(255,255,255,0.78)", border:"1.5px solid rgba(255,255,255,0.22)" }}>← {t("Back")}</GhostButton>
-        {fromHistory
-          ? <PrimaryButton onClick={closeResults} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("My Results")}</PrimaryButton>
-          : <PrimaryButton onClick={restart} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("Start over")}</PrimaryButton>
-        }
-      </div>
+      {/* Action buttons — shared Nav so placement matches every other card */}
+      <Nav back={back} next={fromHistory ? closeResults : restart} nextLabel={fromHistory ? "My Results" : "Start over"} showArrow={false} />
     </Shell>
   );
 }
@@ -7747,7 +7738,6 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
-          topOffset={0}
           action={onSettings ? (
             <button type="button" onClick={onSettings} className="wc-btn" aria-label="Settings"
               style={{ background:"rgba(var(--wc-p),0.16)", border:"1px solid rgba(var(--wc-p),0.32)", borderRadius:999, color:isLight ? "#7A90FF" : "rgba(200,170,240,0.85)", width:34, height:34, padding:0, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
