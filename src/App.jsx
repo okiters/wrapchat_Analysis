@@ -94,6 +94,27 @@ function isAdminUser(user) {
   return ADMIN_EMAILS.includes(email);
 }
 
+// Should a failed report generation be retried once? Only transient hiccups
+// (timeouts, server blips, garbled/cut-off answers) are worth an immediate
+// retry. "Out of credits" and "slow down" won't recover on retry, so we let
+// those fail through. Matches the same signals userFacingAnalysisError reads.
+function isRetryableAnalysisError(error) {
+  const debug = error?.debug && typeof error.debug === "object" ? error.debug : null;
+  const text = [
+    error?.message,
+    debug?.provider_error_message,
+    debug?.provider_error_type,
+    debug?.error,
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (!text) return true; // an unlabelled throw is usually a transient blip
+  // Never retry these — an immediate retry cannot fix them.
+  if (/no_entitlement|rate_limited|rate_limit|too many requests|billing|quota|balance|credit|api_key|not set|invalid_request|model|not_found/.test(text)) {
+    return false;
+  }
+  // Retry these — a second attempt very often succeeds.
+  return /timed out|timeout|parse_failed|malformed|invalid_response_shape|output_limit_reached|empty|502|503|504|overloaded|failed to fetch|networkerror|load failed|edge function error 5/.test(text);
+}
+
 const ADMIN_EMAILS = Array.from(new Set(
   String(import.meta.env.VITE_ADMIN_EMAILS || import.meta.env.VITE_ADMIN_EMAIL || "")
     .split(",")
@@ -1202,8 +1223,19 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       setLoadingReportIndex(index);
 
       try {
-        // eslint-disable-next-line no-await-in-loop
-        const canonicalResult = await generatePipelineResult(type, relType, contentLang);
+        let canonicalResult;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          canonicalResult = await generatePipelineResult(type, relType, contentLang);
+        } catch (firstError) {
+          // One retry, but only for transient hiccups (timeouts, server blips,
+          // garbled answers). Never for "out of credits" or "slow down" — those
+          // won't recover on an immediate retry and would just waste the call.
+          if (!isRetryableAnalysisError(firstError)) throw firstError;
+          console.warn(`Report "${type}" hiccupped, retrying once…`, firstError?.message || firstError);
+          // eslint-disable-next-line no-await-in-loop
+          canonicalResult = await generatePipelineResult(type, relType, contentLang);
+        }
         let translationOverlay = null;
         if (type === "trial_report" && contentLang !== "en") {
           try {
