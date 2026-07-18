@@ -115,10 +115,10 @@ const ADMIN_EMAILS = Array.from(new Set(
 
 // Typography — ink follows the surface: white on report palettes, da.* on
 // themed sections in light mode (see useInk).
-const T   = ({s=26,children}) => {
+const T   = ({s=26,opener=false,children}) => {
   const ink = useInk();
   return (
-    <div className="wc-fadeup" style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:ink.text, letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
+    <div className={opener ? "wc-opener-title" : "wc-fadeup"} style={{ fontSize:s, fontWeight:900, textAlign:"center", lineHeight:1.1, color:ink.text, letterSpacing:-0.5, width:"100%", marginBottom:4 }}>{children}</div>
   );
 };
 const Big = ({children}) => {
@@ -424,7 +424,7 @@ function Nav({ back, next, showBack=true, nextLabel="Next", showArrow=true }) {
   const p = useContext(SectionPaletteContext) || PAL.upload;
   const ink = useInk();
   return (
-    <div data-share-hide data-nav-row="true" style={{ display:"flex", gap:10, marginTop:"auto", paddingTop:8, paddingBottom:10, width:"100%" }}>
+    <div data-share-hide data-nav-row="true" style={{ display:"flex", gap:10, marginTop:"auto", paddingTop:8, paddingBottom:10, marginBottom:20, width:"100%" }}>
       {showBack && (
         <button onClick={back} className="wc-btn" style={{
           flex:1, padding:"14px", borderRadius:999,
@@ -626,13 +626,14 @@ function Bar({ value, max, color, label, delay=0 }) {
 function Words({ words, bigrams }) {
   const ink = useInk();
   const M=["🥇","🥈","🥉"];
-  const top5w=(words||[]).slice(0,5);
-  const top5b=(bigrams||[]).slice(0,5);
-  const combined=[...top5w.map(([w,c])=>({w,c})),...top5b.map(([w,c])=>({w,c}))];
+  // Keep the reveal short and punchy: top 3 words + top 3 phrases = 6.
+  const top3w=(words||[]).slice(0,3);
+  const top3b=(bigrams||[]).slice(0,3);
+  const combined=[...top3w.map(([w,c])=>({w,c})),...top3b.map(([w,c])=>({w,c}))].slice(0,6);
   return (
     <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:4 }}>
       {combined.map(({w,c},i)=>(
-        <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? (ink.light ? "rgba(31,24,78,0.10)" : "rgba(255,255,255,0.12)") : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.15)"), borderRadius:14 }}>
+        <div key={i} className="wc-beat-2" style={{ animationDelay:`calc(${SLIDE_MS}ms + 200ms*var(--wc-tempo, 1) + ${i * 110}ms)`, display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? (ink.light ? "rgba(31,24,78,0.10)" : "rgba(255,255,255,0.12)") : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.15)"), borderRadius:14 }}>
           <span style={{ width:26, fontSize:14, flexShrink:0 }}>{M[i]||i+1}</span>
           <span style={{ flex:1, fontWeight:700, color:ink.text, fontSize:15, letterSpacing:-0.2 }}>{w}</span>
           <span style={{ fontSize:13, color:ink.dim, fontWeight:600 }}>{c.toLocaleString()}x</span>
@@ -791,7 +792,7 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
   const casualScreens = [
     // Card 1 — Who's more obsessed (animated bars, smooth opener)
     <Shell sec="roast" prog={1} total={TOTAL} feedback={feedback("Who's more obsessed?", 1)}>
-      <T>{t("Who's more obsessed?")}</T>
+      <T opener>{t("Who's more obsessed?")}</T>
       <div style={{width:"100%",marginTop:16}}>
         <Bar value={s.msgCounts[0]} max={mMax} color="#E06030" label={s.names[0]} />
         <Bar value={s.msgCounts[1]} max={mMax} color="#4A90D4" label={s.names[1]} delay={160} />
@@ -2498,7 +2499,7 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
             {t("Challenge a friend")}
           </div>
           <div style={{ fontSize:13, color:"rgba(255,255,255,0.52)", lineHeight:1.55 }}>
-            {t("Think they'd guess the same results? Share your wrapped and find out.")}
+            {t("A 6-question quiz about this chat. How well do they know it?")}
           </div>
           <button
             type="button"
@@ -2515,7 +2516,7 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
               fontWeight: 800,
               cursor: quizBusy || !resultId ? "wait" : "pointer",
               fontFamily: "inherit",
-              alignSelf: "flex-start",
+              alignSelf: "center",
               letterSpacing: 0.1,
               opacity: !resultId ? 0.5 : 1,
             }}
@@ -2527,14 +2528,11 @@ export function Finale({ s, ai, aiLoading, restart, back, prog, total, mode, res
               {quizToast}
             </div>
           )}
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.28)", marginTop:2 }}>
-            {t("Chat Memory Quiz — 6 questions about this chat.")}
-          </div>
         </div>
       )}
 
       {/* Action buttons */}
-      <div data-share-hide style={{ display:"flex", gap:10, width:"100%" }}>
+      <div data-share-hide style={{ display:"flex", gap:10, marginBottom:20, width:"100%" }}>
         <GhostButton onClick={back} style={{ flex:1, width:"auto", color:"rgba(255,255,255,0.78)", border:"1.5px solid rgba(255,255,255,0.22)" }}>← {t("Back")}</GhostButton>
         {fromHistory
           ? <PrimaryButton onClick={closeResults} color={PAL.finale.accent} textColor={PAL.finale.bg} style={{ flex:1, width:"auto" }}>{t("My Results")}</PrimaryButton>

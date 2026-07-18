@@ -196,6 +196,7 @@ export async function buildShareCanvas(type, logoSrc) {
           [data-share-active="true"] .wc-fadeup,
           [data-share-active="true"] .wc-fadeup-2,
           [data-share-active="true"] .wc-fadeup-3,
+          [data-share-active="true"] .wc-opener-title,
           [data-share-active="true"] .wc-beat-1,
           [data-share-active="true"] .wc-beat-2,
           [data-share-active="true"] .wc-beat-3 {
@@ -757,6 +758,15 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         .wc-fadeup   { animation: fadeUp 0.4s cubic-bezier(.2,0,.1,1) both; }
         .wc-fadeup-2 { animation: fadeUp 0.4s 0.07s cubic-bezier(.2,0,.1,1) both; }
         .wc-fadeup-3 { animation: fadeUp 0.4s 0.14s cubic-bezier(.2,0,.1,1) both; }
+        /* Opener title: lands near the vertical center of the pane, holds a beat,
+           then slides up to its natural slot as the rest of the card reveals. */
+        @keyframes wcOpenerTitle {
+          0%   { opacity:0; transform: translateY(min(34vh, 230px)) scale(1.14); }
+          16%  { opacity:1; transform: translateY(min(34vh, 230px)) scale(1.14); }
+          50%  { opacity:1; transform: translateY(min(34vh, 230px)) scale(1.14); }
+          100% { opacity:1; transform: translateY(0) scale(1); }
+        }
+        .wc-opener-title { animation: wcOpenerTitle 1.2s cubic-bezier(.2,0,.12,1) both; }
         @keyframes wcBeatIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes wcBeatPop { from{opacity:0;transform:translateY(8px) scale(0.94)} to{opacity:1;transform:translateY(0) scale(1)} }
         .wc-beat-1, .wc-beat-2, .wc-beat-3 { animation-name:wcBeatIn; animation-duration:420ms; animation-timing-function:cubic-bezier(.2,0,.1,1); animation-fill-mode:both; }
@@ -771,6 +781,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         .wc-btn:hover { opacity:0.82; transform:scale(0.98); }
         .wc-exit-pane [data-nav-row="true"] { visibility:hidden; }
         .wc-exit-pane .wc-fadeup, .wc-exit-pane .wc-fadeup-2, .wc-exit-pane .wc-fadeup-3,
+        .wc-exit-pane .wc-opener-title,
         .wc-exit-pane .wc-beat-1, .wc-exit-pane .wc-beat-2, .wc-exit-pane .wc-beat-3 { animation:none !important; opacity:1; transform:none; }
         .wc-pane:has(> [data-nav-row="true"]) > :first-child { margin-top:auto; }
         .wc-snap-scroll { scrollbar-width:none; -ms-overflow-style:none; }
@@ -808,6 +819,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
           .wc-fade-scale { animation-name: wcFadeIn !important; animation-duration: 150ms !important; }
           .wc-stagger-item { animation-name: wcFadeIn !important; animation-duration: 150ms !important; }
           .wc-beat-1, .wc-beat-2, .wc-beat-3 { animation-name: wcFadeIn !important; animation-duration: 150ms !important; animation-delay: 0ms !important; }
+          .wc-opener-title { animation-name: wcFadeIn !important; animation-duration: 150ms !important; animation-delay: 0ms !important; }
           .wc-auth-fade { animation-duration: 120ms !important; animation-delay: 0ms !important; }
           .wc-segmented-indicator { transition-duration: 0.01ms !important; }
           .wc-wave-layer { animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
