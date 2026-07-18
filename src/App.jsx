@@ -296,6 +296,17 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
+  // Batch-scoped core cache. The React-state caches below (connectionDigest
+  // etc.) are read through a closure frozen at render time, so within a single
+  // multi-report run their setters never update the values the running loop
+  // sees — meaning reports that SHOULD share a core (general + lovelang, or
+  // toxicity + accounta) each regenerated it instead. That doubled the API
+  // cost AND created two independent failure points, so a transient hiccup on
+  // one call silently dropped one of the pair from the bundle. A ref updates
+  // synchronously and is readable in the next loop iteration, so shared-core
+  // reports now truly share one generation (atomic: both succeed or both fail).
+  const batchCoreCacheRef = useRef({});
+
   useEffect(() => {
     if (!feedbackThanks) return undefined;
     const t = setTimeout(() => setFeedbackThanks(false), 2000);
@@ -958,23 +969,27 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       type === "accounta" && family === "risk" ? "risk:accountability" :
       family;
     const cacheKey = getAnalysisFamilyCacheKey(math, relType, cacheFamily, lang);
-    let core = null;
 
-    if (family === "connection") {
+    // Ref cache first (survives across loop iterations in the same batch, which
+    // the frozen-closure state reads below cannot), then the React-state cache
+    // (survives across separate runs), then generate.
+    let core = batchCoreCacheRef.current[cacheKey] || null;
+
+    if (!core && family === "connection") {
       core = connectionDigestKey === cacheKey ? connectionDigest : null;
       if (!core) {
         core = await generateConnectionDigest(messages, math, relType, lang, { energyFocus: type === "energy" });
         setConnectionDigest(core);
         setConnectionDigestKey(cacheKey);
       }
-    } else if (family === "growth") {
+    } else if (!core && family === "growth") {
       core = coreAnalysisAKey === cacheKey ? coreAnalysisA : null;
       if (!core) {
         core = await generateGrowthDigest(messages, math, relType, lang);
         setCoreAnalysisA(core);
         setCoreAnalysisAKey(cacheKey);
       }
-    } else if (family === "risk") {
+    } else if (!core && family === "risk") {
       core = coreAnalysisBKey === cacheKey ? coreAnalysisB : null;
       if (!core) {
         core = await generateRiskDigest(messages, math, relType, lang, { accountabilityFocus: type === "accounta" });
@@ -982,6 +997,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
         setCoreAnalysisBKey(cacheKey);
       }
     }
+    if (core) batchCoreCacheRef.current[cacheKey] = core;
 
     const derived = pipeline.derive(core, math, relType);
     if (!hasMeaningfulAnalysisResult(type, derived)) {
@@ -1173,6 +1189,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
       cacheUserCredits(authedUser?.id, optimisticBalance);
     }
     const bundleId = selectedTypes.length > 1 ? crypto.randomUUID() : null;
+    // Fresh per-batch core cache — never carry a core from a previous run or a
+    // different chat into this one.
+    batchCoreCacheRef.current = {};
     const generatedRuns = [];
     const failedTypes = [];
     let firstAnalysisError = null;
