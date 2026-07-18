@@ -56,7 +56,7 @@ import {
 import { detectLanguage } from "../i18n/translations";
 import {
   capLargeGroup, localStats, userProvidedDisplayName, hasUserProvidedDisplayName,
-  quickReadDaysLeft, quickReadExpiryLabel, getAuthConfirmationRedirectUrl,
+  quickReadDaysLeft, quickReadExpiryLabel, getAuthConfirmationRedirectUrl, getPublicSiteOrigin,
   namesWithoutCurrentUser, compactNamesLabel, getParticipantDisplayTitle,
   detectParticipantConsistencyMismatch, detectDuoProfileNameMismatch,
   applyAutomaticParticipantMerges, getReviewableMergeSuggestions,
@@ -7975,7 +7975,7 @@ export async function createQuizChallenge(resultId, mathData, signaturePhrase) {
       .select("id")
       .single();
     if (error || !data) return null;
-    return `${window.location.origin}/quiz/${data.id}`;
+    return `${getPublicSiteOrigin()}/quiz/${data.id}`;
   } catch { return null; }
 }
 

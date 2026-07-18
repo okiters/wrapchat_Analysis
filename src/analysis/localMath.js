@@ -70,6 +70,19 @@ export function getAuthConfirmationRedirectUrl() {
   return `${window.location.origin}/auth/confirmed`;
 }
 
+// Canonical public website origin (e.g. https://wrapchat.vercel.app).
+// Must NOT rely on window.location.origin inside the native app, where it
+// resolves to a local scheme (capacitor://localhost) that recipients can't reach.
+// Used for links we hand to people who may not have the app — e.g. the quiz challenge.
+export function getPublicSiteOrigin() {
+  const configured = String(import.meta.env.VITE_PUBLIC_WEB_URL || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  // Fall back to the origin of the auth-redirect URL — it points at the same deployment.
+  const authRedirect = String(import.meta.env.VITE_AUTH_CONFIRM_REDIRECT_URL || "").trim();
+  if (authRedirect) { try { return new URL(authRedirect).origin; } catch { /* ignore */ } }
+  return window.location.origin;
+}
+
 export function namesWithoutCurrentUser(names = [], user = null) {
   const normalizedUser = normalizeDisplayName(userProvidedDisplayName(user));
   const cleanNames = (Array.isArray(names) ? names : [])
