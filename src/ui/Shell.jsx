@@ -621,12 +621,13 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 
 export const SLIDE_MS   = 480;
 // Opener title choreography: the card title fades in centered on the page,
-// holds a beat, then rises to its slot. Content beats begin partway through
-// the rise so the items cascade in *as* the title travels up. The vertical
-// distance is measured per card (JS sets --wc-opener-shift) so the "rise from
-// center" is exact and identical on web and inside the iOS WebView.
-export const OPENER_MS        = 950;
-export const OPENER_SETTLE_MS = 560;
+// holds a beat, then rises to its slot. Content items stay hidden until the
+// title lands (SETTLE ≈ OPENER − 80 so the first item appears exactly as the
+// title arrives) so the rising title never slides over/through them. The
+// vertical distance is measured per card (JS sets --wc-opener-shift) so the
+// "rise from center" is exact and identical on web and inside the iOS WebView.
+export const OPENER_MS        = 820;
+export const OPENER_SETTLE_MS = 740;
 export const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 // Reveal choreography — after the pane slide settles (SLIDE_MS), card content
 // arrives in beats via .wc-beat-1/2/3: headline value first (with a subtle
@@ -708,21 +709,33 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
   const rootRef        = useRef(null);
   const paneRef        = useRef(null);
   const [exitContent, setExitContent] = useState(null);
+  // Opener intro: title present → hold the rest of the card hidden until the
+  // title finishes rising, then reveal. No title → reveal immediately.
+  const [hasOpener, setHasOpener]   = useState(false);
+  const [introReveal, setIntroReveal] = useState(false);
 
   useLayoutEffect(() => {
     // Measure how far the opener title sits from the pane's vertical center and
     // hand the keyframe an exact px shift, so "rise from center" is identical on
     // web and native (no viewport-unit guessing). Card screens only.
     const pane = paneRef.current;
+    let title = null;
     if (pane && contentAlign !== "start") {
-      const title = pane.querySelector(".wc-opener-title");
+      title = pane.querySelector(".wc-opener-title");
       if (title) {
-        const shift = Math.max(0, Math.round(pane.clientHeight / 2 - (title.offsetTop + title.offsetHeight / 2)));
+        // Sit the title 40px above the true center — dead-center reads too low
+        // against the top chrome.
+        const shift = Math.max(0, Math.round(pane.clientHeight / 2 - (title.offsetTop + title.offsetHeight / 2) - 40));
         pane.style.setProperty("--wc-opener-shift", `${shift}px`);
       } else {
         pane.style.setProperty("--wc-opener-shift", "0px");
       }
     }
+    const opener = Boolean(title);
+    setHasOpener(opener);
+    setIntroReveal(!opener);
+    let revealTimer;
+    if (opener) revealTimer = setTimeout(() => setIntroReveal(true), OPENER_MS);
     requestAnimationFrame(() => {
       paneRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       // iOS sometimes leaves the WINDOW scrolled (rubber-band / input focus),
@@ -740,8 +753,9 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         setExitContent(null);
         paneRef.current?.style.removeProperty('--wc-enter-from');
       }, SLIDE_MS);
-      return () => clearTimeout(t);
+      return () => { clearTimeout(t); if (revealTimer) clearTimeout(revealTimer); };
     }
+    return () => { if (revealTimer) clearTimeout(revealTimer); };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
@@ -781,15 +795,24 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         /* Opener title: lands near the vertical center of the pane, holds a beat,
            then slides up to its natural slot as the rest of the card reveals. */
         @keyframes wcOpenerTitle {
-          0%   { opacity:0; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.06); }
-          15%  { opacity:1; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.06); }
-          40%  { opacity:1; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.06); }
+          /* Soft materialise: slow, gently-decelerating fade-in with a small scale
+             settle — no hard pop — then hold, then rise to the slot. */
+          0%   { opacity:0; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.05); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+          44%  { opacity:1; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.02); }
+          55%  { opacity:1; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.02); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
           100% { opacity:1; transform: translateY(0) scale(1); }
         }
-        .wc-opener-title { animation: wcOpenerTitle ${OPENER_MS}ms cubic-bezier(.2,0,.12,1) both; }
+        .wc-opener-title { animation: wcOpenerTitle ${OPENER_MS}ms both; }
         /* GuessCard reveal remounts its title long after the card entered, so it
            must NOT replay the center-rise (the measured shift is stale) — just fade. */
         .wc-reveal-now .wc-opener-title { animation: wcFadeIn 300ms ${SLIDE_EASE} both !important; }
+        /* Intro gate: while the title rises from center, EVERY other item on the
+           card is held invisible (covers raw containers that have no beat class of
+           their own, e.g. bar rows), so nothing sits under the travelling title.
+           Items with their own delayed beat animation reveal on their schedule;
+           plain items fade in together the moment the title lands (reveal class). */
+        .wc-intro > :not(.wc-opener-title):not([data-nav-row]) { opacity:0; }
+        .wc-intro-reveal > :not(.wc-opener-title):not([data-nav-row]) { opacity:1; transition:opacity 300ms ${SLIDE_EASE}; }
         /* Cards led by an opener title hold their content beats until the title
            finishes rising, so nothing appears underneath the centered title. */
         .wc-pane:has(.wc-opener-title) .wc-beat-1 { animation-delay:calc(${OPENER_SETTLE_MS}ms + 80ms*var(--wc-tempo, 1)); }
@@ -811,6 +834,10 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         .wc-exit-pane .wc-fadeup, .wc-exit-pane .wc-fadeup-2, .wc-exit-pane .wc-fadeup-3,
         .wc-exit-pane .wc-opener-title,
         .wc-exit-pane .wc-beat-1, .wc-exit-pane .wc-beat-2, .wc-exit-pane .wc-beat-3 { animation:none !important; opacity:1; transform:none; }
+        /* Card content is centered as a group above the nav. The opener title
+           still rises into place because its start point is measured DOWN from
+           this centered slot to the page center (--wc-opener-shift), so the group
+           settles centered while the title has travelled up to reach it. */
         .wc-pane:has(> [data-nav-row="true"]) > :first-child { margin-top:auto; }
         .wc-snap-scroll { scrollbar-width:none; -ms-overflow-style:none; }
         .wc-snap-scroll::-webkit-scrollbar { width:0; height:0; display:none; }
@@ -958,7 +985,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
               padding:panePadding, gap:paneGap,
               transform:isFade ? "none" : `translateX(${exitTo})`,
               opacity:isFade ? 0 : 1,
-              transition:isFade ? `opacity 180ms ${SLIDE_EASE}` : `transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
+              transition:isFade ? `opacity 240ms ${SLIDE_EASE}` : `transform ${SLIDE_MS}ms ${SLIDE_EASE}`,
               willChange:isFade ? "opacity" : "transform",
               pointerEvents:"none",
               overflowY:scrollable ? "auto" : "hidden",
@@ -967,7 +994,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
             </div>
           )}
           {/* Incoming content */}
-          <div ref={paneRef} className={`wc-pane${snapScroll ? " wc-snap-scroll" : ""}`} style={{
+          <div ref={paneRef} className={`wc-pane${snapScroll ? " wc-snap-scroll" : ""}${hasOpener ? " wc-intro" : ""}${hasOpener && introReveal ? " wc-intro-reveal" : ""}`} style={{
             position: exitContent ? "absolute" : "relative",
             inset: exitContent ? 0 : "auto",
             flex: exitContent ? "none" : 1,
@@ -976,7 +1003,7 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
             minHeight:0,
             padding:panePadding, gap:paneGap,
             animation: exitContent
-              ? (isFade ? `wcFadeIn 220ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`)
+              ? (isFade ? `wcFadeIn 240ms ${SLIDE_EASE} both` : `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both`)
               : isEntering ? `wcContentIn ${SLIDE_MS}ms ${SLIDE_EASE} both` : "none",
             ["--wc-enter-from"]: enterFrom,
             willChange: exitContent ? (isFade ? "opacity, transform" : "transform") : "auto",

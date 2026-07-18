@@ -598,7 +598,9 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
     setSid(s => s + 1);
   };
 
-  const go      = d => { setDir(d); setSid(s => s+1); setStep(s => d==="fwd" ? s+1 : s-1); };
+  // Result cards cross-fade (old items fade out, next card builds in with the
+  // opener choreography); other flows keep their directional slide.
+  const go      = d => { setDir(phase === "results" ? "fade" : d); setSid(s => s+1); setStep(s => d==="fwd" ? s+1 : s-1); };
   const back    = () => go("bk");
   const next    = () => go("fwd");
   const restart = () => {

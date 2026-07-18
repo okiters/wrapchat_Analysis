@@ -843,7 +843,6 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
     <Shell sec="lovely" prog={3} total={TOTAL} feedback={feedback("Your longest streak", 3)}>
       <T>{t("Your longest streak")}</T>
       <Big>{t("{count} days", { count: s.streak })}</Big>
-      <Sub>{t("Texted every single day for {count} days straight.", { count: s.streak })}</Sub>
       {(() => {
         const q = s.streak >= 100
           ? pick(t("quips.duo.streak100", { streak: s.streak }), `duo-streak100|${s.names.join("|")}|${s.totalMessages}|${s.streak}`)
