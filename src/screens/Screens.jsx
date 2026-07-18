@@ -609,9 +609,11 @@ function Bar({ value, max, color, label, delay=0 }) {
           transform:`scaleX(${fill})`,
           transition: fill === 0 ? "none" : `transform ${BAR_DURATION}ms cubic-bezier(.2,0,.1,1)`,
         }}>
-          {/* counter-scale keeps text undistorted; opacity fades in only after bar settles */}
+          {/* counter-scale keeps text undistorted; left origin pins it to the bar
+              start so the number doesn't drift on short bars; fades in after settle */}
           <span style={{
             display:"inline-block",
+            transformOrigin:"left center",
             transform:`scaleX(${1/f})`,
             opacity: showLabel ? 1 : 0,
             transition: showLabel ? "opacity 0.28s ease" : "none",

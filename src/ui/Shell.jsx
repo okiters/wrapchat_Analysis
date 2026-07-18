@@ -621,9 +621,12 @@ By accepting this Privacy Policy, you confirm you have read and understood it in
 
 export const SLIDE_MS   = 480;
 // Opener title choreography: the card title fades in centered on the page,
-// holds a beat, then rises to its slot. Content beats wait for the rise.
-export const OPENER_MS        = 1100;
-export const OPENER_SETTLE_MS = 880;
+// holds a beat, then rises to its slot. Content beats begin partway through
+// the rise so the items cascade in *as* the title travels up. The vertical
+// distance is measured per card (JS sets --wc-opener-shift) so the "rise from
+// center" is exact and identical on web and inside the iOS WebView.
+export const OPENER_MS        = 950;
+export const OPENER_SETTLE_MS = 560;
 export const SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 // Reveal choreography — after the pane slide settles (SLIDE_MS), card content
 // arrives in beats via .wc-beat-1/2/3: headline value first (with a subtle
@@ -707,6 +710,19 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
   const [exitContent, setExitContent] = useState(null);
 
   useLayoutEffect(() => {
+    // Measure how far the opener title sits from the pane's vertical center and
+    // hand the keyframe an exact px shift, so "rise from center" is identical on
+    // web and native (no viewport-unit guessing). Card screens only.
+    const pane = paneRef.current;
+    if (pane && contentAlign !== "start") {
+      const title = pane.querySelector(".wc-opener-title");
+      if (title) {
+        const shift = Math.max(0, Math.round(pane.clientHeight / 2 - (title.offsetTop + title.offsetHeight / 2)));
+        pane.style.setProperty("--wc-opener-shift", `${shift}px`);
+      } else {
+        pane.style.setProperty("--wc-opener-shift", "0px");
+      }
+    }
     requestAnimationFrame(() => {
       paneRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       // iOS sometimes leaves the WINDOW scrolled (rubber-band / input focus),
@@ -765,12 +781,15 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         /* Opener title: lands near the vertical center of the pane, holds a beat,
            then slides up to its natural slot as the rest of the card reveals. */
         @keyframes wcOpenerTitle {
-          0%   { opacity:0; transform: translateY(min(30vh, 200px)) scale(1.12); }
-          18%  { opacity:1; transform: translateY(min(30vh, 200px)) scale(1.12); }
-          50%  { opacity:1; transform: translateY(min(30vh, 200px)) scale(1.12); }
+          0%   { opacity:0; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.06); }
+          15%  { opacity:1; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.06); }
+          40%  { opacity:1; transform: translateY(var(--wc-opener-shift, 0px)) scale(1.06); }
           100% { opacity:1; transform: translateY(0) scale(1); }
         }
         .wc-opener-title { animation: wcOpenerTitle ${OPENER_MS}ms cubic-bezier(.2,0,.12,1) both; }
+        /* GuessCard reveal remounts its title long after the card entered, so it
+           must NOT replay the center-rise (the measured shift is stale) — just fade. */
+        .wc-reveal-now .wc-opener-title { animation: wcFadeIn 300ms ${SLIDE_EASE} both !important; }
         /* Cards led by an opener title hold their content beats until the title
            finishes rising, so nothing appears underneath the centered title. */
         .wc-pane:has(.wc-opener-title) .wc-beat-1 { animation-delay:calc(${OPENER_SETTLE_MS}ms + 80ms*var(--wc-tempo, 1)); }
@@ -850,8 +869,9 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
         flexDirection: "column",
         fontFamily: "system-ui, sans-serif",
         paddingTop: rootPaddingTop,
+        transition: `background-color 480ms ${SLIDE_EASE}`,
       }}>
-        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:rootPaddingTop, background:shellBg, zIndex:4, pointerEvents:"none" }} />
+        <div data-share-hide style={{ position:"absolute", top:0, left:0, right:0, height:rootPaddingTop, background:shellBg, zIndex:4, pointerEvents:"none", transition:`background-color 480ms ${SLIDE_EASE}` }} />
         {/* ── WAVE LINES — result screens + explicitly flagged screens only ── */}
         {(forceWaves || sec !== "upload") && <WaveLines accent={p.accent} intro={forceWaves && sec === "upload"} />}
 
@@ -1033,7 +1053,7 @@ export function GuessCard({ question, options = [], correctAnswer, revealContent
   // Shared nav button styles — inlined since GhostButton/PrimaryButton live in theme.jsx
   // marginTop:auto pins the row to the pane bottom (the pane's :has() rule
   // adds the matching top counterweight so content stays centered above it).
-  const navRow  = { display:"flex", gap:10, marginTop:"auto", paddingTop:8, paddingBottom:10, width:"100%" };
+  const navRow  = { display:"flex", gap:10, marginTop:"auto", paddingTop:8, paddingBottom:10, marginBottom:20, width:"100%" };
   const backBtn = { flex:1, padding:"13px 18px", borderRadius:999, background:"rgba(255,255,255,0.07)", border:"1.5px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.72)", fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit" };
   const nextBtn = { flex:1, padding:"13px 18px", borderRadius:999, background:p.accent, border:"none", color:p.bg, fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"inherit" };
 
