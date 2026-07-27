@@ -94,6 +94,11 @@ function pickLocalContext(math) {
     signaturePhrases: names
       .map((name, index) => ({ name, phrase: phrases[index] || "" }))
       .filter(entry => entry.phrase),
+    // Countable drama load (distress / conflict / long emotional messages)
+    // so dramaStarter is evidence-led instead of an impression.
+    dramaCounts: names
+      .map((name, index) => ({ name, count: (math?.dramaCounts || [])[index] || 0 }))
+      .filter(entry => entry.count > 0),
   };
 }
 

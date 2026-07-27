@@ -634,14 +634,28 @@ function Words({ words, bigrams }) {
   // Keep the reveal short and punchy: top 3 words + top 3 phrases = 6.
   const top3w=(words||[]).slice(0,3);
   const top3b=(bigrams||[]).slice(0,3);
-  const combined=[...top3w.map(([w,c])=>({w,c})),...top3b.map(([w,c])=>({w,c}))].slice(0,6);
+  // Words and phrases are separate rankings. Medalling them as one list made
+  // the phrases (naturally lower counts) read as filler.
+  const groups=[
+    { key:"words", label:"Most used words", items:top3w, medal:true },
+    { key:"phrases", label:"Most used phrases", items:top3b, medal:false },
+  ].filter(group=>group.items.length);
+  let row=0;
   return (
-    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:4 }}>
-      {combined.map(({w,c},i)=>(
-        <div key={i} style={{ animation:`wcStaggerItemIn 280ms calc(${OPENER_SETTLE_MS}ms + ${i * 90}ms) ease-out both`, display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: i<3 ? (ink.light ? "rgba(31,24,78,0.10)" : "rgba(255,255,255,0.12)") : (ink.light ? "rgba(31,24,78,0.05)" : "rgba(0,0,0,0.15)"), borderRadius:14 }}>
-          <span style={{ width:26, fontSize:14, flexShrink:0 }}>{M[i]||i+1}</span>
-          <span style={{ flex:1, fontWeight:700, color:ink.text, fontSize:15, letterSpacing:-0.2 }}>{w}</span>
-          <span style={{ fontSize:13, color:ink.dim, fontWeight:600 }}>{c.toLocaleString()}x</span>
+    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:12 }}>
+      {groups.map(group=>(
+        <div key={group.key} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:ink.faint, paddingLeft:2 }}>{group.label}</div>
+          {group.items.map(([w,c],i)=>{
+            const delay=row++;
+            return (
+              <div key={i} style={{ animation:`wcStaggerItemIn 280ms calc(${OPENER_SETTLE_MS}ms + ${delay * 90}ms) ease-out both`, display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background: ink.light ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.10)", borderRadius:14 }}>
+                <span style={{ width:26, fontSize:14, flexShrink:0, color:ink.dim }}>{group.medal ? (M[i]||i+1) : i+1}</span>
+                <span style={{ flex:1, fontWeight:700, color:ink.text, fontSize:15, letterSpacing:-0.2 }}>{w}</span>
+                <span style={{ fontSize:13, color:ink.dim, fontWeight:600 }}>{c.toLocaleString()}x</span>
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>
@@ -954,32 +968,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 11 — Time of Day
-    <Shell sec="stats" prog={11} total={TOTAL} feedback={feedback("Time of day", 11)}>
-      <T>{t("Time of day")}</T>
-      {ai?.timeOfDay ? (
-        <>
-          <div style={{display:"flex",gap:0,marginTop:16,width:"100%",justifyContent:"space-around",alignItems:"flex-start"}}>
-            {[ai.timeOfDay.personA, ai.timeOfDay.personB].map((p, i) => (
-              <div key={i} style={{textAlign:"center"}}>
-                <div style={{fontSize:36,fontWeight:800,color:"#fff"}}>{p?.peakHour || "—"}</div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{p?.peakDaypart || ""}</div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:4}}>{p?.name || s.names[i]}</div>
-              </div>
-            ))}
-          </div>
-          {ai.timeOfDay.contrast && <Sub mt={14}>{ai.timeOfDay.contrast}</Sub>}
-        </>
-      ) : aiLoading ? (
-        <div style={{marginTop:24}}><Dots /></div>
-      ) : (
-        <Sub mt={14}>{t("Not enough data to show.")}</Sub>
-      )}
-      <Nav back={back} next={next} />
-    </Shell>,
-
-    // Card 12 — Chat vibe
-    <Shell sec="ai" prog={12} total={TOTAL} feedback={feedback("Chat vibe", 12)}>
+    // Card 11 — Chat vibe
+    <Shell sec="ai" prog={11} total={TOTAL} feedback={feedback("Chat vibe", 11)}>
       <T>{t("Chat vibe")}</T>
       {/* Closing card breathes at lovely tempo — same beat system, softer pace */}
       <div className="wc-beat-2" style={{["--wc-tempo"]:1.15,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:"1.4rem 1.5rem",width:"100%",textAlign:"center",marginTop:16,fontSize:16,lineHeight:1.7,fontStyle:"italic",color:"#fff",minHeight:80,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>
@@ -989,8 +979,8 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
       <Nav back={back} next={next} />
     </Shell>,
 
-    // Card 13 — What's really going on (last)
-    <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("What's really going on", 13)}>
+    // Card 12 — What's really going on (last)
+    <Shell sec="ai" prog={12} total={TOTAL} feedback={feedback("What's really going on", 12)}>
       <T>{t("What's really going on")}</T>
       <AICard label={t(relationshipReadTitle)} value={ai?.relationshipSummary} loading={aiLoading} />
       <Nav back={back} next={next} nextLabel="See summary" />
@@ -1627,7 +1617,7 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
 
     // Card 3 — Guess who apologises more (new — GuessCard)
     // onReveal auto-advances to card 4 which shows the full context
-    <Shell sec="toxicity" prog={3} total={TOXICITY_SCREENS} feedback={feedback("Guess who apologises more", 3, ai?.apologyGuessThreshold)}>
+    <Shell sec="toxicity" prog={3} total={TOXICITY_SCREENS} feedback={feedback("Guess who apologises more", 3)}>
       <GuessCard
         question={t("Who do you think apologises more?")}
         options={[personAName, personBName]}
@@ -1949,7 +1939,7 @@ export function GrowthReportScreen({ s, ai, aiLoading, step, back, next, resultI
 
     // Card 4 — Guess Who Changed More (new — GuessCard)
     // onReveal auto-advances to card 5 which shows the full explanation
-    <Shell sec="growth" prog={4} total={GROWTH_SCREENS} feedback={feedback("Guess who changed more", 4, ai?.growthGuessThreshold)}>
+    <Shell sec="growth" prog={4} total={GROWTH_SCREENS} feedback={feedback("Guess who changed more", 4)}>
       <GuessCard
         question={t("Who do you think changed more?")}
         options={[personAName, personBName]}
@@ -2093,7 +2083,7 @@ export function AccountaReportScreen({ s, ai, aiLoading, step, back, next, resul
     </Shell>,
 
     // Card 2 — Guess who made more promises (new — GuessCard)
-    <Shell sec="accounta" prog={2} total={ACCOUNTA_SCREENS} feedback={feedback("Guess who made more promises", 2, ai?.promiseGuessThreshold)}>
+    <Shell sec="accounta" prog={2} total={ACCOUNTA_SCREENS} feedback={feedback("Guess who made more promises", 2)}>
       <GuessCard
         question={t("Who do you think made more promises?")}
         options={[personAName, personBName]}
@@ -2275,7 +2265,7 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
     </Shell>,
 
     // Card 4 — Guess who brings more positive energy (new — GuessCard)
-    <Shell sec="energy" prog={4} total={ENERGY_SCREENS} feedback={feedback("Guess who lifts the chat more", 4, ai?.energyGuessValid)}>
+    <Shell sec="energy" prog={4} total={ENERGY_SCREENS} feedback={feedback("Guess who lifts the chat more", 4)}>
       <GuessCard
         question={t("Who lifts the chat more?")}
         options={[personAName, personBName]}
@@ -2320,7 +2310,11 @@ export function EnergyReportScreen({ s, ai, aiLoading, step, back, next, resultI
               </div>
             ))}
           </div>
-          {ai.timeOfDay.contrast && <Sub mt={14}>{ai.timeOfDay.contrast}</Sub>}
+          {ai.timeOfDay.contrast && (
+            <div style={{ marginTop:18, width:"100%" }}>
+              <AICard label={t("What the timing says")} value={ai.timeOfDay.contrast} loading={false} />
+            </div>
+          )}
         </>
       ) : aiLoading ? (
         <div style={{ marginTop:24 }}><Dots /></div>
@@ -7963,8 +7957,9 @@ export async function createQuizChallenge(resultId, mathData, signaturePhrase) {
       ghostAvg:        mathData.ghostAvg       || [],
       spiritEmoji:     mathData.spiritEmoji    || [],
       signatureWord:   mathData.signatureWord  || [],
-      signaturePhrase: mathData.signaturePhrase || [],
-      signaturePhrase: Array.isArray(signaturePhrase) ? signaturePhrase : [],
+      signaturePhrase: Array.isArray(signaturePhrase) && signaturePhrase.length
+        ? signaturePhrase
+        : (mathData.signaturePhrase || []),
       streak:          mathData.streak         || 0,
       topWords:        (mathData.topWords      || []).slice(0, 6),
       totalMessages:   mathData.totalMessages  || 0,

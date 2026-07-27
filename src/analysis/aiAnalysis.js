@@ -15,6 +15,8 @@ import { normalizeUiLangCode, LANG_META } from "../i18n/translations";
 import { callAnalysis } from "./claudeClient";
 import { redactSensitiveText } from "./redactSensitive";
 import { groundResultQuotes } from "./voiceLint";
+import { contrastContradictsDayparts, dedupeSharedEvents } from "./consistency";
+import { buildSpineRuns, SENSITIVE_CONTENT_RE } from "./spine";
 import {
   buildAnalystSystemPrompt as sharedBuildAnalystSystemPrompt,
   CORE_A_WRITING_STYLE as SHARED_CORE_A_WRITING_STYLE,
@@ -294,23 +296,6 @@ function formatChunksForAI(messages, chunks) {
 // Chats up to this size go to Claude in full — the early versions used 2000
 // and it was the single biggest reason small-chat reports felt so grounded.
 const FULL_CHAT_LIMIT = 2000;
-
-function buildSpineRuns(messages, { runs = 120, runLen = 14 } = {}) {
-  const n = messages.length;
-  if (n <= runs * runLen) return [[0, n - 1]];
-  const step = n / runs;
-  const out = [];
-  for (let r = 0; r < runs; r += 1) {
-    const start = Math.max(0, Math.min(n - runLen, Math.round(r * step)));
-    const end = Math.min(n - 1, start + runLen - 1);
-    if (out.length && start <= out[out.length - 1][1]) {
-      out[out.length - 1][1] = Math.max(out[out.length - 1][1], end);
-    } else {
-      out.push([start, end]);
-    }
-  }
-  return out;
-}
 
 function formatSpine(messages, runs) {
   const parts = ["TIMELINE SPINE (evenly spaced excerpts across the FULL history, in chronological order — the chat's ordinary flow):"];
@@ -1067,7 +1052,7 @@ export function normalizeTimeOfDay(item, math = null) {
   const daypartOf = h => (h >= 5 && h <= 11) ? "morning" : (h >= 12 && h <= 16) ? "afternoon" : (h >= 17 && h <= 21) ? "evening" : "late night";
   if (math && !math.isGroup && Array.isArray(math.names) && Array.isArray(math.peakHour) && math.names.length >= 2) {
     const rawHours = Array.isArray(math.peakHourRaw) ? math.peakHourRaw : [];
-    return {
+    const built = {
       personA: {
         name: math.names[0] || strOr(personA.name),
         peakHour: math.peakHour[0] || strOr(personA.peakHour),
@@ -1078,8 +1063,14 @@ export function normalizeTimeOfDay(item, math = null) {
         peakHour: math.peakHour[1] || strOr(personB.peakHour),
         peakDaypart: Number.isInteger(rawHours[1]) ? daypartOf(rawHours[1]) : strOr(personB.peakDaypart),
       },
-      contrast: strOr(safe.contrast),
+      contrast: "",
     };
+    const dayparts = [built.personA.peakDaypart, built.personB.peakDaypart];
+    const contrast = strOr(safe.contrast);
+    // Drop a contrast that argues with the clock rather than shipping a card
+    // whose sentence contradicts its own numbers.
+    built.contrast = contrastContradictsDayparts(contrast, dayparts) ? "" : contrast;
+    return built;
   }
   return {
     personA: { name: strOr(personA.name), peakHour: strOr(personA.peakHour), peakDaypart: strOr(personA.peakDaypart) },
@@ -1256,7 +1247,10 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       funniestReason: momentFieldText(shared.funniestReason),
       dramaStarter: strOr(shared.dramaStarter),
       dramaContext: strOr(shared.dramaContext),
-      signaturePhrases: cleanStringArray(shared.signaturePhrases, 2),
+      // A signature phrase is something short enough to be recognisable as
+      // a catchphrase; the model sometimes returns a whole sentence.
+      signaturePhrases: cleanStringArray(shared.signaturePhrases, 2)
+        .filter(phrase => phrase.split(/\s+/).length <= 6),
       relationshipStatus: sanitizedRelationshipStatus,
       relationshipStatusWhy: relationshipStatusWasAdjusted
         ? strOr(relationshipContext?.reasoning, `Use the user-selected relationship type "${lockedRelationshipCategory}" as the framing for this chat.`)
@@ -1317,7 +1311,7 @@ export function normalizeConnectionDigest(raw, math, relationshipType, relations
   const rawShared = raw && typeof raw === "object" && raw.shared && typeof raw.shared === "object" ? raw.shared : {};
   return {
     ...normalized,
-    shared: resolveMomentPicks(rawShared, normalized.shared, quoteBank),
+    ...dedupeSharedEvents(resolveMomentPicks(rawShared, normalized.shared, quoteBank), normalized.people),
     part: "connection",
   };
 }

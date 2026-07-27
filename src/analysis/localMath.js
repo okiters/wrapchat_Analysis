@@ -359,6 +359,15 @@ const CHAT_FILLER_WORDS = [
   "gerçekten", "bişey", "bisey", "bişi", "bisi", "birşey", "hiçbi", "hiçbir",
   "bugün", "yarın", "dün", "gün", "akşam", "sabah", "gece", "hafta",
   "today", "tomorrow", "tonight", "yesterday", "morning", "night", "week", "day",
+  // Generic verbs and adverbs: frequent everywhere, personality nowhere.
+  "need", "take", "give", "come", "coming", "look", "looking", "feel", "tell",
+  "talk", "call", "send", "make", "made", "does", "done", "back", "now", "how",
+  "one", "two", "very", "just", "also", "than", "them", "there", "here", "were",
+  "been", "being", "have", "having", "with", "from", "about", "would", "could",
+  "should", "maybe", "little", "lot", "bit", "way", "put", "keep", "let",
+  "gidiyor", "geliyor", "yapıyor", "oluyor", "ediyor", "diyor", "veriyor",
+  "gerek", "lazım", "belki", "sanki", "biraz", "kadar", "sonra", "önce",
+  "şimdi", "burada", "orada", "böyle", "şöyle", "diye", "gibi", "için",
   "demek", "dedim", "dedi", "diyorum", "ederim", "yapıyo", "oluyo", "değil mi",
   // English
   "like", "okay", "yes", "actually", "really", "thing", "things", "stuff",
@@ -975,7 +984,7 @@ const MODE_META = {
     blurb: "Relationship status, toxicity, and warning signs.",
   },
 };
-export const DUO_CASUAL_SCREENS = 13;
+export const DUO_CASUAL_SCREENS = 12;
 export const DUO_REDFLAG_SCREENS = 7;
 export const GROUP_CASUAL_SCREENS = 16;
 export const GROUP_REDFLAG_SCREENS = 6;
@@ -1449,7 +1458,7 @@ export function spotDynamics({ messages, namesAll, namesSorted, msgCounts, start
 // recognizably THEIRS: frequent for them, rare for everyone else, and never
 // an everyday formula anyone might say.
 // ─────────────────────────────────────────────────────────────────
-const SIG_NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached|end-to-end/i;
+const SIG_NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached|end-to-end|voice call|video call|missed call|call back|click to call|answered on other|other device|no answer|cevapsız|sesli arama|görüntülü arama|geri ara/i;
 
 // Everyday greetings/formulas across the app's languages — never a signature.
 const CASUAL_FORMULA_PHRASES = [
@@ -1462,6 +1471,15 @@ const CASUAL_FORMULA_PHRASES = [
   "afiyet olsun", "hayırlı olsun", "iyi uykular", "tatlı rüyalar", "hoş geldin",
   "teşekkür ederim", "çok teşekkür", "sağ ol", "seni seviyorum", "öptüm",
   "iyi misin", "ne yapıyorsun", "napıyorsun", "hadi bakalım",
+  // Reflex fillers: high-frequency but zero personality. A signature phrase
+  // has to be something a friend would recognise as THEIRS.
+  "allah allah", "fark etmez", "merak etme", "ne bileyim", "her neyse",
+  "boş ver", "bos ver", "olur olur", "tamam tamam", "yok ya", "aynen aynen",
+  "bilmiyorum ki", "olabilir tabi", "bakarız artık", "neyse ya",
+  "no worries", "no problem", "i guess", "i mean", "you know", "kind of",
+  "great idea", "sounds good", "good idea", "how are you doing", "what are you doing",
+  "that's nice", "thats nice", "very nice", "so nice", "have fun", "good job",
+  "whatever man", "never mind", "for sure", "makes sense",
   // de
   "wie geht's", "wie gehts", "gute nacht", "guten morgen", "bis später",
   "bis morgen", "alles gute", "danke dir", "hab dich lieb",
@@ -1485,14 +1503,51 @@ const GREETING_WORDS_FOLDED = new Set(
   ["merhaba", "selam", "selamlar", "hello", "hi", "hey", "hola", "ciao", "oi", "salut", "hallo", "günaydın", "naber"].map(foldToken)
 );
 
+// Whole-string containment missed windowed fragments: "are you doing" is a
+// slice of "how are you doing" but contains neither "how are you" nor the
+// reverse. Any two consecutive tokens shared with a formula is enough.
 function isCasualFormula(foldedGram) {
   if (GREETING_WORDS_FOLDED.has(foldedGram)) return true;
-  return CASUAL_FORMULA_FOLDED.some(formula =>
-    foldedGram.includes(formula) || formula.includes(foldedGram)
-  );
+  const gramWords = foldedGram.split(" ");
+  return CASUAL_FORMULA_FOLDED.some(formula => {
+    if (foldedGram.includes(formula) || formula.includes(foldedGram)) return true;
+    const formulaWords = formula.split(" ");
+    if (formulaWords.length < 2) return false;
+    for (let i = 0; i + 1 < gramWords.length; i += 1) {
+      for (let j = 0; j + 1 < formulaWords.length; j += 1) {
+        if (gramWords[i] === formulaWords[j] && gramWords[i + 1] === formulaWords[j + 1]) return true;
+      }
+    }
+    return false;
+  });
+}
+
+// A phrase is memorable because it carries a word that is NOT ubiquitous in
+// this chat. "are you doing" is three of the most common words in any chat;
+// "krallar gibi" carries one rare word and reads as personality. Scoring by
+// frequency alone always surfaces the former, so grams are weighted by the
+// rarity of their least-common token and must clear a rarity bar.
+function buildGlobalUnigramCounts(byName, namesAll) {
+  const counts = new Map();
+  namesAll.forEach(name => {
+    byName[name].forEach(({ body }) => {
+      if (SIG_NOISE_RE.test(body) || /https?:\/\/|www\./i.test(body)) return;
+      body
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s']/gu, " ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .forEach(word => counts.set(word, (counts.get(word) || 0) + 1));
+    });
+  });
+  return counts;
 }
 
 function computeSignaturePhrases(byName, namesAll) {
+  // A phrase must clear both a floor and a rate: 4 uses means something in a
+  // 600-message chat and nothing in a 22k one.
+  const totalMessages = namesAll.reduce((sum, name) => sum + (byName[name]?.length || 0), 0);
+  const minUses = Math.min(20, Math.max(4, Math.round(totalMessages / 1200)));
   const gramCounts = new Map();
   namesAll.forEach(name => {
     byName[name].forEach(({ body }) => {
@@ -1509,7 +1564,7 @@ function computeSignaturePhrases(byName, namesAll) {
           const gramWords = words.slice(i, i + size);
           // At least one content-bearing token, so pure stop-word grams
           // ("ya bi", "de la") never qualify.
-          const contentCount = gramWords.filter(word => isContentToken(word, 3)).length;
+          const contentCount = gramWords.filter(word => isContentToken(word, 4)).length;
           if (contentCount === 0) continue;
           // No URL/system fragments ("google com", "media omitted").
           if (gramWords.some(word => TOKEN_WA_NOISE_WORDS.has(word) || TOKEN_WA_NOISE_WORDS.has(foldToken(word)))) continue;
@@ -1523,21 +1578,35 @@ function computeSignaturePhrases(byName, namesAll) {
     });
   });
 
+  const globalUni = buildGlobalUnigramCounts(byName, namesAll);
+  // At least one token must be rarer than this to qualify as distinctive.
+  const rarityCeiling = Math.max(30, Math.round(totalMessages / 60));
   const usedFolded = [];
   const result = {};
   namesAll.forEach(name => {
     let best = null;
     for (const [gram, entry] of gramCounts) {
       const mine = entry.byName[name] || 0;
-      if (mine < 4) continue;
+      if (mine < minUses) continue;
       const others = entry.total - mine;
-      if (mine < others * 3) continue; // must be recognizably theirs
+      // Recognizably theirs, but a phrase the other person also picked up is
+      // still a signature if this person clearly owns it (2x, not 3x).
+      if (mine < others * 2) continue;
       const folded = gram.split(" ").map(foldToken).join(" ");
       if (isCasualFormula(folded)) continue;
       if (usedFolded.some(used => used.includes(folded) || folded.includes(used))) continue;
       const size = gram.split(" ").length;
-      // Denser phrases win: "bi bakalım artık" over "kanka ben".
-      const score = mine * (size === 3 ? 1.15 : 1) * (1 + 0.6 * (entry.contentCount - 1));
+      const contentCounts = gram
+        .split(" ")
+        .filter(word => isContentToken(word, 4))
+        .map(word => globalUni.get(word) || 1);
+      if (!contentCounts.length) continue; // no content word at all
+      const rarest = Math.min(...contentCounts);
+      if (rarest > rarityCeiling) continue; // its content words are ubiquitous
+      // Rarity of the least-common token is the personality signal; frequency
+      // only decides between phrases that already carry one.
+      const rarityWeight = 1 / Math.log2(2 + rarest);
+      const score = mine * rarityWeight * (size === 3 ? 1.15 : 1) * (1 + 0.4 * (entry.contentCount - 1));
       if (!best || score > best.score) best = { gram, score, folded };
     }
     if (best) {
@@ -1716,6 +1785,17 @@ export function localStats(messages) {
     });
     perPersonWf[n] = wf;
   });
+  // Drama load per person: distress-marked messages plus long emotional
+  // dumps. dramaStarter used to be an impression; this makes it countable.
+  const dramaByName = {};
+  namesAll.forEach(n => { dramaByName[n] = 0; });
+  messages.forEach(({ name, body }) => {
+    if (!(name in dramaByName)) return;
+    if (NOISE_RE.test(body)) return;
+    const heavy = DISTRESS_RE.test(body) || AGGRO_RE.test(body) || BREAKUP_RE.test(body);
+    if (heavy || (body.length > 220 && /[!?]/.test(body))) dramaByName[name] += 1;
+  });
+
   const sigWordByName = {};
   namesAll.forEach(n=>{
     const ranked = Object.entries(perPersonWf[n]).sort((a,b)=>b[1]-a[1]);
@@ -1767,6 +1847,7 @@ export function localStats(messages) {
     peakHourRaw: namesSorted.map(n=>peakHourByName[n]),
     signatureWord: namesSorted.map(n=>sigWordByName[n]),
     signaturePhrase: namesSorted.map(n=>sigPhraseByName[n]||""),
+    dramaCounts: namesSorted.map(n => dramaByName[n] || 0),
     ghostAvg, ghostName, ghostEqual, streak: maxStreak, funniestPerson, laughCausedBy,
     topMonths: topMonths.length?topMonths:[["This month",messages.length]],
     convStarter: topStarterEntry?.[0]||namesSorted[0], convStarterPct: starterPct,

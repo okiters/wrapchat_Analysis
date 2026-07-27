@@ -13,7 +13,7 @@
 // logged per call in ai_usage_log so output changes can be correlated.
 // ─────────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = 10;
+export const PROMPT_VERSION = 12;
 
 // ── Voice (moved from src/analysis/voice.js — that file re-exports) ──
 
@@ -353,10 +353,17 @@ function buildDuoLocalContext(localContext, relationshipContext, isGroup) {
   const signatures = signaturePairs.length
     ? `\nLocal counts found signature-phrase candidates: ${signaturePairs.map(entry => `${entry.name}: "${entry.phrase}"`).join(", ")}. Verify against the windows: keep a candidate only if it genuinely carries that person's personality, or replace it with a MORE characterful phrase you can actually see them repeat. Never invent one.`
     : "";
+  const dramaPairs = (Array.isArray(lc.dramaCounts) ? lc.dramaCounts : [])
+    .map(entry => ({ name: scalar(entry?.name, 40), count: Number(entry?.count) || 0 }))
+    .filter(entry => entry.name && entry.count > 0)
+    .slice(0, 6);
+  const drama = dramaPairs.length
+    ? `\nDRAMA LOAD (local counts of distress, conflict, and long emotional messages): ${dramaPairs.map(entry => `${entry.name}: ${entry.count}`).join(", ")}. Use these counts as the starting point for dramaStarter, then confirm from the windows whose material actually drives the drama. If the counts are close, say "Shared".`
+    : "";
   const evidence = !isGroup && relationshipContext?.evidence
     ? `\nRELATIONSHIP EVIDENCE: A direct-address snippet supporting the confirmed relationship is: "${scalar(relationshipContext.evidence, 300)}". Use it as confirmation, but do not over-quote it.`
     : "";
-  return `IMPORTANT CONTEXT: ${base}${signatures}${evidence}`;
+  return `IMPORTANT CONTEXT: ${base}${signatures}${drama}${evidence}`;
 }
 
 function buildCastBlock(recurringCast) {

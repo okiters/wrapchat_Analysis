@@ -6,7 +6,51 @@ Add a note before each commit. Use the next version number. Latest version alway
 
 ## Pending (not yet committed)
 
-_Nothing pending — everything below shipped in v3.7 and earlier._
+_Nothing pending — everything below is shipped._
+
+---
+
+## v3.8 — Report self-consistency, longer conversation sampling, signature quality
+
+Driven by a full audit of a real 22k-message report (all 25 cards reviewed as screenshots) plus live golden runs against a 61k chat.
+
+### UI: duplicate time card removed, contrast panelled, flags restored, words regrouped
+**Files:** `src/screens/Screens.jsx`, `src/analysis/localMath.js`
+
+- **Time of Day was shipping twice** — once in General Wrapped (card 11) and once in the Energy report ("Energy by time") with identical numbers and layout. Removed from General Wrapped, kept in Energy; following cards renumbered and `DUO_CASUAL_SCREENS` 13 → 12.
+- **The contrast sentence was bare text on the background** while every other insight sits in a bordered AICard panel. Now wrapped in an AICard labelled "What the timing says", so the card matches the rest of the system.
+- **Flag button was missing on guess cards whenever the guess mechanic was disabled.** The feedback target was gated on the same threshold as the interactive mode (`energyGuessValid`, `apologyGuessThreshold`, `growthGuessThreshold`, `promiseGuessThreshold`), so a flat content card rendered with no way to report it. Ungated on all four: the card always shows content, so it is always flaggable.
+- **"Your language" mixed two rankings under one medal list** — 3 top words (275x, 186x, 181x) then 3 top phrases (16x, 15x, 10x), which made the phrases read as padding. Now two labelled groups ("Most used words" / "Most used phrases"), medals only within words, no cross-list ranking.
+- Fixed a duplicate `signaturePhrase` key in the quiz payload (the AI-verified phrase now wins, local math is the fallback).
+
+Not changed: vertical centering across report cards is inconsistent (some cards float mid-screen, others sit high) — it follows from content height under a shared centering rule, so it needs a design decision rather than a patch.
+
+### Sampling redesign: longer contiguous conversations + explicit-content filter
+**Files:** `src/analysis/spine.js` (new), `src/analysis/aiAnalysis.js`, `tests/spine.test.js` (new)
+
+The timeline spine sampled 120 fixed 14-message slices — even coverage, but a 14-message slice often cuts a story in half. Rewritten as ~60 adaptive runs: each evenly spaced anchor snaps to the liveliest exchange in its neighbourhood (tight reply gaps + speaker alternation) and then grows while the conversation keeps flowing (up to 42 messages, breaking on a 45-minute gap), under a 1900-line budget. Measured on the real 61k chat: average run 14 → 31 messages, 120 → 61 runs, same budget.
+
+Explicit stretches are now steered around entirely: `SENSITIVE_CONTENT_RE` (sexual/explicit vocabulary, en/tr/es/pt/fr/de/it) is checked when choosing an anchor and when growing a run, so intimate conversations are never sampled, summarised, or quoted. PII/credentials were already redacted upstream; this is the separate "inappropriate content" rule. A leak test asserts a 300-message explicit stretch never appears in any run. Extracted to a pure module so it is unit-testable (6 tests).
+
+### Report self-consistency: clock contradictions, event repetition, signature quality, drama evidence
+**Files:** `src/analysis/consistency.js` (new), `src/analysis/aiAnalysis.js`, `src/analysis/localMath.js`, `analysis-test/aiDebugHelpers.js`, `supabase/functions/_shared/prompts.js`, `tests/consistency.test.js` (new)
+
+Found by auditing a real 22k-message report end to end (screenshots of all 25 cards).
+
+**Clock contradiction (fixed deterministically).** Time-of-day cards printed "2pm / afternoon" for both people while the sentence underneath said "ikisi de geç saatlerde canlanıyor" (both come alive late at night). Peak hours were already forced from local math; the free-text `contrast` was not checked against them. `contrastContradictsDayparts` now matches daypart vocabulary in 8 languages against the authoritative dayparts and blanks a contrast that argues with the clock.
+
+**One event narrated on three cards (fixed deterministically).** `resolveMomentPicks` only guarded the six candidateId-anchored fields, so the same airport exchange anchored Most Loving Moment, The Miss, and a love-language example. New `dedupeSharedEvents` claims every quote and every event once in card order: a required field keeps its text but loses the repeated quote's marks, an optional card (loveMiss, loveMissUnspoken) left retelling a told story is emptied so the UI skips it.
+
+**Signature phrases.** Real-data audit of a 61k chat exposed three flaws: WhatsApp call-log lines ("call click to call back", "answered on other device") were in the phrase pool and dominated by frequency; the casual-formula blocklist only matched whole strings, so "are you doing" slipped past "how are you"; and reflex fillers ("allah allah", "fark etmez") ranked as personality. Now: call-log noise filtered, token-level formula overlap (any two consecutive shared tokens), reflex-filler blocklist, a chat-size-scaled minimum (capped at 20 uses), 2x-not-3x distinctiveness so a phrase the other person picked up still counts, and rarity weighting so a phrase must carry at least one non-ubiquitous content word. Also widened the generic-verb filler list, which improves top words too. Honest limit: frequency n-grams still surface some bland phrases; the AI verification against the windows remains the final arbiter.
+
+**Drama attribution.** `dramaStarter` was an impression. `localStats` now computes `dramaCounts` per person (distress + conflict + long emotional messages), the payload carries them, and the prompt renders a DRAMA LOAD line with an explicit instruction to start from the counts, confirm from the windows, and say "Shared" when close. Verified in the rendered prompt (Ozge: 117, Hubby: 49).
+
+Guards live in a pure module so they are unit-testable without Vite-only imports.
+
+**Verified on the real 61k chat (live golden runs).** First run surfaced two more issues, both fixed: the dedupe missed per-person `careStyle.examples` and the summary/read fields (`loveLanguageMismatch` et al), so the claim list now covers every quote-bearing field with the moment cards claiming first; and the emoji lint was flagging a participant whose WhatsApp name is literally "Hubby 🧡" (name leaves are now exempt). The daypart guard was also over-firing: it blanked a good sentence that mentioned "morning" only as sequencing, so a contradiction now requires peak-activity vocabulary near the time word. Signature phrases are capped at 6 words (the model was returning whole sentences). Final run: **all reports lint clean**, nine cards telling nine distinct stories.
+
+70 tests passing. `PROMPT_VERSION` 12, deployed to the edge function.
+
 
 ---
 

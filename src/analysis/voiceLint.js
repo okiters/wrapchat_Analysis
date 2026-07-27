@@ -120,7 +120,10 @@ export function lintResult(result) {
   });
 
   for (const [path, text] of prose) {
-    issues.push(...lintText(text, path));
+    // Participant names come from the chat export: an emoji in "Hubby 🧡" is
+    // the person's actual name, not model decoration.
+    const isNameLeaf = /(^|\.)name$/i.test(path);
+    issues.push(...lintText(text, path).filter(issue => !(isNameLeaf && issue.rule === "emoji")));
 
     // Calibration parroting: quoting an example's invented chat line, or a
     // sentence that heavily overlaps an example's wording.
