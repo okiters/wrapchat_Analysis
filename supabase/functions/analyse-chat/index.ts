@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { OUTPUT_SCHEMAS } from "./schemas.ts";
 // Server-owned prompt construction — the client sends a pipeline name plus
 // structured data; all prompt text lives in _shared/prompts.js.
-import { renderPipelinePrompt, PIPELINES, PROMPT_VERSION } from "../_shared/prompts.js";
+import { renderPipelinePrompt, PIPELINES, PROMPT_VERSION, ANALYSIS_CONTRACT } from "../_shared/prompts.js";
 
 // Output budget. The Core A / connection schema asks for ~50 populated fields;
 // the old 2600 clamp regularly truncated it (and the retry below could never
@@ -449,6 +449,26 @@ serve(async (req) => {
       );
     }
 
+    // Prompts and the client-side post-processing that shapes their output are
+    // deployed separately. Serving current prompts to a client built before the
+    // guards they rely on yields quietly degraded reports, so refuse instead.
+    const clientContract = isRecord(body) && Number.isFinite(body.contract) ? Number(body.contract) : 0;
+    const clientBuild = isRecord(body) && typeof body.client_build === "string"
+      ? body.client_build.slice(0, 40)
+      : "unknown";
+    if (clientContract < ANALYSIS_CONTRACT) {
+      console.warn("[analyse-chat] stale client refused:", { clientContract, required: ANALYSIS_CONTRACT, clientBuild });
+      return new Response(
+        JSON.stringify({
+          error: "stale_client",
+          detail: "This app build is older than the current analysis engine. Please update WrapChat.",
+          client_contract: clientContract,
+          required_contract: ANALYSIS_CONTRACT,
+        }),
+        { status: 409, headers: { ...CORS, "Content-Type": "application/json" } }
+      );
+    }
+
     const pipeline = isRecord(body) && typeof body.pipeline === "string" ? body.pipeline : "";
     const rawTextMode = isRecord(body) && body.raw_text === true;
     if (!PIPELINES[pipeline as keyof typeof PIPELINES]) {
@@ -473,7 +493,7 @@ serve(async (req) => {
     const schemaId = built.schemaId;
     let outputSchema = schemaId && OUTPUT_SCHEMAS[schemaId] ? OUTPUT_SCHEMAS[schemaId] : null;
     const safeMaxTokens = Math.min(built.maxTokens, MAX_PROVIDER_TOKENS);
-    console.log("[analyse-chat] request:", { pipeline, promptVersion: PROMPT_VERSION, schemaMode, schemaId, safeMaxTokens, rawTextMode });
+    console.log("[analyse-chat] request:", { pipeline, promptVersion: PROMPT_VERSION, clientBuild, schemaMode, schemaId, safeMaxTokens, rawTextMode });
 
     if (system.length > MAX_SYSTEM_CHARS || userContent.length > MAX_USER_CONTENT_CHARS) {
       return new Response(

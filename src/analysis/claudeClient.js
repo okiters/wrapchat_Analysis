@@ -3,8 +3,12 @@
 // Imported by both localMath (relationship confirm) and aiAnalysis.
 // ─────────────────────────────────────────────────────────────────
 import { supabase } from "../supabase";
+import { ANALYSIS_CONTRACT } from "../../supabase/functions/_shared/prompts.js";
 
 const MOCK_MODE = import.meta.env.VITE_MOCK_CLAUDE === "true";
+
+// Injected by vite at build time; "dev" under the dev server and the harness.
+const CLIENT_BUILD = typeof __WRAPCHAT_BUILD__ !== "undefined" ? __WRAPCHAT_BUILD__ : "dev";
 
 const MOCK_ANALYSIS_PAYLOAD = {
   people: [
@@ -74,7 +78,13 @@ export async function callAnalysis(pipeline, payload, { rawText = false } = {}) 
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ pipeline, payload, raw_text: rawText || undefined }),
+        body: JSON.stringify({
+          pipeline,
+          payload,
+          raw_text: rawText || undefined,
+          contract: ANALYSIS_CONTRACT,
+          client_build: CLIENT_BUILD,
+        }),
         signal: controller.signal,
       }
     );
@@ -147,6 +157,7 @@ export function userFacingAnalysisError(error) {
   const combined = [message, providerDetail].filter(Boolean).join("\n");
   if (!message) return "The AI analysis didn't come through. Please try again.";
   if (message.includes("timed out")) return "The AI took too long to answer. Please try again.";
+  if (/stale_client|legacy_client/i.test(combined)) return "This app version is out of date. Please update WrapChat to run new analyses.";
   if (/no_entitlement/i.test(combined)) return "You need credits or a pack before running more AI reads.";
   if (/rate_limited/i.test(combined)) return "You've hit the analysis limit for now. Please wait a little while and try again.";
   if (/parse_failed/i.test(combined)) return "The AI returned malformed JSON. Check the console for the raw preview and try again.";

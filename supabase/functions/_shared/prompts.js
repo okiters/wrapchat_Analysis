@@ -15,6 +15,18 @@
 
 export const PROMPT_VERSION = 12;
 
+// The contract between deployed prompts and the CLIENT-SIDE post-processing
+// that shapes their output (consistency dedup, spine sampling, voice lint).
+// The client bakes this value in at build time and sends it; the edge function
+// refuses anything below its own value rather than serving new prompts to a
+// client whose guards are missing — that mismatch produced silently degraded
+// reports instead of an error (v3.8 shipped server-side only for three days).
+//
+// Bump ONLY when new prompts REQUIRE new client handling. Prompt text a current
+// client already handles correctly must leave this alone, so prompts stay
+// redeployable without an app release.
+export const ANALYSIS_CONTRACT = 1;
+
 // ── Voice (moved from src/analysis/voice.js — that file re-exports) ──
 
 // Phrases that instantly make output feel machine-written. Shared with the

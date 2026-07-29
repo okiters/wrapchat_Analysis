@@ -15,7 +15,8 @@ export default defineConfig([
     ],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      // __WRAPCHAT_BUILD__ is substituted by vite's `define` at build time.
+      globals: { ...globals.browser, __WRAPCHAT_BUILD__: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

@@ -5,6 +5,7 @@ import {
   buildRelationshipLine,
   PIPELINES,
   PROMPT_VERSION,
+  ANALYSIS_CONTRACT,
 } from "../supabase/functions/_shared/prompts.js";
 
 // The shared module is what the edge function trusts: these tests pin the
@@ -94,4 +95,13 @@ test("names and topics lists are bounded", () => {
 test("translation rejects unsupported target languages", () => {
   assert.throws(() => renderPipelinePrompt("translation", { targetLang: "xx", sourceEntries: [] }));
   assert.throws(() => renderPipelinePrompt("translation", { targetLang: "en", sourceEntries: [] }));
+});
+
+// Both runtimes resolve ANALYSIS_CONTRACT from this module, so the client bakes
+// in the same number the edge function enforces. A client sending nothing reads
+// as 0 and is refused, which is the point: no silent prompt/guard mismatch.
+test("analysis contract is a positive integer shared by client and server", () => {
+  assert.equal(typeof ANALYSIS_CONTRACT, "number");
+  assert.ok(Number.isInteger(ANALYSIS_CONTRACT), "contract must be an integer");
+  assert.ok(ANALYSIS_CONTRACT >= 1, "a missing contract reads as 0, so 0 must never be valid");
 });
