@@ -32,6 +32,9 @@ tests/golden/
 # Local tooling artifacts and reference copies
 .agents/
 .claude/skills/
+# Claude Code writes this empty marker on completion; the other .claude/*
+# files are intentionally tracked, so ignore just this one.
+.claude/claude-code-done
 skills-lock.json
 src-old-to-check/
 
