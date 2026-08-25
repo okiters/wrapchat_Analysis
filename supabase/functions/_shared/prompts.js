@@ -13,7 +13,7 @@
 // logged per call in ai_usage_log so output changes can be correlated.
 // ─────────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = 12;
+export const PROMPT_VERSION = 13;
 
 // The contract between deployed prompts and the CLIENT-SIDE post-processing
 // that shapes their output (consistency dedup, spine sampling, voice lint).
@@ -106,7 +106,7 @@ WHY THESE WORK, DO ALL OF THIS:
 
 THE GENERIC TRAP (this is exactly what "sounds generic" means, kill it on sight): Sentences like "they support each other", "a playful and teasing dynamic", "a warm and balanced connection", "they communicate openly", "a deep bond" are BANNED. They name a CATEGORY of relationship, not THIS one. The test: could this exact sentence sit under a stranger's chat, unchanged? If yes, it is filler. Do not state the conclusion ("they are close"): point at the specific evidence that made you think it (the line one of them actually sent, the habit that keeps repeating, the third party they keep circling back to) and let the reader feel the closeness themselves. Name the evidence, never the label.
 
-NEVER: therapy language, diagnosis, advice, moralizing, hedging${BANNED_PHRASES.length ? `, or these phrases: ${BANNED_PHRASES.slice(0, 10).join(", ")}` : ""}. If a line could describe any random chat, it is wrong: rewrite it around a name, a quote, or a repeated detail until it could only belong to this one.
+NEVER: therapy language, diagnosis, advice, moralizing, hedging${BANNED_PHRASES.length ? `, or these phrases: ${BANNED_PHRASES.join(", ")}` : ""}. If a line could describe any random chat, it is wrong: rewrite it around a name, a quote, or a repeated detail until it could only belong to this one.
 
 PUNCTUATION: Never use the em dash or long dash in any output text, in any language. Where you would reach for one, use a comma, a colon, or a new sentence. Prefer spoken flow over polished prose. Never use emojis anywhere in your output, in any field, in any language; when a chat line you quote contains emojis, drop the emojis and keep the words.
 
@@ -355,15 +355,24 @@ function buildTopicSpreadLine(topics) {
 
 function buildDuoLocalContext(localContext, relationshipContext, isGroup) {
   const lc = localContext || {};
+  const absencePairs = (Array.isArray(lc.absenceFelt) ? lc.absenceFelt : [])
+    .map(entry => ({ name: scalar(entry?.name, 40), count: Number(entry?.count) || 0 }))
+    .filter(entry => entry.name && entry.count > 0)
+    .slice(0, 8);
   const base = isGroup
-    ? `The least active member (the ghost) is ${scalar(lc.ghost, 40) || "unclear"}. The conversation starter is ${scalar(lc.convStarter, 40) || "unclear"}.`
+    ? `The least active member (the ghost) is ${scalar(lc.ghost, 40) || "unclear"}. The conversation starter is ${scalar(lc.convStarter, 40) || "unclear"}${lc.convStarterPct ? ` (${scalar(lc.convStarterPct, 10)} of all conversations)` : ""}, and that same person is the one the report calls THE HYPE PERSON: hypePersonReason must be about ${scalar(lc.convStarter, 40) || "that person"} and nobody else. Local analysis found that ${scalar(lc.funniestPerson, 40) || "no one"} caused the most laugh reactions (${Number(lc.funniestLaughCount) || 0} times), confirm or correct this from the chat.${absencePairs.length ? ` ABSENCE FELT (how often each member is named by others while they are away, the signal behind mostMissed): ${absencePairs.map(entry => `${entry.name}: ${entry.count}`).join(", ")}${lc.mostMissedLocal ? `; the local pick is ${scalar(lc.mostMissedLocal, 40)}` : ""}. Confirm it from the chat, or answer "None clearly identified" if no one's absence is actually felt.` : ` No member's absence is measurably felt, so mostMissed should be "None clearly identified" unless the chat clearly shows otherwise.`}`
     : `By reply time, ${scalar(lc.ghostName, 40) || "neither"} is slower to respond. The conversation starter is ${scalar(lc.convStarter, 40) || "unclear"}. Local analysis found that ${scalar(lc.funniestPerson, 40) || "neither"} caused the most laugh reactions from the other person (${Number(lc.funniestLaughCount) || 0} times), confirm or correct this from the chat.`;
   const signaturePairs = (Array.isArray(lc.signaturePhrases) ? lc.signaturePhrases : [])
     .map(entry => ({ name: scalar(entry?.name, 40), phrase: scalar(entry?.phrase, 60) }))
     .filter(entry => entry.name && entry.phrase)
     .slice(0, 6);
+  // Local n-grams are the chat's blandest repeated strings by construction, so
+  // presenting them as "candidates" made the model keep them verbatim. Removing
+  // them entirely swung it the other way: it started picking memorable ONE-OFF
+  // lines, which are not signatures either. So they are shown for what they
+  // genuinely prove - that a string repeats - with the judgement left to the model.
   const signatures = signaturePairs.length
-    ? `\nLocal counts found signature-phrase candidates: ${signaturePairs.map(entry => `${entry.name}: "${entry.phrase}"`).join(", ")}. Verify against the windows: keep a candidate only if it genuinely carries that person's personality, or replace it with a MORE characterful phrase you can actually see them repeat. Never invent one.`
+    ? `\nREPETITION DATA (the most-repeated multi-word strings per person, counted locally): ${signaturePairs.map(entry => `${entry.name}: "${entry.phrase}"`).join(", ")}. These are frequency artifacts and are usually bland: do NOT default to them. They only prove what repeats. Your signaturePhrase must ALSO be something that person genuinely repeats across the chat, never a striking one-off line, but choose the most CHARACTERFUL repeated expression rather than the most frequent one. If everything they repeat is filler, return an empty string for them.`
     : "";
   const dramaPairs = (Array.isArray(lc.dramaCounts) ? lc.dramaCounts : [])
     .map(entry => ({ name: scalar(entry?.name, 40), count: Number(entry?.count) || 0 }))
@@ -455,7 +464,7 @@ function connectionFields(coreAnalysisVersion) {
     "funniestReasonCandidateId": "[number: #id of the funny CANDIDATE MOMENT funniestReason is built on, or 0 if none fits]",
     "dramaStarter": "ONLY a first name, 'Shared', or 'None clearly identified'",
     "dramaContext": "1 sentence describing the real recurring drama pattern",
-    "signaturePhrases": ["the phrase you'd use to impersonate person 1 - a repeated expression that carries their personality (a coined pet name, exaggeration, hype line, or recurring complaint), never a greeting, filler, or logistics", "same for person 2"],
+    "signaturePhrases": ["the phrase you'd use to impersonate the FIRST person listed in the participants - a repeated expression that carries their personality (a nickname or pet name THEY invented, an exaggeration, a hype line, or a recurring complaint), never a greeting, filler, connective, or logistics. A term the chat's language hands everyone (askim, canim, kanka, bro, habibi, alter, mano) carries no personality and must never be chosen. Prefer a phrase that is memorable and unmistakably theirs over one that is merely frequent - the most repeated strings in any chat are its blandest. A phrase built only from such terms is banned too, however affectionate it sounds (askim bebeyim, canim bebegim, bro dude). It must be something they actually REPEAT: a one-off line, however funny or memorable, is a moment, not a signature. Return an empty string rather than settling for filler or promoting a one-off.", "same for the second person, and so on: return ONE entry per participant, in the order the participants are listed"],
     "relationshipSummary": "1 sentence - a specific human read on what's actually going on between them, not a label or diagnosis",
     "groupDynamic": "1 sentence - honest read of this group's energy",
     "tensionMoment": "who said the charged line, the line verbatim in quote marks, how the other responded, then one short read (max 15 words). Describe clearly, don't amplify",
@@ -463,9 +472,9 @@ function connectionFields(coreAnalysisVersion) {
     "kindestPerson": "ONLY a first name, or 'None clearly identified'",
     "sweetMoment": "who said the caring line, the line verbatim in quote marks, how the other received it, then one short read (max 15 words) on why it landed",
     "sweetMomentCandidateId": "[number: #id of the care CANDIDATE MOMENT sweetMoment is built on, or 0 if none fits]",
-    "mostMissed": "group only: ONLY a first name, or 'None clearly identified'",
-    "insideJoke": "group only: 1 sentence naming a recurring inside joke or reference",
-    "hypePersonReason": "group only: 1 sentence describing how this person energises the group",
+    "mostMissed": "group only: the member whose absence the group actually feels, judged from the ABSENCE FELT counts above plus the chat itself. ONLY a first name, or the exact string 'None clearly identified' when nobody stands out. Never return an empty string for a group chat.",
+    "insideJoke": "group only: 1 sentence naming a recurring inside joke or reference. It must be something THIS group made up: a running bit, a nickname they invented, a callback to a specific event. A word or pet name that any speaker of the chat's language uses (askim, canim, kanka, bro, habibi, alter) is NOT an inside joke, however often it appears - it is the language, not the group. It must come back more than once in the chat. Never mention how the chat was sampled or excerpted; write only about the chat itself. If nothing qualifies, return an empty string.",
+    "hypePersonReason": "group only: 1 sentence on how the conversation starter named in the context above energises the group, with a concrete example from the chat. Write about THAT person only. Empty string for a two-person chat.",
     "loveLanguageMismatch": "1 sentence describing how their care styles align or mismatch",
     "mostLovingMoment": "who said the warm line, the line verbatim in quote marks, how the other answered, then one short read (max 15 words) on why it felt real",
     "mostLovingMomentCandidateId": "[number: #id of the affection CANDIDATE MOMENT mostLovingMoment is built on, or 0 if none fits]",

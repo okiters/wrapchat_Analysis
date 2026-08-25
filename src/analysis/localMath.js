@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────
 // LOCAL MATH — client-side analysis. Pure JS, no React, no AI.
 // ─────────────────────────────────────────────────────────────────
-import { normalizeDisplayName, applyApprovedMerges } from "../utils/identityMerge";
-import { detectOtherParticipantMismatches } from "../import/datasetBuilder";
-import { callAnalysis, tryParseJsonText } from "./claudeClient";
-import { redactSensitiveText } from "./redactSensitive";
+import { normalizeDisplayName, applyApprovedMerges } from "../utils/identityMerge.js";
+import { detectOtherParticipantMismatches } from "../import/datasetBuilder.js";
+import { callAnalysis, tryParseJsonText } from "./claudeClient.js";
+import { redactSensitiveText } from "./redactSensitive.js";
 
-export const LOCAL_STATS_VERSION = 3;
+export const LOCAL_STATS_VERSION = 4;
 
 // ─────────────────────────────────────────────────────────────────
 // LARGE-GROUP CAP
@@ -422,6 +422,39 @@ export function mergeVariantCounts(freq) {
   const merged = {};
   for (const group of groups.values()) merged[group.best] = group.total;
   return merged;
+}
+
+// Vocatives, pet names and reflex fillers that are ubiquitous in their
+// language. Counting only WITHIN a chat makes these look like a personal
+// signature: on a real Turkish chat "kanka" (320 uses) ranked first for one
+// person and "askım" for the other, and the group report presented the
+// group-wide "askım" chain as an inside joke. They are the language's
+// furniture, not a personality, so they can never be a signature or a joke.
+// Deliberately NOT profanity: someone who swears constantly does have a voice.
+export const UBIQUITOUS_ADDRESS_TERMS = new Set([
+  // tr
+  "kanka","kanks","knk","kank","aga","aga","abi","abla","olm","oglum","moruk",
+  "lan","ulan","askim","asko","canim","bebegim","tatlim","hayatim","birtanem","cnm","kardesim",
+  // en
+  "bro","bruh","dude","bestie","babe","baby","honey","sweetie","darling","mate",
+  "sis","fam","buddy","hun","boo","bae",
+  // es
+  "tio","tia","wey","guey","chaval","carino","amor","cielo","nena","nene",
+  // pt
+  "mano","mana","cara","vei","querida","querido","gata","gato","amiga","amigo",
+  // fr
+  "mec","meuf","frero","gars","cheri","cherie","poto",
+  // de
+  "alter","digger","digga","kumpel","schatz","schatzi","susse","liebling","maus",
+  // it
+  "raga","ragazzi","amore","tesoro","bella","bello","zio","fra",
+  // ar (romanised)
+  "habibi","habibti","akhi","ukhti","hayati","omri",
+]);
+
+// True when a token carries no personal character in ANY supported language.
+export function isUbiquitousAddressTerm(word) {
+  return UBIQUITOUS_ADDRESS_TERMS.has(foldToken(String(word || "").toLowerCase()));
 }
 
 function isContentToken(word, minLength = 3) {
@@ -1059,8 +1092,8 @@ export function formatEvidenceDate(date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export { stripLongDashes, sanitizeResultText } from "./textSanitize";
-import { sanitizeResultText as sanitizeAiText } from "./textSanitize";
+export { stripLongDashes, sanitizeResultText } from "./textSanitize.js";
+import { sanitizeResultText as sanitizeAiText } from "./textSanitize.js";
 
 export function cleanQuote(body, max = 72) {
   const text = String(body || "").replace(/\s+/g, " ").trim();
@@ -1343,23 +1376,41 @@ export function spotDynamics({ messages, namesAll, namesSorted, msgCounts, start
     .slice(0, 3)
     .map(({ title, detail, evidence: sample }) => ({ title, detail, evidence: sample }));
 
+  // Toxicity is a RATE, not a running total. The score used to be an
+  // unnormalised sum weighed against a fixed threshold of 18, so it reached
+  // 1090 on a friendly 7k chat and 7371 on a 61k one: every chat past ~200
+  // messages was permanently "Heated". Worse, double-texting and slow replies
+  // dominated the sum, so the person who simply texted most was named the most
+  // toxic in 20 of 22 samples. Now: per-1000-messages, driven by things that
+  // actually indicate harm. Volume signals are gone entirely (texting twice in
+  // a row is not toxicity); slow replies stay only at a token weight because
+  // they matter as a pattern, not as a count.
   const toxicityScores = {};
+  const perPersonMessages = {};
+  namesAll.forEach(name => { perPersonMessages[name] = 0; });
+  messages.forEach(({ name }) => { if (name in perPersonMessages) perPersonMessages[name] += 1; });
   namesAll.forEach(name => {
     const item = stats[name];
-    toxicityScores[name] =
+    const raw =
       item.control * 4 +
       item.aggression * 5 +
       item.breakup * 4 +
       item.passive * 2 +
       item.caps * 2 +
-      item.delayedReplies * 1.5 +
-      Math.max(item.doubleText - 2, 0) * 0.4;
+      item.delayedReplies * 0.5;
+    const own = Math.max(perPersonMessages[name] || 0, 1);
+    // Rate per 1000 of their own messages, so a long chat is not penalised for
+    // being long and a quiet participant is not flattered for being quiet.
+    // The +300 is additive smoothing: on a 100-message sample two harsh lines
+    // would otherwise spike the rate and hand out a confident "Heated", while
+    // on a real chat it moves the number by a fraction of a point.
+    toxicityScores[name] = (raw / (own + 300)) * 1000;
   });
 
   const toxicRank = [...namesAll].sort((a, b) => toxicityScores[b] - toxicityScores[a]);
   const topToxic = toxicRank[0] || namesSorted[0];
   const runnerUp = toxicRank[1] || topToxic;
-  const toxicPerson = toxicityScores[topToxic] - toxicityScores[runnerUp] < 2 ? "Tie" : topToxic;
+  const toxicPerson = toxicityScores[topToxic] - toxicityScores[runnerUp] < Math.max(2, toxicityScores[topToxic] * 0.2) ? "Tie" : topToxic;
 
   let toxicReason = isGroup
     ? "The highest-risk behaviours are spread across the group rather than clearly owned by one person."
@@ -1420,7 +1471,9 @@ export function spotDynamics({ messages, namesAll, namesSorted, msgCounts, start
     .map(item => ({ date: item.date, title: item.title, detail: item.detail }));
 
   const maxToxicity = Math.max(...Object.values(toxicityScores), 0);
-  const toxicityLevel = maxToxicity >= 18 ? "Heated" : maxToxicity >= 9 ? "Tense" : "Healthy";
+  // Calibrated on real chats: a warm friend/partner chat lands in low single
+  // digits, sustained hostility is what pushes past these lines.
+  const toxicityLevel = maxToxicity >= 25 ? "Heated" : maxToxicity >= 10 ? "Tense" : "Healthy";
   const toxicityBreakdown = toxicRank.slice(0, Math.min(isGroup ? 4 : 2, toxicRank.length)).map(name => {
     const item = stats[name];
     const reasons = [];
@@ -1429,7 +1482,8 @@ export function spotDynamics({ messages, namesAll, namesSorted, msgCounts, start
     if (item.breakup) reasons.push(`${item.breakup} exit threat`);
     if (item.passive) reasons.push(`${item.passive} shutdown`);
     if (item.delayedReplies) reasons.push(`${item.delayedReplies} long-gap reply`);
-    return `${name}: ${Math.round(toxicityScores[name])} points${reasons.length ? ` • ${reasons.join(", ")}` : ""}`;
+    // Report the rate, and say so: "1090 points" read as a damning absolute.
+    return `${name}: ${toxicityScores[name].toFixed(1)} per 1000 messages${reasons.length ? ` • ${reasons.join(", ")}` : ""}`;
   });
   const toxicityReport =
     toxicityLevel === "Heated"
@@ -1461,6 +1515,33 @@ export function spotDynamics({ messages, namesAll, namesSorted, msgCounts, start
 const SIG_NOISE_RE = /media omitted|image omitted|video omitted|voice omitted|audio omitted|<media|<attached|end-to-end|voice call|video call|missed call|call back|click to call|answered on other|other device|no answer|cevapsız|sesli arama|görüntülü arama|geri ara/i;
 
 // Everyday greetings/formulas across the app's languages — never a signature.
+// Pure connectives and hedges. These are the most repeated multi-word strings
+// in almost any chat, so a frequency n-gram surfaces them first, but they say
+// nothing about the speaker: "bu arada", "yine de", "trying to".
+const CONNECTIVE_FILLER_PHRASES = [
+  // en
+  "trying to", "going to", "want to", "i think", "i mean", "kind of", "sort of",
+  "a lot", "right now", "at the moment", "by the way", "i guess", "as well",
+  "of course", "at least", "in the end", "for sure", "you know",
+  // Logistics: frequent, repeatable, and says nothing about the person.
+  "coming home", "on my way", "are you home", "be there", "call you",
+  "text me", "let me know", "get home", "at work", "going to bed",
+  "you think", "i can", "we can", "do you", "did you",
+  // tr
+  "bu arada", "yine de", "bu sefer", "her neyse", "ne bileyim", "bir de",
+  "o zaman", "ama ben", "sonra da", "bence de", "galiba ben", "az once",
+  "su an", "falan filan", "bir sey", "bi sey", "diye dusundum",
+  "bi anda", "bir anda", "o an", "su anda", "her zaman", "bazen de", "bi de",
+  "ne zaman", "o yuzden", "bu yuzden", "yani ben", "sonra ben",
+  // es / pt
+  "por cierto", "de todos modos", "en fin", "o sea", "ahora mismo",
+  "por isso", "de qualquer forma", "mesmo assim", "agora mesmo",
+  // fr / de / it
+  "du coup", "en fait", "quand meme", "par contre",
+  "auf jeden fall", "im moment", "trotzdem", "eigentlich",
+  "comunque", "in realta", "adesso", "pero",
+];
+
 const CASUAL_FORMULA_PHRASES = [
   // en
   "good night", "good morning", "how are you", "see you", "thank you", "love you",
@@ -1496,7 +1577,7 @@ const CASUAL_FORMULA_PHRASES = [
   // ar
   "صباح الخير", "تصبح على خير", "كيف حالك", "شكرا جزيلا",
 ];
-const CASUAL_FORMULA_FOLDED = CASUAL_FORMULA_PHRASES.map(phrase =>
+const CASUAL_FORMULA_FOLDED = [...CASUAL_FORMULA_PHRASES, ...CONNECTIVE_FILLER_PHRASES].map(phrase =>
   phrase.split(/\s+/).map(foldToken).join(" ")
 );
 const GREETING_WORDS_FOLDED = new Set(
@@ -1579,6 +1660,11 @@ function computeSignaturePhrases(byName, namesAll) {
   });
 
   const globalUni = buildGlobalUnigramCounts(byName, namesAll);
+  // Participant names are not phrases. In a group, members address each other
+  // constantly, so "anilcan duymaz" outranked every real expression.
+  const participantTokens = new Set();
+  namesAll.forEach(name => String(name).toLowerCase().split(/\s+/)
+    .forEach(part => { const folded = foldToken(part); if (folded.length > 2) participantTokens.add(folded); }));
   // At least one token must be rarer than this to qualify as distinctive.
   const rarityCeiling = Math.max(30, Math.round(totalMessages / 60));
   const usedFolded = [];
@@ -1594,6 +1680,10 @@ function computeSignaturePhrases(byName, namesAll) {
       if (mine < others * 2) continue;
       const folded = gram.split(" ").map(foldToken).join(" ");
       if (isCasualFormula(folded)) continue;
+      // A gram made only of vocatives/pet names is the language talking, not
+      // the person ("askim canim", "kanka abi").
+      if (gram.split(" ").every(word => isUbiquitousAddressTerm(word) || !isContentToken(word, 3))) continue;
+      if (gram.split(" ").some(word => participantTokens.has(foldToken(word)))) continue;
       if (usedFolded.some(used => used.includes(folded) || folded.includes(used))) continue;
       const size = gram.split(" ").length;
       const contentCounts = gram
@@ -1716,8 +1806,13 @@ export function localStats(messages) {
 
   const daySet  = new Set(messages.map(m=>m.date.toDateString()));
   const dayList = [...daySet].map(d=>new Date(d)).sort((a,b)=>a-b);
+  // Consecutive-day test. Exact equality on a 24h millisecond difference breaks
+  // at every daylight-saving boundary (a spring-forward gives 0.9583), silently
+  // halving the streak twice a year for anyone outside a no-DST timezone. This
+  // machine runs Europe/Istanbul, which dropped DST in 2016, so the bug is
+  // invisible in local testing. Rounding makes the comparison DST-proof.
   let maxStreak=1, cur=1;
-  for(let i=1;i<dayList.length;i++){cur=(dayList[i]-dayList[i-1])/86400000===1?cur+1:1;if(cur>maxStreak)maxStreak=cur;}
+  for(let i=1;i<dayList.length;i++){cur=Math.round((dayList[i]-dayList[i-1])/86400000)===1?cur+1:1;if(cur>maxStreak)maxStreak=cur;}
 
   const starterCount = {};
   namesAll.forEach(n=>(starterCount[n]=0));
@@ -1732,21 +1827,49 @@ export function localStats(messages) {
   for(let i=0;i<messages.length-1;i++){if((messages[i+1].date-messages[i].date)/60000>120)killerCount[messages[i].name]++;}
   const topKillerEntry = Object.entries(killerCount).sort((a,b)=>b[1]-a[1])[0];
 
-  let ghostAvg=["?","?"], ghostName=namesSorted[0], ghostEqual=false;
+  let ghostAvg=["?","?"], ghostAvgSlow=["?","?"], ghostLongRate=[0,0], ghostName=namesSorted[0], ghostEqual=false;
   if(!isGroup && namesAll.length>=2){
+    // Every reply counts. The old filter was `d > 1 && d < 1440`, which threw
+    // away 61-70% of real replies for being under a minute AND every gap over
+    // 24h — so the card about ghosting was computed with all actual ghosting
+    // removed. It reported 45m/52m for a couple whose median reply is ~20s, and
+    // the filtering even reversed who won.
     const rt={};namesAll.forEach(n=>(rt[n]=[]));
     for(let i=1;i<messages.length;i++){
       const prev=messages[i-1],curr=messages[i];
-      if(curr.name!==prev.name && curr.name in rt){const d=(curr.date-prev.date)/60000;if(d>1&&d<1440)rt[curr.name].push(d);}
+      if(curr.name!==prev.name && curr.name in rt){
+        const d=(curr.date-prev.date)/60000;
+        if(d>=0) rt[curr.name].push(d);
+      }
     }
-    const rawAvgMin=n=>{const a=rt[n]||[];return a.length?Math.round(a.reduce((s,t)=>s+t,0)/a.length):0;};
-    const fmtMinutes=mins=>{if(!mins)return"instant";return mins<60?`${mins}m`:`${Math.floor(mins/60)}h ${mins%60}m`;};
-    const fmt=n=>fmtMinutes(rawAvgMin(n));
+    const sortedGaps=n=>[...(rt[n]||[])].sort((x,y)=>x-y);
+    // Median, not mean: reply times are wildly skewed, so one overnight gap
+    // used to drag the "average" past an hour.
+    const medianMin=n=>{const a=sortedGaps(n);if(!a.length)return 0;const mid=Math.floor(a.length/2);return a.length%2?a[mid]:(a[mid-1]+a[mid])/2;};
+    // Ghosting lives in the tail, not the middle. Measured across both real
+    // chats, the share of replies taking over three hours separates a genuine
+    // ghost from a balanced pair far more cleanly than any percentile: 36%
+    // apart on the chat that has a ghost, 3% apart on the one that does not.
+    const LONG_SILENCE_MIN=180;
+    const longSilenceRate=n=>{const a=rt[n]||[];return a.length?100*a.filter(d=>d>LONG_SILENCE_MIN).length/a.length:0;};
+    const p90Min=n=>{const a=sortedGaps(n);if(!a.length)return 0;return a[Math.min(a.length-1,Math.floor(a.length*0.9))];};
+    const fmtMinutes=mins=>{
+      if(!mins)return"instant";
+      if(mins<1)return`${Math.max(1,Math.round(mins*60))}s`;
+      if(mins<60)return`${Math.round(mins)}m`;
+      const h=Math.floor(mins/60);
+      if(h>=24)return`${Math.round(h/24)}d ${h%24}h`;
+      return`${h}h ${Math.round(mins%60)}m`;
+    };
+    const fmt=n=>fmtMinutes(medianMin(n));
     const a0=fmt(namesSorted[0]),a1=fmt(namesSorted[1]||namesSorted[0]);
     ghostAvg=[a0,a1];
-    const raw0=rawAvgMin(namesSorted[0]),raw1=rawAvgMin(namesSorted[1]);
-    ghostName=raw0>=raw1?namesSorted[0]:namesSorted[1];
-    ghostEqual=raw0>0&&raw1>0&&Math.abs(raw0-raw1)<30;
+    ghostAvgSlow=[fmtMinutes(p90Min(namesSorted[0])),fmtMinutes(p90Min(namesSorted[1]))];
+    const long0=longSilenceRate(namesSorted[0]),long1=longSilenceRate(namesSorted[1]);
+    ghostLongRate=[long0,long1];
+    ghostName=long0>=long1?namesSorted[0]:namesSorted[1];
+    const longMax=Math.max(long0,long1);
+    ghostEqual=longMax<=0||Math.abs(long0-long1)<longMax*0.25;
   }
 
   // ── Therapist detection ──
@@ -1796,18 +1919,80 @@ export function localStats(messages) {
     if (heavy || (body.length > 220 && /[!?]/.test(body))) dramaByName[name] += 1;
   });
 
+  // Signature WORD — the phrase side already weights by rarity; the word side
+  // used to take whichever word was simply most frequent and cleared a 2x bar
+  // against the other person, which is how ubiquitous vocatives won. Same
+  // philosophy as phrases now: exclusivity gates, rarity decides.
   const sigWordByName = {};
+  const wordTotals = {};
+  namesAll.forEach(n => {
+    Object.entries(perPersonWf[n]).forEach(([word, count]) => {
+      wordTotals[word] = (wordTotals[word] || 0) + count;
+    });
+  });
+  const wordRarityCeiling = Math.max(30, Math.round(messages.length / 60));
+  const nameTokens = new Set();
+  namesAll.forEach(name => String(name).toLowerCase().split(/\s+/)
+    .forEach(part => { const folded = foldToken(part); if (folded.length > 2) nameTokens.add(folded); }));
   namesAll.forEach(n=>{
     const ranked = Object.entries(perPersonWf[n]).sort((a,b)=>b[1]-a[1]);
-    const distinctive = ranked.find(([word, count]) => {
+    let best = null;
+    for (const [word, count] of ranked) {
+      if (count < 3) continue;
+      if (isUbiquitousAddressTerm(word)) continue;   // language furniture, not voice
+      if (nameTokens.has(foldToken(word))) continue; // a person's name is not a voice
       const others = namesAll.reduce((sum, other) => other === n ? sum : sum + (perPersonWf[other][word] || 0), 0);
-      return count >= 3 && count >= others * 2;
-    });
-    sigWordByName[n] = distinctive?.[0] || ranked[0]?.[0] || "...";
+      if (count < others * 2) continue;              // must be recognisably theirs
+      const overall = wordTotals[word] || count;
+      if (overall > wordRarityCeiling * 4) continue; // said by everyone, all the time
+      const score = count / Math.log2(2 + overall);
+      if (!best || score > best.score) best = { word, score };
+    }
+    // Fall back down the same ladder rather than to raw frequency, so a chat
+    // with no distinctive word shows nothing instead of showing "kanka".
+    sigWordByName[n] = best?.word || "";
   });
   const sigPhraseByName = computeSignaturePhrases(byName, namesAll);
 
   // ── Funniest person — who CAUSED laugh reactions ──
+  // ── Most-missed signal ──
+  // The card promises "when they go quiet, the group feels it", but nothing
+  // measured that, so the model was asked for a name with no evidence and
+  // returned nothing (the card then fell back to naming person A). This counts,
+  // per person, how often OTHERS say their name while they are absent from the
+  // conversation — which is exactly what the card claims to show.
+  const absenceFelt = {};
+  namesAll.forEach(n => { absenceFelt[n] = 0; });
+  if (isGroup && namesAll.length > 2) {
+    const QUIET_MS = 36 * 3600 * 1000; // silent this long = properly absent
+    const lastSpokeAt = {};
+    const nameNeedles = {};
+    namesAll.forEach(n => {
+      const first = String(n).trim().split(/\s+/)[0] || "";
+      const folded = foldToken(first.toLowerCase());
+      if (folded.length >= 3) nameNeedles[n] = folded;
+    });
+    messages.forEach(({ name, body, date }) => {
+      const time = date instanceof Date ? date.getTime() : 0;
+      if (body && !NOISE_RE.test(body)) {
+        const tokens = String(body).toLowerCase().split(/[^\p{L}\p{N}]+/u).map(foldToken);
+        for (const [other, needle] of Object.entries(nameNeedles)) {
+          if (other === name) continue;
+          const away = lastSpokeAt[other];
+          // Never spoken yet, or quiet long enough to count as away.
+          if (away !== undefined && time - away < QUIET_MS) continue;
+          if (tokens.includes(needle)) absenceFelt[other] += 1;
+        }
+      }
+      if (name in lastSpokeAt || namesAll.includes(name)) lastSpokeAt[name] = time;
+    });
+  }
+  const mostMissedRanked = Object.entries(absenceFelt).sort((a, b) => b[1] - a[1]);
+  const mostMissedLocal = mostMissedRanked[0] && mostMissedRanked[0][1] >= 3
+    && mostMissedRanked[0][1] >= (mostMissedRanked[1]?.[1] || 0) * 1.5
+    ? mostMissedRanked[0][0]
+    : "";
+
   const laughCausedBy = {};
   namesAll.forEach(n => (laughCausedBy[n] = 0));
   for (let i = 0; i < messages.length - 1; i++) {
@@ -1848,7 +2033,7 @@ export function localStats(messages) {
     signatureWord: namesSorted.map(n=>sigWordByName[n]),
     signaturePhrase: namesSorted.map(n=>sigPhraseByName[n]||""),
     dramaCounts: namesSorted.map(n => dramaByName[n] || 0),
-    ghostAvg, ghostName, ghostEqual, streak: maxStreak, funniestPerson, laughCausedBy,
+    ghostAvg, ghostAvgSlow, ghostLongRate, ghostName, ghostEqual, streak: maxStreak, funniestPerson, laughCausedBy,
     topMonths: topMonths.length?topMonths:[["This month",messages.length]],
     convStarter: topStarterEntry?.[0]||namesSorted[0], convStarterPct: starterPct,
     convKiller: topKillerEntry?.[0]||namesSorted[0], convKillerCount: topKillerEntry?.[1]||0,
@@ -1869,6 +2054,8 @@ export function localStats(messages) {
       return Object.entries(wf).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
     })(),
     hype:         isGroup?topStarterEntry?.[0]||namesAll[0]:null,
+    absenceFelt:  namesSorted.map(n => absenceFelt[n] || 0),
+    mostMissedLocal,
     photographer: isGroup?(()=>{ const p=[...namesAll].sort((a,b)=>mediaByName[b]-mediaByName[a])[0]; return p||null; })():null,
     photographerIsVoice: isGroup?(()=>{ const p=[...namesAll].sort((a,b)=>mediaByName[b]-mediaByName[a])[0]; return p&&voiceByName[p]>mediaByName[p]; })():false,
     voiceChampion: isGroup?[...namesAll].sort((a,b)=>voiceByName[b]-voiceByName[a])[0]:null,

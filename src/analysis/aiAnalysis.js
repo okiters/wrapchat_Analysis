@@ -27,7 +27,7 @@ import {
   CONTROL_RE, AGGRO_RE, BREAKUP_RE, APOLOGY_RE, AFFECTION_RE, DATE_RE, FLIRTY_EMOJI_RE,
   SUPPORT_RE, GRATITUDE_RE, DISTRESS_RE, HEART_REPLY_RE, laughStrength,
   coerceRelationshipCategory, coerceRelationshipSpecificLabel, sanitizeRelationshipStatus,
-  STOP_WORDS, TOKEN_STOP_WORDS, foldToken, cleanQuote, sanitizeResultText,
+  STOP_WORDS, TOKEN_STOP_WORDS, foldToken, cleanQuote, sanitizeResultText, isUbiquitousAddressTerm,
 } from "./localMath";
 
 // ─────────────────────────────────────────────────────────────────
@@ -123,17 +123,45 @@ function scoreMessages(messages) {
     if (body && laughStrength(body) < 2) {
       let reactionStrength = 0;
       const laughers = new Set();
-      for (let j = i + 1; j <= Math.min(i + 4, messages.length - 1); j++) {
+      let burst = 0;            // how many laugh replies followed
+      let loudestLaugh = 0;     // longest laugh token: "AHAHAHAHAHA" > "haha"
+      let latencySec = null;    // how fast the first laugh landed
+      let followOn = 0;         // did the exchange keep going afterwards
+      for (let j = i + 1; j <= Math.min(i + 6, messages.length - 1); j++) {
         const reply = messages[j];
-        if (reply.name === msg.name) continue;
+        if (reply.name === msg.name) {
+          if (latencySec !== null) followOn += 1;
+          continue;
+        }
         const strength = laughStrength(reply.body);
         if (strength >= 2) {
           reactionStrength = Math.max(reactionStrength, strength);
           laughers.add(reply.name);
+          burst += 1;
+          if (latencySec === null) latencySec = (reply.date - msg.date) / 1000;
+          for (const token of String(reply.body).split(/\s+/)) {
+            if (laughStrength(token) >= 2) loudestLaugh = Math.max(loudestLaugh, token.length);
+          }
+        } else if (latencySec !== null) {
+          followOn += 1;
         }
       }
       if (reactionStrength >= 2) {
-        score += (reactionStrength >= 3 ? 9 : 6) + Math.max(0, laughers.size - 1) * 2;
+        // Graded funniness. The old score had exactly two possible values
+        // (6 or 9 in a duo), so on a 61k chat 965 moments tied for first and
+        // the stable sort simply handed back the earliest ten. These signals
+        // are all free — they are already in the messages — and they break the
+        // tie into a real ranking: a hard fast laugh from several people that
+        // keeps the conversation going beats a lone delayed "haha".
+        const laughScore =
+          (reactionStrength >= 3 ? 9 : 6) +
+          Math.max(0, laughers.size - 1) * 3 +
+          Math.min(Math.max(burst - 1, 0), 3) * 1.5 +
+          (latencySec !== null && latencySec <= 30 ? 2.5 : latencySec !== null && latencySec <= 120 ? 1 : 0) +
+          Math.min(Math.max(loudestLaugh - 4, 0), 12) * 0.45 +
+          Math.min(followOn, 3) * 0.8 +
+          Math.min(Math.max((body.match(/\p{L}/gu) || []).length - 15, 0), 120) * 0.02;
+        score += laughScore;
         tags.push(reactionStrength >= 3 ? "laugh-trigger-hard" : "laugh-trigger");
       }
     }
@@ -192,7 +220,7 @@ function chunkLabel(tags = []) {
 // Baseline timeline coverage is no longer filled here: the TIMELINE SPINE
 // (buildSpineRuns) carries the chat's ordinary flow, so these windows can
 // stay a smaller, denser set of genuine events.
-function buildChunks(messages) {
+function buildChunks(messages, mustCover = []) {
   if (!messages.length) return [];
 
   const CONTEXT_BEFORE      = 4;   // lines before each event center
@@ -232,6 +260,19 @@ function buildChunks(messages) {
     ]);
     return true;
   };
+
+  // ── Pass 0: candidate moments claim their windows first ──
+  // The prompt hands Claude this bank and tells it to quote the lines
+  // VERBATIM. Measured before this pass, 44-53% of those lines had no window
+  // anywhere in the sample: Claude was asked to narrate a scene it could only
+  // see as a single stranded line. Reserving here costs nothing extra — these
+  // windows come out of the same MAX_EVENT_WINDOWS budget the generic fill
+  // below would have spent on lower-value events.
+  for (const anchorIndex of mustCover) {
+    if (!Number.isInteger(anchorIndex) || anchorIndex < 0 || anchorIndex >= n) continue;
+    addEventWindow({ i: anchorIndex, score: scores[anchorIndex].score, tags: scores[anchorIndex].tags });
+    if (eventWindows.length >= MAX_EVENT_WINDOWS) break;
+  }
 
   let preservedFunny = 0;
   let preservedCare = 0;
@@ -325,7 +366,10 @@ export function buildSampleText(messages) {
   if (messages.length <= FULL_CHAT_LIMIT) {
     return formatChunksForAI(messages, [[0, messages.length - 1, ["full-history"]]]);
   }
-  return composeSampleText(messages, buildChunks(messages));
+  // Every candidate the prompt will ask Claude to quote must have a readable
+  // window around it; the bank is memoised, so this costs one extra lookup.
+  const mustCover = extractCandidateMoments(messages).map(candidate => candidate.index);
+  return composeSampleText(messages, buildChunks(messages, mustCover));
 }
 
 const ENERGY_KEYWORDS = Object.freeze({
@@ -643,7 +687,7 @@ export function buildAccountabilitySampleText(messages) {
 }
 
 export const CORE_ANALYSIS_VERSION = 2;
-export const CORE_ANALYSIS_CACHE_VERSION = 11;
+export const CORE_ANALYSIS_CACHE_VERSION = 12;
 // Server clamp is MAX_PROVIDER_TOKENS in analyse-chat/index.ts (5000) — keep
 // these below it so the request budget is honoured, not silently truncated.
 export const CORE_A_MAX_TOKENS = 4200;
@@ -684,6 +728,21 @@ const CANDIDATE_ENERGY_DEFS = [
   { type: "energy-low",  take: 6, match: tags => tags.includes("energy-low") && !tags.includes("energy-high") },
 ];
 
+// WhatsApp writes attachments inline ("image omitted", "sticker omitted"),
+// often alongside real text, and only some forms get normalised to the
+// <Media omitted> placeholder upstream. 7.7% of a real 61k chat carries one.
+// The joke in those messages is usually the picture, which the model never
+// sees, so they are poor anchors and the phrase must never reach a card quote.
+const MEDIA_PLACEHOLDER_RE = /\s*<?\b(?:image|video|audio|voice|sticker|gif|document|contact card)\s+omitted\b>?\s*/gi;
+
+function stripMediaPlaceholders(body) {
+  return String(body || "").replace(MEDIA_PLACEHOLDER_RE, " ").replace(/\s+/g, " ").trim();
+}
+
+function letterCount(text) {
+  return (String(text || "").match(/\p{L}/gu) || []).length;
+}
+
 function candidateContentTokens(body) {
   return new Set(
     String(body || "")
@@ -702,8 +761,15 @@ function candidateTokenOverlap(a, b) {
   return shared / (a.size + b.size - shared);
 }
 
+const candidateMomentCache = new WeakMap();
+
 export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } = {}) {
   if (!Array.isArray(messages) || messages.length < 20) return [];
+  // buildSampleText also needs the bank (to reserve a window per candidate),
+  // so the default-options result is memoised per message array rather than
+  // scored twice on every run.
+  const cacheable = perType === 0 && minGap === 30;
+  if (cacheable && candidateMomentCache.has(messages)) return candidateMomentCache.get(messages);
   const n = messages.length;
   const scores = scoreMessages(messages);
   const periodOf = index => (index < n / 3 ? "early on" : index < (2 * n) / 3 ? "mid-chat" : "recently");
@@ -718,13 +784,20 @@ export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } =
       // A media placeholder can't be quoted; a message that is itself
       // laughter is a reaction, never a good anchor for ANY type.
       if (/^<(Voice|Media) omitted>$/.test(anchorBody)) continue;
-      if (laughStrength(anchorBody) >= 2) continue;
+      const anchorText = stripMediaPlaceholders(anchorBody);
+      if (!anchorText) continue; // the whole message was an attachment
+      if (laughStrength(anchorText) >= 2) continue;
       // Substance: a bare emoji or a two-word fragment makes a useless card
-      // quote — the anchor needs enough text to stand on its own.
-      if ((anchorBody.match(/\p{L}/gu) || []).length < 8) continue;
+      // quote — the anchor needs enough text to stand on its own, measured
+      // AFTER the attachment marker is removed ("Eylül image omitted" reads as
+      // 17 letters of content but is really a photo with a name on it).
+      if (letterCount(anchorText) < 8) continue;
+      // A funny anchor that shipped with a picture is usually funny BECAUSE of
+      // the picture. Require real text before trusting it to carry the joke.
+      if (def.type === "funny" && anchorText !== anchorBody.trim() && letterCount(anchorText) < 20) continue;
       // Distance dedupe: two anchors inside the same exchange are one moment.
       if (chosen.some(existing => Math.abs(existing.index - candidate.index) < minGap)) continue;
-      const tokens = candidateContentTokens(anchorBody);
+      const tokens = candidateContentTokens(anchorText);
       // Topic dedupe: near-identical wording elsewhere means the same story.
       if (chosen.some(existing => candidateTokenOverlap(existing.tokens, tokens) > 0.45)) continue;
 
@@ -742,10 +815,10 @@ export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } =
           const strength = laughStrength(reply.body);
           if (strength < 2 || strength <= bestStrength) continue;
           bestStrength = strength;
-          reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(reply.body), 40) };
+          reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(stripMediaPlaceholders(reply.body)), 40) };
           continue;
         }
-        reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(reply.body), 90) };
+        reaction = { speaker: reply.name, quote: cleanQuote(redactSensitiveText(stripMediaPlaceholders(reply.body)), 90) };
         break;
       }
       // A "funniest" candidate without a visible laugh receipt is exactly the
@@ -758,7 +831,7 @@ export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } =
         type: def.type,
         period: periodOf(candidate.index),
         speaker: messages[candidate.index].name,
-        quote: cleanQuote(redactSensitiveText(anchorBody), 110),
+        quote: cleanQuote(redactSensitiveText(anchorText), 110),
         reaction,
       });
       taken += 1;
@@ -782,9 +855,11 @@ export function extractCandidateMoments(messages, { perType = 0, minGap = 30 } =
       .sort((a, b) => b.score - a.score));
   }
 
-  return chosen
+  const bank = chosen
     .sort((a, b) => a.index - b.index)
-    .map(({ index, tokens, ...moment }, i) => ({ id: i + 1, ...moment }));
+    .map(({ tokens, ...moment }, i) => ({ id: i + 1, ...moment }));
+  if (cacheable) candidateMomentCache.set(messages, bank);
+  return bank;
 }
 
 export function formatCandidateMoments(candidates) {
@@ -799,6 +874,7 @@ export function formatCandidateMoments(candidates) {
   });
   return `CANDIDATE MOMENTS (pre-extracted locally from the full history):
 ${lines.join("\n")}
+TYPE BINDING: A candidate's [type] says which field it is evidence for. Honour it: funniest <- funny; sweetest / kindest <- care; most loving <- affection; tension <- tension; drama example <- drama; energising <- energy-high; draining <- energy-low. An apology is not kindness, a logistics message is not affection, and a joke is not a tension moment: if no candidate of the right type fits a field, use candidateId 0 and find a real moment of that kind in the windows rather than borrowing a candidate of the wrong type.
 RESERVATION RULE: Each candidate may anchor AT MOST ONE output field; reference it by its # number wherever a candidateId is requested. Prefer these candidates for moment fields (funniest, sweetest, most loving, tension, drama example, energising, draining) and copy their quotes VERBATIM. Never anchor two fields on the same candidate or on the same underlying event, even reworded. If no candidate fits a field, use candidateId 0 and a different real moment from the windows instead. Spread fields across different people and different stories wherever the evidence allows.`;
 }
 
@@ -901,6 +977,16 @@ export function extractRecurringCast(messages, participantNames = [], { maxPeopl
         })),
       };
     });
+}
+
+// Internal prompt instructions must never reach a card. These are the phrasings
+// the relationship-context builders use when they are talking to the model.
+const PROMPT_INSTRUCTION_RE = /\b(use the user-selected|as a hard boundary|as the framing for this chat|never override it|only refine within|confirm or correct this|from the windows|do not invent)\b/i;
+
+export function stripPromptInstruction(value) {
+  const text = String(value ?? "").trim();
+  if (!text || PROMPT_INSTRUCTION_RE.test(text)) return "";
+  return text;
 }
 
 export function clampScore(value, fallback = 5) {
@@ -1032,12 +1118,25 @@ export function resolveMomentPicks(rawShared, normalizedShared, quoteBank) {
   return out;
 }
 
+// 260 chars is the voice contract's field ceiling and roughly what a card can
+// show on a phone without the text running off the bottom. Trim at a sentence
+// boundary where possible so the paragraph still ends like a sentence.
+function clampParagraph(text, max = 260) {
+  const value = strOr(text);
+  if (value.length <= max) return value;
+  const cut = value.slice(0, max);
+  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  if (lastStop > max * 0.6) return cut.slice(0, lastStop + 1).trim();
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trim()}...`;
+}
+
 export function normalizeAttributionQuote(item) {
   const safe = item && typeof item === "object" ? item : {};
   return {
     quote: strOr(safe.quote),
     person: strOr(safe.person),
-    contextParagraph: strOr(safe.contextParagraph),
+    contextParagraph: clampParagraph(safe.contextParagraph),
     isSensitive: Boolean(safe.isSensitive === true || safe.isSensitive === "true"),
   };
 }
@@ -1248,12 +1347,24 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       dramaStarter: strOr(shared.dramaStarter),
       dramaContext: strOr(shared.dramaContext),
       // A signature phrase is something short enough to be recognisable as
-      // a catchphrase; the model sometimes returns a whole sentence.
-      signaturePhrases: cleanStringArray(shared.signaturePhrases, 2)
-        .filter(phrase => phrase.split(/\s+/).length <= 6),
+      // a catchphrase; the model sometimes returns a whole sentence. The cap
+      // used to be a flat 2, so in a four-person group two members silently
+      // fell back to local math's blandest n-gram.
+      signaturePhrases: cleanStringArray(
+        shared.signaturePhrases,
+        Math.max(2, Math.min(Array.isArray(math?.names) ? math.names.length : 2, 10)),
+      ).filter(phrase => phrase.split(/\s+/).length <= 6)
+        // "askim bebeyim" is two pet names, not a personality. A phrase whose
+        // every word is language furniture carries no signature at all.
+        .filter(phrase => !phrase.split(/\s+/).every(word => isUbiquitousAddressTerm(word))),
       relationshipStatus: sanitizedRelationshipStatus,
+      // This used to fall back to a sentence written FOR THE MODEL, which then
+      // rendered verbatim in the "Observed pattern" card. relationshipContext
+      // .reasoning can carry the same instruction text, so it is screened too:
+      // an empty string leaves the card blank, which is honest, where prompt
+      // engineering on screen is not.
       relationshipStatusWhy: relationshipStatusWasAdjusted
-        ? strOr(relationshipContext?.reasoning, `Use the user-selected relationship type "${lockedRelationshipCategory}" as the framing for this chat.`)
+        ? stripPromptInstruction(relationshipContext?.reasoning)
         : strOr(shared.relationshipStatusWhy),
       statusEvidence: relationshipStatusWasAdjusted
         ? strOr(shared.statusEvidence || relationshipContext?.evidence)
@@ -1268,9 +1379,12 @@ export function normalizeCoreAnalysisA(raw, math, relationshipType, relationship
       tensionMoment: momentFieldText(shared.tensionMoment),
       kindestPerson: strOr(shared.kindestPerson),
       sweetMoment: momentFieldText(shared.sweetMoment),
-      mostMissed: strOr(shared.mostMissed),
-      insideJoke: strOr(shared.insideJoke),
-      hypePersonReason: strOr(shared.hypePersonReason),
+      // Group-only by contract. The duo deck has no card for these, so a
+      // populated value is wasted output and trips the generic-field lint;
+      // the model honours the rule for two of them but leaks insideJoke.
+      mostMissed: math?.isGroup ? strOr(shared.mostMissed) : "",
+      insideJoke: math?.isGroup ? strOr(shared.insideJoke) : "",
+      hypePersonReason: math?.isGroup ? strOr(shared.hypePersonReason) : "",
       loveLanguageMismatch: strOr(shared.loveLanguageMismatch),
       mostLovingMoment: momentFieldText(shared.mostLovingMoment),
       compatibilityScore: clampScore(shared.compatibilityScore, 5),
@@ -1320,6 +1434,10 @@ export function normalizeGrowthDigest(raw, math, relationshipType, relationshipC
   const normalized = normalizeCoreAnalysisA(raw, math, relationshipType, relationshipContext);
   return {
     ...normalized,
+    // The dedupe lived only in normalizeConnectionDigest, so growth never ran
+    // it: one line could anchor the arc, the shift and the summary at once
+    // ("unser Auto" landed on three growth cards of the same report).
+    ...dedupeSharedEvents(normalized.shared, normalized.people),
     part: "growth",
   };
 }
@@ -1399,6 +1517,8 @@ export function normalizeRiskDigest(raw, math, relationshipType, relationshipCon
   const normalized = normalizeCoreAnalysisB(raw, math, relationshipType, relationshipContext);
   return {
     ...normalized,
+    // Same gap as growth had: risk cards can also reach for the same line twice.
+    ...dedupeSharedEvents(normalized.shared, normalized.people),
     part: "risk",
   };
 }

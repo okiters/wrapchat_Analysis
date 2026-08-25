@@ -61,7 +61,15 @@ export function buildSpineRuns(messages, {
   let used = 0;
 
   for (let r = 0; r < runs; r += 1) {
-    if (used >= lineBudget) break;
+    // Fair-share budgeting. Consuming the budget front-to-back let the early
+    // runs eat it before the loop reached the last slots, so the spine stopped
+    // ~85% through every chat and the most recent weeks were never sampled.
+    // Each slot may now take at most its even share of what is left, which
+    // keeps coverage flat all the way to the final message.
+    const slotsLeft = runs - r;
+    const budgetLeft = lineBudget - used;
+    if (budgetLeft < minLen) break;
+    const allowance = Math.max(minLen, Math.floor(budgetLeft / slotsLeft));
     const target = Math.round(r * step);
     const from = Math.max(0, target - searchRadius);
     const to = Math.min(n - minLen, target + searchRadius);
@@ -80,7 +88,8 @@ export function buildSpineRuns(messages, {
     const start = best.start;
     let end = Math.min(n - 1, start + minLen - 1);
     // Grow while the conversation is still flowing and stays clean.
-    while (end + 1 <= n - 1 && end - start + 1 < maxLen && used + (end - start + 2) <= lineBudget) {
+    const growLimit = Math.min(maxLen, allowance);
+    while (end + 1 <= n - 1 && end - start + 1 < growLimit && used + (end - start + 2) <= lineBudget) {
       const gapMin = (messages[end + 1].date - messages[end].date) / 60000;
       if (gapMin > gapBreakMinutes) break;
       if (SENSITIVE_CONTENT_RE.test(messages[end + 1].body || "")) break;

@@ -10,6 +10,52 @@ _Nothing pending — everything below is shipped._
 
 ---
 
+## v3.9 — Moment selection, honest local math, and prompt/lint contract repair
+
+Driven by a measured audit of the analysis pipeline (sampling, local math, prompts, cards) run against three chats: a 6.9k Turkish duo, a 61k English partner chat, and a 4.3k four-person group. Every number below came from instrumenting the real modules, not from reading the code.
+
+### Moment selection: the funny cards were picking the earliest jokes, not the best
+**Files:** `src/analysis/aiAnalysis.js`, `src/analysis/spine.js`
+
+The laugh score had exactly **two** possible values in a duo (6 or 9), so on the 61k chat **965 moments tied for first** and the stable sort simply returned the earliest ten. Nine of ten picks came from the first 45% of the chat and 402 hard laughs after the last pick were never considered. Regraded using signals already present in the data — distinct laughers, laugh-burst length, reaction latency, how long the laugh token is, whether the exchange kept going, and trigger substance — which turns 2 distinct scores into ~860. Picks now span 2%–98% of the chat.
+
+**Candidate moments had no context.** The prompt hands Claude a bank of pre-extracted moments and tells it to quote them VERBATIM, but `buildChunks` only guaranteed windows for two of the eight candidate types (funny, care). Measured: **44–53% of candidates were stranded single lines** with no surrounding conversation — the model was asked to narrate a scene it could not see. `buildSampleText` now feeds the bank's indices into `buildChunks`, which reserves their windows first, out of the same budget. Coverage 47% → 94%. Token spend unchanged (~40k): reallocation, not addition.
+
+**The spine never reached the end of any chat.** `buildSpineRuns` consumed its 1900-line budget front-to-back, so it stopped ~85% through and the most recent weeks were never sampled — the final decile of the 61k chat had **0%** coverage. Now fair-share budgeted per slot. Final-decile coverage 0% → 4% (duo), 30% → 61% (group).
+
+**Media placeholders were being quoted.** 7.7% of the 61k chat carries an inline attachment marker that the exact-match filter missed, including a bare `image omitted` the parser never normalises. Three of ten group joke picks were image-dependent ("Eylül image omitted"), where the joke is in a picture the model cannot see. Substance is now measured after stripping the marker, funny anchors need real text alongside an attachment, and no card quote can contain the phrase.
+
+### Local math: two headline numbers were wrong, not just dull
+**Files:** `src/analysis/localMath.js`
+
+- **Toxicity was a volume metric.** A fixed `>= 18` threshold applied to an unnormalised running total that reached 1090 on a friendly 7k chat and 7371 on a 61k one, dominated by double-texting. Every chat past ~200 messages was permanently "Heated", and the person who simply texted most was named most toxic in 20 of 22 samples — while the AI rated the same chat 8/10 healthy on the same card. Now a rate per 1000 of that person's own messages with +300 additive smoothing (so a short sample cannot spike into a confident verdict), volume terms removed, thresholds recalibrated. Hubbychat: "Heated / 7371 / Ozge" → **"Healthy / 7 / Tie"**.
+- **The Ghost Award excluded ghosting.** The filter `d > 1 && d < 1440` discarded every reply under a minute *and* every gap over 24 hours — 61–70% of all replies. It reported "45m / 52m" for a couple whose median reply is ~20 seconds, and the filtering **reversed who won**. Now: median for the displayed number, and the share of replies over three hours decides the ghost (measured across both chats, that separates a real ghost by 36% where percentiles separated by 3–21%).
+- **Streaks broke on daylight saving.** `(day[i] - day[i-1]) / 86400000 === 1` yields `0.9583` at a spring-forward boundary, silently halving the streak twice a year. Invisible in local testing because this machine runs Europe/Istanbul, which dropped DST in 2016. Verified fixed under `TZ=Europe/Berlin`.
+- **Signature words were language furniture.** None of `kanka / askım / bro / habibi / alter` were in any stop list, and distinctiveness was measured only between participants — so "kanka" (320 uses) ranked first. New `UBIQUITOUS_ADDRESS_TERMS` across all 8 languages, rarity-weighted selection mirroring the phrase logic, participant names excluded (`signaturePhrase` was returning a group member's name), connective and logistics phrases filtered, and an honest empty string rather than filler.
+- **New `absenceFelt` signal.** "Most missed member" promises "when they go quiet, the group feels it" but nothing measured that, so the model returned nothing and the card named person A. Now counts how often others say your name while you have been silent 36h+.
+
+### Cards and prompts
+**Files:** `src/screens/Screens.jsx`, `src/analysis/aiAnalysis.js`, `supabase/functions/_shared/prompts.js`, `src/analysis/consistency.js`, `src/analysis/voiceLint.js`
+
+- **A prompt instruction was rendering as user copy.** `relationshipStatusWhy` fell back to a sentence written for the model (`Use the user-selected relationship type "friend" as the framing for this chat.`) and showed it in the "Observed pattern" card. New `stripPromptInstruction` screens it; an empty card is honest, prompt engineering on screen is not.
+- **Five cards named a person on no evidence.** The Funny One, The Drama Report, Most Missed, Who Apologises More and the toxicity scorecard all fell back to `s.names[0]` — the highest-volume sender. The Kindest One already used `"—"`; the rest now match it.
+- **Candidate types are bound to fields.** Nothing said which candidate type feeds which card, so an *apology* won "the sweetest moment". Now funniest←funny, kindest←care, loving←affection, tension←tension, with "an apology is not kindness" stated outright.
+- **Inside jokes had to be group-invented.** The live connection prompt asked only for "a recurring inside joke", so a common Turkish pet name ("askım") was presented as one. It now must be something the group made up and must recur; a term the language hands everyone is explicitly excluded. Also blanked client-side on duo chats, which have no card for it.
+- **Groups got far less context than duos.** The group branch passed only ghost and conversation starter — `hypePersonReason` said "how *this person* energises the group" without ever naming them, so it came back empty. Groups now get the hype person named, laugh counts, and absence counts. `signaturePhrases` was also capped at 2 regardless of group size, so two of four members fell back to local filler.
+- **The prompt banned 10 phrases; the linter enforced 20.** `BANNED_PHRASES.slice(0, 10)` meant "significant", "notably", "moreover" and "furthermore" failed runs without ever being stated in the prompt.
+- **The dedupe ran on one pipeline out of three.** `dedupeSharedEvents` was called only from `normalizeConnectionDigest`, and `EVENT_CLAIM_ORDER` listed no growth fields — so one line anchored three growth cards of the same report. Now runs on growth and risk too, with dotted-path claim support.
+- **Two lint bugs produced false alarms.** The emoji exemption tested `/(^|\.)name$/`, missing `personAName`/`personBName`, so a participant whose WhatsApp name is literally "Hubby 🧡" failed every run; and `meta.confidenceNote` — which is never rendered — raised hard errors that masked real leaks, now a warning.
+- `contextParagraph` is clamped to 260 characters at a sentence boundary.
+
+### Tests
+`tests/localMath.test.js` is new: six regression tests covering the toxicity rate, the volume bias, reply-time tails, the DST streak, vocative signature words, and prompt-instruction leakage. 71 → **77 passing**. `localMath.js` imports now carry explicit `.js` extensions; it still needs the golden loader for the Vite `supabase` alias, which is why it had no test file before.
+
+Both real chats now lint clean end to end. `PROMPT_VERSION` 13; `ANALYSIS_CONTRACT` stays at 1 — these are prompt-text changes a current client already handles, so prompts stay redeployable without an app release.
+
+Known and unfixed: the static quip layer still fails the same generic test the voice section teaches (`"That kind of consistency is rare."`), and local frequency ranking fundamentally cannot find "character" — the AI finds the good phrases ("sadboysince99", "traum was schönes"), local math's job is now to return nothing rather than filler.
+
+---
+
 ## v3.8 — Report self-consistency, longer conversation sampling, signature quality
 
 Driven by a full audit of a real 22k-message report (all 25 cards reviewed as screenshots) plus live golden runs against a 61k chat.

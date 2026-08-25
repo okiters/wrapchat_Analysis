@@ -89,6 +89,14 @@ function pickLocalContext(math) {
     convStarter: math?.convStarter || "",
     funniestPerson: math?.funniestPerson || "",
     funniestLaughCount: math?.laughCausedBy?.[math?.funniestPerson] || 0,
+    // Group-only signals. Groups used to get a much thinner context block than
+    // duos, which is why hypePersonReason and mostMissed came back empty.
+    hype: math?.hype || "",
+    convStarterPct: math?.convStarterPct || "",
+    mostMissedLocal: math?.mostMissedLocal || "",
+    absenceFelt: names
+      .map((name, index) => ({ name, count: (math?.absenceFelt || [])[index] || 0 }))
+      .filter(entry => entry.count > 0),
     // Locally-computed distinctive phrases per person — the prompt asks the
     // model to verify these against the windows rather than guess.
     signaturePhrases: names

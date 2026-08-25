@@ -8,7 +8,7 @@ import { EMOJI_RE } from "./textSanitize.js";
 
 const LONG_DASH_RE = /[—–]/;
 // Analysis mechanics must never surface in user-facing text.
-const MECHANICS_RE = /(━|⋯|\[(?:number|email|account|redacted)\]|(?:early|recent) snapshot|bridge window|candidate (?:moment|#\d)|window \d+\/\d+|\bwindow \d\b|evidence window|timeline spine|moment window)/i;
+const MECHANICS_RE = /(━|⋯|\[(?:number|email|account|redacted)\]|(?:early|recent) snapshot|bridge window|candidate (?:moment|#\d)|window \d+\/\d+|\bwindow \d\b|evidence window|timeline spine|moment window|\bwindows?['’][a-zçğıöşu]+|(?:separate|several|different|multiple|two|iki|birden fazla|ayrı)\s+windows?\b)/i;
 const MECHANICS_UPPER_RE = /\bWINDOW\b/;
 // Double quotes and guillemets always delimit quotes. Single quotes only
 // count when they are not intra-word suffix apostrophes (Ozge'nin, Josh'tan),
@@ -122,8 +122,17 @@ export function lintResult(result) {
   for (const [path, text] of prose) {
     // Participant names come from the chat export: an emoji in "Hubby 🧡" is
     // the person's actual name, not model decoration.
-    const isNameLeaf = /(^|\.)name$/i.test(path);
-    issues.push(...lintText(text, path).filter(issue => !(isNameLeaf && issue.rule === "emoji")));
+    // "Hubby 🧡" is the person's actual WhatsApp name. The old test only
+    // matched a leaf of exactly "name", so personAName / personBName still
+    // failed the emoji rule on every run of that chat.
+    const isNameLeaf = /name$/i.test(path.split(".").pop() || path);
+    // meta.* is the model's own confidence note: kept for debugging, never
+    // rendered. A mechanics mention there is a useful canary but must not fail
+    // a run the way a leak into a real card does.
+    const isInternalMeta = /^meta(\.|$)/.test(path);
+    issues.push(...lintText(text, path)
+      .filter(issue => !(isNameLeaf && issue.rule === "emoji"))
+      .map(issue => (isInternalMeta ? { ...issue, level: "warning" } : issue)));
 
     // Calibration parroting: quoting an example's invented chat line, or a
     // sentence that heavily overlaps an example's wording.

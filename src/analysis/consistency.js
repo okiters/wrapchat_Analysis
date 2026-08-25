@@ -59,6 +59,12 @@ const EVENT_CLAIM_ORDER = [
   "energyDynamic", "energyCompatibility", "ghostContext", "dramaContext",
   "biggestTopic", "relationshipSummary", "groupDynamic", "vibeOneLiner",
   "insideJoke", "hypePersonReason",
+  // Growth cards were never claimed, so the same line could anchor the arc,
+  // the shift, and one person's story at once ("unser Auto" appeared in
+  // whoChangedHow and personBArc on the same report).
+  "growth.messageAtTurningPoint", "growth.turningPoint",
+  "growth.personAArc", "growth.personBArc",
+  "growth.whoChangedHow", "growth.arcSummary", "growth.trajectoryDetail",
 ];
 // Cards the UI already skips when empty — safe to drop rather than repeat.
 const OPTIONAL_EVENT_FIELDS = new Set(["loveMiss.quote", "loveMiss.description", "loveMissUnspoken"]);
@@ -132,16 +138,28 @@ function writePersonField(people, path, value) {
   slot.person[slot.group] = { ...(slot.person[slot.group] || {}), [slot.key]: value };
 }
 
+// Paths are dotted so nested groups (loveMiss.*, growth.*) can be claimed the
+// same way as top-level fields.
 function readEventField(shared, path) {
-  if (path === "loveMiss.quote") return String(shared.loveMiss?.quote || "");
-  if (path === "loveMiss.description") return String(shared.loveMiss?.description || "");
-  return String(shared[path] || "");
+  const parts = path.split(".");
+  let node = shared;
+  for (const key of parts) {
+    if (!node || typeof node !== "object") return "";
+    node = node[key];
+  }
+  return typeof node === "string" ? node : "";
 }
 
 function writeEventField(shared, path, value) {
-  if (path === "loveMiss.quote") shared.loveMiss = { ...(shared.loveMiss || {}), quote: value };
-  else if (path === "loveMiss.description") shared.loveMiss = { ...(shared.loveMiss || {}), description: value };
-  else shared[path] = value;
+  const parts = path.split(".");
+  const leaf = parts.pop();
+  let node = shared;
+  for (const key of parts) {
+    // Copy on write so the caller's nested objects are not mutated in place.
+    node[key] = { ...(node[key] || {}) };
+    node = node[key];
+  }
+  node[leaf] = value;
 }
 
 // Claims each quote and each event once, in card order. A later field that

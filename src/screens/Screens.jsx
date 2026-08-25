@@ -915,7 +915,7 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
     // Card 6 — The Funny One
     <Shell sec="funny" prog={6} total={TOTAL} feedback={feedback("The Funny One", 6)}>
       <T>{t("The Funny One")}</T>
-      <Big>{aiLoading?"...":(ai?.funniestPerson||s.names[0])}</Big>
+      <Big>{aiLoading?"...":(ai?.funniestPerson||"—")}</Big>
       <AICard label={t("Drops lines like")} value={ai?.funniestReason} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
@@ -963,7 +963,7 @@ export function DuoScreen({ s, ai, aiLoading, step, back, next, mode, relationsh
     // Card 10 — The Drama Report
     <Shell sec="ai" prog={10} total={TOTAL} feedback={feedback("The Drama Report", 10)}>
       <T>{t("The Drama Report")}</T>
-      <Big>{aiLoading?"...":(ai?.dramaStarter||s.names[0])}</Big>
+      <Big>{aiLoading?"...":(ai?.dramaStarter||"—")}</Big>
       <AICard label={t("How they do it")} value={ai?.dramaContext} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
@@ -1066,7 +1066,7 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
     enabled && resultId ? { resultId, reportType: reportKey, cardIndex, cardTitle } : null
   );
   const toxicMax = Math.max(...s.toxicityScores, 1);
-  const toxicName = ai?.toxicPerson || s.toxicPerson || s.names[0];
+  const toxicName = ai?.toxicPerson || s.toxicPerson || "—";
   const toxicReason = ai?.toxicReason || s.toxicReason;
   const groupFlags = normalizeRedFlags(ai?.redFlags).length ? normalizeRedFlags(ai?.redFlags) : s.redFlags;
   const evidenceTimeline = normalizeTimeline(ai?.evidenceTimeline).length ? normalizeTimeline(ai?.evidenceTimeline) : s.evidenceTimeline;
@@ -1144,7 +1144,7 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
 
     <Shell sec="funny" prog={7} total={TOTAL} feedback={feedback("The Funny One", 7)}>
       <T>{t("The Funny One")}</T>
-      <Big>{aiLoading?"...":(ai?.funniestPerson||s.names[0])}</Big>
+      <Big>{aiLoading?"...":(ai?.funniestPerson||"—")}</Big>
       <AICard label={t("Drops lines like")} value={ai?.funniestReason} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
@@ -1201,14 +1201,14 @@ export function GroupScreen({ s, ai, aiLoading, step, back, next, mode, resultId
 
     <Shell sec="ai" prog={13} total={TOTAL} feedback={feedback("The Drama Report", 13)}>
       <T>{t("The Drama Report")}</T>
-      <Big>{aiLoading?"...":(ai?.dramaStarter||s.names[0])}</Big>
+      <Big>{aiLoading?"...":(ai?.dramaStarter||"—")}</Big>
       <AICard label={t("How they do it")} value={ai?.dramaContext} loading={aiLoading} />
       <Nav back={back} next={next} />
     </Shell>,
 
     <Shell sec="ai" prog={14} total={TOTAL} feedback={feedback("Most missed member", 14)}>
       <T>{t("Most missed member")}</T>
-      <Big>{aiLoading?"...":(ai?.mostMissed||s.names[0])}</Big>
+      <Big>{aiLoading?"...":(ai?.mostMissed||"—")}</Big>
       <Sub>{t("When they go quiet, the group feels it.")}</Sub>
       <Nav back={back} next={next} />
     </Shell>,
@@ -1638,7 +1638,7 @@ export function ToxicityReportScreen({ s, ai, aiLoading, step, back, next, resul
     // Card 4 — Who apologises more (detailed context)
     <Shell sec="toxicity" prog={4} total={TOXICITY_SCREENS} feedback={feedback("Who apologises more", 4)}>
       <T>{t("Who apologises more")}</T>
-      <Big>{loading ? "…" : (ai?.apologiesLeader?.name || s.names[0])}</Big>
+      <Big>{loading ? "…" : (ai?.apologiesLeader?.name || "—")}</Big>
       <AICard label={`${(loading?"…":ai?.apologiesLeader?.name) || s.names[0]} — context`} value={ai?.apologiesLeader?.context} loading={loading} />
       <AICard label={`${(loading?"…":ai?.apologiesOther?.name) || s.names[1]||s.names[0]} — context`} value={ai?.apologiesOther?.context} loading={loading} />
       <Nav back={back} next={next} />
