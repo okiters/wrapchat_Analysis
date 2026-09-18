@@ -10,6 +10,56 @@ _Nothing pending — everything below is shipped._
 
 ---
 
+## v4.0 — Card voice, page structure, and the quip layer
+
+Driven by a run against a fourth real chat (a four-year Turkish friend chat, 17.8k messages) plus a structural audit of all 38 pages. The theme across all three parts: the right abstractions already existed and had been rolled out to exactly one page each.
+
+### Moment cards: a friend telling you about a moment, not a screenshot with a caption
+**Files:** `supabase/functions/_shared/prompts.js`, `src/analysis/aiAnalysis.js`, `src/analysis/voiceLint.js`
+
+The shared rule said, in as many words, *"the quote IS the card... never summarise a dialog in your own words... a screenshot with a caption"* — and capped the read at 15 words while leaving the quotes uncapped. That is backwards: the read is the part carrying the voice and the only part that was rationed, and the rule explicitly forbade the setup that tells a reader why the moment mattered.
+
+Measured across four chats before changing anything: the median card quote is 4 words and the median field 8% verbatim, which is healthy, but the outliers ran to **26 words and 67% of the card**. All of them were in the Turkish chat, where run-on messages are normal. The cause was a gap rather than a policy — the candidate bank caps its own quotes at 110 chars, but a field quoting straight from the window text had no ceiling at all.
+
+Moment fields are now four beats: **setup** (in the writer's own words, so the line has somewhere to land), **the line** (12-word ceiling), **the reaction**, and **the read** (why it lands for these two, mandatory, closing the field). Generic maxims are banned by name — "a concrete offer outweighs a vague consolation" is true of anybody and is the exact sound of a report. The budget moved 240 → 300 characters because the four beats genuinely do not fit in 240, least of all in Turkish.
+
+Deterministic backstops, so none of this depends on the model complying: `trimLongQuotes` caps any quoted span at 12 words while keeping it a literal prefix (quote-grounding still matches), `clampMomentField` holds the field at 320 chars, and two new lint rules — `quote-heavy` (>55% verbatim) and `quote-too-long` (>14 words) — make the balance measurable.
+
+**Two bugs found by making the change.** `resolveMomentPicks` demanded the WHOLE candidate quote appear verbatim, which was right when the quote was the card; now that a field quotes a fragment by design, the check failed on correct output and *prepended* speaker + quote + reaction to a field that already told the story — a transcript followed by a re-narration of the same moment, at 483 characters. It now accepts a recognisable fragment in either direction, and only injects when the card quotes nothing real at all. Separately, that repair ran after `momentFieldText`, so its quotes bypassed both the trim and the clamp; and because the read is the closing beat, the clamp was trimming off precisely the part that carries the voice.
+
+Also: the model leaked internal candidate numbering into user-facing Turkish ("Kandidat #53'ün ruhu bu"). The candidate list is now marked internal scaffolding in the prompt and the mechanics lint catches the leak in both languages.
+
+Honest limit: the read is **not yet reliable**. Judged across three runs it scored 5, 3 and 1 on the same field with no contract change between runs — that is variance, not progress, and three rounds of prompt tightening moved the average 3.2 → 3.3 → 2.7. Quote balance is now deterministic and holds; the read needs to become its own schema field so structured outputs cannot return a card without one.
+
+### Quips: the app's most-repeated voice
+**Files:** `src/i18n/translations.js`, `tests/quipVoice.test.js` (new)
+
+A quip sits under almost every card, and the hand-written ones failed the exact test the voice section spends 800 words teaching the model to pass. Laid out together, the weak ones shared one tic: they **graded the number** instead of reacting to it — "that kind of consistency is rare", "that means something", "still counts", "not bad at all", "that says a lot".
+
+24 of 57 variants rewritten in all 8 languages against one rule: *make a picture or take a side, never grade the number.* "That kind of consistency is rare" → "Neither of you once got too busy." Lines that already worked ("joined the group and immediately disappeared into witness protection", "Somewhere {novelist} is still typing") were kept. Turkish was written natively rather than translated. Three tests now fail the build if an appraisal tic returns, if any language drifts from 19 keys × 3 variants, or if placeholders diverge between languages.
+
+Still open: 3 variants per key means a user running several reports sees repeats.
+
+### Page structure: one scroll owner, one header, one theme path
+**Files:** `src/ui/Shell.jsx`, `src/screens/Screens.jsx`, `src/App.jsx`
+
+Shell exports a complete page contract (`SCREEN_CONTENT_STYLE`, `SCREEN_HEADER_BLOCK_STYLE`, `SCREEN_BODY_SCROLL_STYLE`), documented in its own comment as *"the contract for every headered page"*. Across all of `src/` those three constants had **three usages between them**. My Results was not the odd page out, it was the only page that had adopted it.
+
+- **Nested scroll containers (the headers-move bug).** The Shell pane is `overflowY:auto` by default, and four pages added their own scroller without passing `scrollable={false}`: PackSelect, PackResultsBuffer, the trial unlock step, and My Results' name-detail view. A sticky header inside an inner scroller sticks to that scroller, so when the outer pane had also scrolled the header rode along. TermsFlow already had this right.
+- **The scroll reset missed them entirely.** It reset only `paneRef`, so pages that own their scrolling kept their offset across navigation; and it fired on `[id]` alone, where `id` is a counter App.jsx increments by hand in 50 places, so any route that forgot to bump it kept the old position. Split into its own effect on `[id, sec, prog]`, and it now resets descendant scrollers too.
+- **Four sticky-header variants** (opaque, opaque+pullTop0, alpha .94 + blur 8, alpha .90 + blur 8) with no rule deciding which page got which. The frosted treatment is now the default in `getStickyHeaderStyle` and pages only override `pullTop`.
+- **Unlock reads had the smallest bottom padding of the three purchase pages** — 24px + safe-area against PackSelect's 56px and PackResultsBuffer's 96px — which is why its CTA did not clear. Now matches PackSelect.
+- **The My Results drawer had no bottom inset at all.** `SHELL_DRAWER_PADDING` existed to match the top and does; the bottom was never matched. Added to the drawer's scroller, where the Shell pane keeps its own.
+- **Theme.** `ThemedSurfaceContext` defaults to `false` and only Shell provides it, so in drawer mode `useInk()` returned dark ink on a theme-following light background. The drawer now provides the context, and 11 user-facing colour sites moved onto `useInk()` or an explicit theme branch.
+
+Not done, deliberately: migrating the remaining 37 pages onto the layout contract. It is the biggest win left and wants doing page by page with eyes on each one. None of the UI work has been visually verified — `env(safe-area-inset-*)` is zero in a desktop browser, so the CTA clearance in particular needs a device.
+
+Correction to the audit that preceded this: the unguarded-colour count was overstated (86, not 136) because the detector only recognised `isLight` as a theme guard and missed the `lightInk` and `light` spellings, and it attributed non-exported helpers to the preceding exported component.
+
+82 → **85 tests**. `PROMPT_VERSION` 14, deployed to the edge function (analyse-chat v46). `ANALYSIS_CONTRACT` stays at 1.
+
+---
+
 ## v3.9 — Moment selection, honest local math, and prompt/lint contract repair
 
 Driven by a measured audit of the analysis pipeline (sampling, local math, prompts, cards) run against three chats: a 6.9k Turkish duo, a 61k English partner chat, and a 4.3k four-person group. Every number below came from instrumenting the real modules, not from reading the code.

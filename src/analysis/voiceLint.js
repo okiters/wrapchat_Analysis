@@ -8,7 +8,7 @@ import { EMOJI_RE } from "./textSanitize.js";
 
 const LONG_DASH_RE = /[—–]/;
 // Analysis mechanics must never surface in user-facing text.
-const MECHANICS_RE = /(━|⋯|\[(?:number|email|account|redacted)\]|(?:early|recent) snapshot|bridge window|candidate (?:moment|#\d)|window \d+\/\d+|\bwindow \d\b|evidence window|timeline spine|moment window|\bwindows?['’][a-zçğıöşu]+|(?:separate|several|different|multiple|two|iki|birden fazla|ayrı)\s+windows?\b)/i;
+const MECHANICS_RE = /(━|⋯|kandidat\\s*#?\\d|candidate\\s*#?\\d|\[(?:number|email|account|redacted)\]|(?:early|recent) snapshot|bridge window|candidate (?:moment|#\d)|window \d+\/\d+|\bwindow \d\b|evidence window|timeline spine|moment window|\bwindows?['’][a-zçğıöşu]+|(?:separate|several|different|multiple|two|iki|birden fazla|ayrı)\s+windows?\b)/i;
 const MECHANICS_UPPER_RE = /\bWINDOW\b/;
 // Double quotes and guillemets always delimit quotes. Single quotes only
 // count when they are not intra-word suffix apostrophes (Ozge'nin, Josh'tan),
@@ -24,6 +24,10 @@ function extractQuotes(text) {
   ];
 }
 const MAX_FIELD_CHARS = 260;
+// Moment cards carry setup + quote + reaction + read, which does not fit the
+// general field budget once the read is the point of the card rather than a
+// caption on a screenshot.
+const MAX_MOMENT_FIELD_CHARS = 320;
 // Fields that must feel like a concrete scene: they need a name or a quote.
 const MOMENT_FIELD_RE = /moment|funniest|drama|tension|energis|draining|insidejoke|sweet|loving|turningpoint|hype/i;
 // Narrator-voice romance vocabulary that reads as misclassification on a
@@ -85,8 +89,11 @@ export function lintText(text, path = "") {
       issues.push({ path, level: "error", rule: "banned-phrase", detail: `contains "${phrase}"` });
     }
   }
-  if (value.length > MAX_FIELD_CHARS) {
-    issues.push({ path, level: "warning", rule: "too-long", detail: `${value.length} chars (max ${MAX_FIELD_CHARS})` });
+  const lengthCap = MOMENT_FIELD_RE.test(path.split(".").pop() || path)
+    ? MAX_MOMENT_FIELD_CHARS
+    : MAX_FIELD_CHARS;
+  if (value.length > lengthCap) {
+    issues.push({ path, level: "warning", rule: "too-long", detail: `${value.length} chars (max ${lengthCap})` });
   }
   return issues;
 }
@@ -142,6 +149,25 @@ export function lintResult(result) {
       STYLE_EXAMPLE_TOKENS.some(exampleTokens => tokenJaccard(contentTokens(text), exampleTokens) > 0.4)
     ) {
       issues.push({ path, level: "error", rule: "calibration-copy", detail: "mirrors a calibration/register example from the prompt" });
+    }
+
+    // Quote balance. A moment card is a friend telling you about the moment,
+    // so the quote is evidence, not the card itself. Measured across four real
+    // chats the median card quote is 4 words and the median field is 8% quote;
+    // the failures ran to 26 words and 67%, which left the read nine words and
+    // turned the card into a transcript. Flag either end: a card that is mostly
+    // verbatim, or a single quote longer than a friend would ever repeat.
+    if (MOMENT_FIELD_RE.test(path.split(".").pop() || path) && text.length > 60) {
+      const spans = extractQuotes(text);
+      const quoted = spans.reduce((sum, span) => sum + span.length, 0);
+      const share = quoted / text.length;
+      if (share > 0.55) {
+        issues.push({ path, level: "warning", rule: "quote-heavy", detail: `${Math.round(share * 100)}% of the field is verbatim quote — the read has no room` });
+      }
+      const longest = spans.reduce((max, span) => Math.max(max, span.trim().split(/\s+/).length), 0);
+      if (longest > 14) {
+        issues.push({ path, level: "warning", rule: "quote-too-long", detail: `a ${longest}-word quote is a transcript, not a card line` });
+      }
     }
 
     // Genericity: a "moment" field with neither a name-like capital nor a quote

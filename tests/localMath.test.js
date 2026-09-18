@@ -8,7 +8,7 @@ globalThis.__WRAPCHAT_ENV__ = { DEV: false };
 register(new URL("../scripts/golden/loader.mjs", import.meta.url));
 
 const { localStats } = await import("../src/analysis/localMath.js");
-const { stripPromptInstruction } = await import("../src/analysis/aiAnalysis.js");
+const { stripPromptInstruction, trimLongQuotes, clampMomentField, momentFieldText } = await import("../src/analysis/aiAnalysis.js");
 
 // A calm two-person chat: alternating, quick replies, nothing hostile.
 function calmChat(count, { startMs = Date.UTC(2026, 0, 1, 9, 0, 0), stepMs = 45_000 } = {}) {
@@ -91,4 +91,45 @@ test("prompt instructions never survive as user-facing copy", () => {
   assert.equal(stripPromptInstruction("Confirm or correct this from the chat."), "");
   assert.equal(stripPromptInstruction("They met at university and never lost touch."),
     "They met at university and never lost touch.");
+});
+
+// ── Moment-card voice guards ──
+// A moment card is a friend telling you about the moment: setup, a short quote,
+// the reaction, then the read. These guards keep the quote from eating the card.
+
+test("a rambling message is quoted as a fragment, not pasted whole", () => {
+  const rambling = "Ozge: 'ay beni fenalıklar bastı bi de stresli bi dönemdi test yaptırcam tek basıma "
+    + "yaptırmak istemiyorum kalktım bi günlüğüne denizliye gittim anamla olayım bari kocam yok diye' dedi.";
+  const out = trimLongQuotes(rambling);
+  const quoted = out.match(/'([^']+)'/)[1];
+  assert.ok(quoted.split(/\s+/).length <= 13, `quote still ${quoted.split(/\s+/).length} words`);
+  assert.ok(out.length < rambling.length);
+  // The kept fragment stays a literal prefix so quote-grounding still matches.
+  assert.ok(rambling.includes(quoted.replace(/\.\.\.$/, "")));
+});
+
+test("a short quote is left exactly as written", () => {
+  const fine = `She said "be nice to tiny people" and he lost it.`;
+  assert.equal(trimLongQuotes(fine), fine);
+});
+
+test("the reaction quote survives while the long line is cut", () => {
+  const both = "Ozge: 'bir iki üç dört beş altı yedi sekiz dokuz on onbir oniki onüç ondört' dedi, "
+    + "Aynüke: 'Bbsbsbshgsgsgsgfs' ile patladı.";
+  const out = trimLongQuotes(both);
+  assert.ok(out.includes("Bbsbsbshgsgsgsgfs"), "short reaction must be kept");
+  assert.ok(!out.includes("ondört"), "long line must be cut");
+});
+
+test("moment fields are clamped, and clamping prefers a sentence boundary", () => {
+  const long = `${"Uzun bir cümle daha yazıyorum. ".repeat(20)}`;
+  const out = clampMomentField(long);
+  assert.ok(out.length <= 320, `got ${out.length}`);
+  assert.ok(out.endsWith(".") || out.endsWith("..."));
+});
+
+test("momentFieldText accepts both the flat and the {text} shapes", () => {
+  assert.equal(momentFieldText({ text: "hello there" }), "hello there");
+  assert.equal(momentFieldText("hello there"), "hello there");
+  assert.equal(momentFieldText(null), "");
 });

@@ -13,7 +13,7 @@
 // logged per call in ai_usage_log so output changes can be correlated.
 // ─────────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = 13;
+export const PROMPT_VERSION = 14;
 
 // The contract between deployed prompts and the CLIENT-SIDE post-processing
 // that shapes their output (consistency dedup, spine sampling, voice lint).
@@ -295,7 +295,16 @@ export const CORE_A_WRITING_STYLE = `FIELD DISTINCTNESS (each pair must describe
 No two fields anywhere in the output may quote the same line or describe the same moment. A quote used in ANY field (including per-person fields like hypeQuote or goodNews) is spent: never reuse it elsewhere.
 GROUP-ONLY FIELDS: In a two-person chat, mostMissed, insideJoke, and hypePersonReason must be empty strings. They exist only for group chats.
 
-MOMENT FIELDS: For funny, sweet, loving, tense, energising, and draining fields, the quote IS the card. Lead with the exact line: [Name] said '<verbatim quote>', then the other person's reaction (quote it verbatim when it is short), then ONE short read of at most 15 words on why it lands for these exact people. Never summarise a dialog in your own words when the real line can carry it. Total under 220 characters. The result should feel like a screenshot with a caption, not a recap.`;
+MOMENT FIELDS (funny, sweet, loving, tense, energising, draining): tell these the way a FRIEND tells you about a moment, not the way a screenshot looks. Four beats, in order:
+1. SETUP - one clause, in YOUR OWN WORDS, for what was going on. The reader was not there; a quote with no setup is a fragment. This is the beat that answers "why was this sweet / funny" and it is not optional.
+2. THE LINE - the exact words in quote marks, cut to the fragment a friend would actually repeat. TWELVE WORDS MAXIMUM. If the message rambles, quote the part that carries it and let your setup handle the rest. Never paste a whole run-on message: a 26-word quote is a transcript, not a card.
+3. THE REACTION - how the other person took it, in a few words. Quote it only when it is short.
+4. THE READ - why it lands FOR THESE TWO. This is the point of the card, it gets the MOST room (up to 25 words), and it is MANDATORY: it always closes the field. CHECK BEFORE YOU MOVE ON: if your last sentence describes what they said or how they reacted, the read is MISSING and the field is unfinished - 'Aynuke's reaction was a total keyboard mash' and 'she replied that she had discussed it with her therapist' are recaps, not reads. The last sentence must be YOURS: the thing you would say out loud about these two after telling the story.
+
+THE READ IS NEVER A MAXIM. Lines like "a concrete offer outweighs a vague consolation", "the kind of line that makes someone feel safe to keep talking", or "sharp direction wrapped in empathy" are BANNED. They are true of anybody, they name a category instead of these people, and they are the exact sound of a report. The read must be something you could only say about THIS pair: it is exactly like them, or completely unlike them, or the thing they do every single time. Test it by swapping both names for strangers; if the sentence still works, rewrite it.
+
+Total under 300 characters: the four beats need more room than a screenshot caption did, but a card that runs past this has stopped being a card. If it is crowding, the quote is too long, never the read too short.
+The candidate list is INTERNAL SCAFFOLDING. Reference a candidate by its # only in the candidateId field, never in prose: a reader must never see a candidate number or any mention of how the moments were gathered.`;
 
 // ── Sanitizers ──
 // Applied server-side before any payload value reaches a prompt. scalar()
@@ -460,29 +469,29 @@ function connectionFields(coreAnalysisVersion) {
     "biggestTopic": "the dominant recurring storyline in this chat - something both repeated and important to the dynamic, not a trivial side debate",
     "ghostContext": "1 sentence explaining the slower replier's pattern",
     "funniestPerson": "ONLY the first name of the funniest person, or 'None clearly identified'",
-    "funniestReason": "the funniest person's actual joke line, copied verbatim in quote marks, then the other person's reaction, then one short read (max 15 words) on why it hit",
+    "funniestReason": "set up what was happening, quote the joke line itself (12 words max, the punch not the ramble), name the reaction it got, then the read: why it is funny coming from THIS person specifically.",
     "funniestReasonCandidateId": "[number: #id of the funny CANDIDATE MOMENT funniestReason is built on, or 0 if none fits]",
     "dramaStarter": "ONLY a first name, 'Shared', or 'None clearly identified'",
     "dramaContext": "1 sentence describing the real recurring drama pattern",
     "signaturePhrases": ["the phrase you'd use to impersonate the FIRST person listed in the participants - a repeated expression that carries their personality (a nickname or pet name THEY invented, an exaggeration, a hype line, or a recurring complaint), never a greeting, filler, connective, or logistics. A term the chat's language hands everyone (askim, canim, kanka, bro, habibi, alter, mano) carries no personality and must never be chosen. Prefer a phrase that is memorable and unmistakably theirs over one that is merely frequent - the most repeated strings in any chat are its blandest. A phrase built only from such terms is banned too, however affectionate it sounds (askim bebeyim, canim bebegim, bro dude). It must be something they actually REPEAT: a one-off line, however funny or memorable, is a moment, not a signature. Return an empty string rather than settling for filler or promoting a one-off.", "same for the second person, and so on: return ONE entry per participant, in the order the participants are listed"],
     "relationshipSummary": "1 sentence - a specific human read on what's actually going on between them, not a label or diagnosis",
     "groupDynamic": "1 sentence - honest read of this group's energy",
-    "tensionMoment": "who said the charged line, the line verbatim in quote marks, how the other responded, then one short read (max 15 words). Describe clearly, don't amplify",
+    "tensionMoment": "set up the situation, quote the charged line (12 words max), say how the other responded, then the read: what this says about how these two handle friction. Describe clearly, never amplify.",
     "tensionMomentCandidateId": "[number: #id of the tension CANDIDATE MOMENT tensionMoment is built on, or 0 if none fits]",
     "kindestPerson": "ONLY a first name, or 'None clearly identified'",
-    "sweetMoment": "who said the caring line, the line verbatim in quote marks, how the other received it, then one short read (max 15 words) on why it landed",
+    "sweetMoment": "a specific act of care. Set up what was going on in your own words, quote the caring line (12 words max), say how it was received, then the read: why THIS pair doing THIS is the point. No general truths about kindness.",
     "sweetMomentCandidateId": "[number: #id of the care CANDIDATE MOMENT sweetMoment is built on, or 0 if none fits]",
     "mostMissed": "group only: the member whose absence the group actually feels, judged from the ABSENCE FELT counts above plus the chat itself. ONLY a first name, or the exact string 'None clearly identified' when nobody stands out. Never return an empty string for a group chat.",
     "insideJoke": "group only: 1 sentence naming a recurring inside joke or reference. It must be something THIS group made up: a running bit, a nickname they invented, a callback to a specific event. A word or pet name that any speaker of the chat's language uses (askim, canim, kanka, bro, habibi, alter) is NOT an inside joke, however often it appears - it is the language, not the group. It must come back more than once in the chat. Never mention how the chat was sampled or excerpted; write only about the chat itself. If nothing qualifies, return an empty string.",
     "hypePersonReason": "group only: 1 sentence on how the conversation starter named in the context above energises the group, with a concrete example from the chat. Write about THAT person only. Empty string for a two-person chat.",
     "loveLanguageMismatch": "1 sentence describing how their care styles align or mismatch",
-    "mostLovingMoment": "who said the warm line, the line verbatim in quote marks, how the other answered, then one short read (max 15 words) on why it felt real",
+    "mostLovingMoment": "set up the moment, quote the warm line (12 words max), say how it was answered, then the read: why it reads as real for THESE two rather than as something anyone says.",
     "mostLovingMomentCandidateId": "[number: #id of the affection CANDIDATE MOMENT mostLovingMoment is built on, or 0 if none fits]",
     "compatibilityScore": [1-10],
     "compatibilityRead": "1 short sentence - love-language compatibility summary",
-    "mostEnergising": "the line that sparked the energy, verbatim in quote marks with its speaker, how the other met it, then one short read (max 15 words)",
+    "mostEnergising": "set up what lifted the mood, quote the line that sparked it (12 words max) with its speaker, say how the other met it, then close with the read: what this says about what actually energises THESE two.",
     "mostEnergisingCandidateId": "[number: #id of the energy-high CANDIDATE MOMENT mostEnergising is built on, or 0 if none fits]",
-    "mostDraining": "the line that shows the drain, verbatim in quote marks with its speaker, how the other responded, then one short read (max 15 words)",
+    "mostDraining": "set up what was wearing them down, quote the line that shows it (12 words max) with its speaker, say how the other responded, then close with the read: what reliably drains THIS pair. Never end on the recap.",
     "mostDrainingCandidateId": "[number: #id of the energy-low CANDIDATE MOMENT mostDraining is built on, or 0 if none fits]",
     "energyCompatibility": "1 sentence - how their energy styles work together",
     "timeOfDay": {

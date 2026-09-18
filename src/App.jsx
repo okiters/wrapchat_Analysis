@@ -67,7 +67,7 @@ import {
   buildShareCanvas, canShareFiles, downloadBlob, canvasToBlob,
   chatHealthLabel, getReportLaunchSec, prepaintReportLaunchSurface,
   SHELL_DRAWER_PADDING,
-  SCREEN_CONTENT_STYLE,
+  SCREEN_CONTENT_STYLE, ThemedSurfaceContext,
   LEGAL_VERSION, TERMS_OF_SERVICE_TEXT, PRIVACY_POLICY_TEXT,
   SharePicker, Shell,
 } from "./ui/Shell";
@@ -1985,6 +1985,12 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
               pointerEvents: historyDrawerOpen ? "all" : "none",
             }}
           />
+          {/* The drawer paints getDA(theme).bg, so it follows the light/dark
+              ground exactly like a Shell "upload" section does. Shell is the
+              only other provider of this context and it defaults to false, so
+              without this the drawer's children resolve to dark-surface ink
+              while sitting on a light background. */}
+          <ThemedSurfaceContext.Provider value={true}>
           <div style={{
             position:"absolute", top:0, left:0, bottom:0,
             width:"100%",
@@ -2005,6 +2011,7 @@ export default function App({ pendingImportedChat = null, onPendingImportedChatC
               onSettings={() => { setSettingsReturnTarget("historyDrawer"); setHistoryDrawerOpen(false); setDir("fwd"); setPhase("settings"); setSid(s => s+1); }}
             />
           </div>
+          </ThemedSurfaceContext.Provider>
         </div>
       )}
     </>

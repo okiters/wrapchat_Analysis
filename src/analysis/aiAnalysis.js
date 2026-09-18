@@ -1050,9 +1050,47 @@ export function normalizePromiseMoment(item) {
 
 // Moment fields arrive either as plain strings (legacy coreA/coreB pipelines)
 // or as { candidateId, text } picks anchored on the local quote bank.
+// A card quote is a recognisable line, not a paragraph. The candidate bank
+// already caps its own quotes at 110 chars, but a field quoting straight from
+// the window text had no ceiling at all. Measured across four chats the median
+// card quote is 4 words — healthy — while the outliers ran to 22 and 26 words
+// and ate 62-67% of the card, leaving nine words for the read. Turkish run-on
+// texting produces those long unpunctuated messages, so the ceiling matters
+// most exactly where the voice already has the least room.
+const MAX_QUOTE_WORDS = 12;
+const QUOTE_SPAN_RE = /(["“”])([^"“”\n]{10,}?)(["“”])|(?<![\p{L}\p{N}])(['‘])([^'‘’\n]{10,}?)(['’])(?![\p{L}\p{N}])/gu;
+
+export function trimLongQuotes(text, maxWords = MAX_QUOTE_WORDS) {
+  return String(text || "").replace(QUOTE_SPAN_RE, (match, dOpen, dInner, dClose, sOpen, sInner, sClose) => {
+    const open = dOpen ?? sOpen;
+    const close = dClose ?? sClose;
+    const inner = dInner ?? sInner;
+    const words = inner.trim().split(/\s+/);
+    if (words.length <= maxWords) return match;
+    // Keep the opening fragment: it is the part a reader recognises, and it
+    // stays a literal prefix of the original so quote-grounding still matches.
+    return `${open}${words.slice(0, maxWords).join(" ")}...${close}`;
+  });
+}
+
+// Setup + quote + reaction + a read worth reading does not fit in the old
+// 240-character budget, least of all in Turkish, so the ceiling moved up with
+// the shape. It is still a ceiling: past this a card stops being a card.
+const MAX_MOMENT_CHARS = 320;
+
+export function clampMomentField(text) {
+  const value = strOr(text);
+  if (value.length <= MAX_MOMENT_CHARS) return value;
+  const cut = value.slice(0, MAX_MOMENT_CHARS);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  if (stop > MAX_MOMENT_CHARS * 0.55) return cut.slice(0, stop + 1).trim();
+  const space = cut.lastIndexOf(" ");
+  return `${(space > MAX_MOMENT_CHARS * 0.55 ? cut.slice(0, space) : cut).trim()}...`;
+}
+
 export function momentFieldText(value) {
-  if (value && typeof value === "object" && !Array.isArray(value)) return strOr(value.text);
-  return strOr(value);
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? strOr(value.text) : strOr(value);
+  return clampMomentField(trimLongQuotes(raw));
 }
 
 // Same normalisation as voiceLint's squash: substring matching across
@@ -1075,6 +1113,31 @@ function dequoteSpecificQuote(text, quote) {
   return String(text || "")
     .replace(/["“”]([^"“”\n]{2,}?)["“”]/gu, fix)
     .replace(/(?<![\p{L}\p{N}])['‘]([^'‘’\n]{2,}?)['’](?![\p{L}\p{N}])/gu, fix);
+}
+
+// Is the card built on the candidate's real line? This used to demand the
+// WHOLE candidate quote appear verbatim, which was right when the contract was
+// "the quote IS the card". Moment fields now quote a fragment by design (a
+// twelve-word ceiling, so a rambling message gets its punch quoted and the
+// setup paraphrased), and the strict check started failing on correct output:
+// the repair below then PREPENDED speaker + quote + reaction to a field that
+// already told the story, producing a transcript followed by a re-narration of
+// the same moment. A recognisable fragment in either direction counts.
+function quoteIsGrounded(text, candidateQuote) {
+  const squashedText = squashForMatch(text);
+  const squashedQuote = squashForMatch(candidateQuote);
+  if (!squashedQuote) return true;
+  if (squashedText.includes(squashedQuote)) return true;
+  // The model quoted the opening of a long line.
+  const prefix = squashForMatch(String(candidateQuote).trim().split(/\s+/).slice(0, 8).join(" "));
+  if (prefix.length >= 14 && squashedText.includes(prefix)) return true;
+  // The model quoted some other substantial run of the same line.
+  for (const span of String(text || "").matchAll(QUOTE_SPAN_RE)) {
+    const inner = span[2] ?? span[5] ?? "";
+    const squashedSpan = squashForMatch(inner);
+    if (squashedSpan.length >= 14 && squashedQuote.includes(squashedSpan)) return true;
+  }
+  return false;
 }
 
 const MOMENT_PICK_FIELDS = ["funniestReason", "sweetMoment", "mostLovingMoment", "tensionMoment", "mostEnergising", "mostDraining"];
@@ -1108,11 +1171,25 @@ export function resolveMomentPicks(rawShared, normalizedShared, quoteBank) {
       continue;
     }
     used.add(id);
-    if (!squashForMatch(text).includes(squashForMatch(candidate.quote))) {
+    // Only step in when the card quotes NOTHING real. The old rule was "this
+    // exact bank line must appear", which made sense when the quote was the
+    // card; now the card is a friend telling the moment and the model may
+    // legitimately quote a different real line from the same window. Injecting
+    // anyway pushed the field over budget, and since the read is the closing
+    // beat, the length clamp then trimmed off the one part that carries the
+    // voice — cards came back as transcripts with no read at all.
+    const quotesSomethingReal = [...String(text || "").matchAll(QUOTE_SPAN_RE)]
+      .some(span => squashForMatch(span[2] ?? span[5] ?? "").length >= 10);
+    if (!quoteIsGrounded(text, candidate.quote) && !quotesSomethingReal) {
       const reaction = candidate.reaction
         ? ` ${candidate.reaction.speaker}: "${candidate.reaction.quote}"`
         : "";
-      out[field] = sanitizeResultText(`${candidate.speaker}: "${candidate.quote}"${reaction} ${dequoteSpecificQuote(text, candidate.quote)}`.trim());
+      // This repair runs after momentFieldText, so its quotes bypassed the
+      // twelve-word trim and the length clamp; re-apply both here or a rebuilt
+      // card lands at 483 characters with a 17-word quote on the front.
+      out[field] = clampMomentField(sanitizeResultText(trimLongQuotes(
+        `${candidate.speaker}: "${candidate.quote}"${reaction} ${dequoteSpecificQuote(text, candidate.quote)}`.trim(),
+      )));
     }
   }
   return out;

@@ -206,7 +206,7 @@ function AICard({ label, value, loading }) {
       overflow: "hidden",
     }}>
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:p.accent, marginBottom:10 }}>{label}</div>
-      {loading ? <Dots color="rgba(255,255,255,0.4)" /> : <div style={{ fontSize:15, color:"#fff", lineHeight:1.65, fontWeight:400 }}>{value||"—"}</div>}
+      {loading ? <Dots /> : <div style={{ fontSize:15, color:"#fff", lineHeight:1.65, fontWeight:400 }}>{value||"—"}</div>}
     </div>
   );
 }
@@ -1422,7 +1422,7 @@ export function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
       <Nav back={back} next={next} nextLabel="See packs" showArrow={false} />
     </Shell>,
 
-    <Shell sec="upload" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 2} contentAlign="start" hidePill hideChromeButtons>
+    <Shell scrollable={false} sec="upload" prog={TRIAL_SCREENS + 1} total={TRIAL_SCREENS + 2} contentAlign="start" hidePill hideChromeButtons>
           <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"16px 20px 0", minHeight:0, overflow:"hidden" }}>
             <div style={{ marginBottom:18, flexShrink:0 }}>
               <div style={{ fontFamily:"'Nunito',sans-serif", fontSize:26, fontWeight:900, color:inkText, letterSpacing:"-0.02em", lineHeight:1.1, textAlign:"left" }}>
@@ -1445,10 +1445,10 @@ export function TrialReportScreen({ s, ai, aiLoading, step, back, next }) {
                           <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.07em", textTransform:"uppercase", color:pack.accent, textAlign:"left" }}>{reportCount} {reportCount === 1 ? t("report") : t("reports")}</div>
                         </div>
                       </div>
-                      <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)", flexShrink:0 }}>▾</div>
+                      <div style={{ width:24, height:24, borderRadius:"50%", background:lightInk ? "rgba(31,24,78,0.08)" : "rgba(255,255,255,0.10)", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.50)", fontSize:13, transform:open ? "rotate(180deg)" : "none", transition:"transform 0.28s cubic-bezier(0.2,0,0.1,1)", flexShrink:0 }}>▾</div>
                     </div>
                     <div style={{ maxHeight:open ? 200 : 0, overflow:"hidden", opacity:open ? 1 : 0, padding:open ? "0 18px 16px" : "0 18px", transition:"max-height 0.35s cubic-bezier(0.2,0,0.1,1), opacity 0.22s ease, padding 0.28s cubic-bezier(0.2,0,0.1,1)" }}>
-                      <div style={{ fontSize:13, color:"rgba(255,255,255,0.60)", lineHeight:1.55, marginBottom:12, textAlign:"left" }}>{PACK_EXPLAINER_DESCS[id]}</div>
+                      <div style={{ fontSize:13, color:lightInk ? "rgba(31,24,78,0.62)" : "rgba(255,255,255,0.60)", lineHeight:1.55, marginBottom:12, textAlign:"left" }}>{PACK_EXPLAINER_DESCS[id]}</div>
                       <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                         {pack.reports.map(r => {
                           const rc = REPORT_PILL_STYLE[r] || {};
@@ -2864,8 +2864,8 @@ export function RelationshipSelect({
       <PrimaryButton
         onClick={() => sel && onSelect(sel, extraChats)}
         disabled={!sel}
-        color={sel ? PAL.upload.accent : "rgba(255,255,255,0.12)"}
-        textColor={sel ? DA.bg : "rgba(255,255,255,0.35)"}
+        color={sel ? PAL.upload.accent : (isLight ? "rgba(31,24,78,0.14)" : "rgba(255,255,255,0.12)")}
+        textColor={sel ? DA.bg : (isLight ? "rgba(31,24,78,0.38)" : "rgba(255,255,255,0.35)")}
         style={{ marginTop:4, minHeight:58, flexShrink:0 }}
       >
         <span style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>{t("Continue")}<ForwardIcon size={13} /></span>
@@ -3879,7 +3879,7 @@ export function SettingsScreen({ onBack, onAccountDeleted, onLogout, onUserUpdat
   return (
     <>
       <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
-          <div style={getStickyHeaderStyle(isLight, { alpha: 0.9, blur: 8 })}>
+          <div style={getStickyHeaderStyle(isLight)}>
             <ScreenHeader back={onBack} title="Settings" />
           </div>
 
@@ -4249,7 +4249,7 @@ export function PackSelect({
   const quickReadOpen = openRead === "quick_read";
 
   return (
-    <Shell sec="upload" prog={stepProg} total={stepTotal} contentAlign="start" hidePill>
+    <Shell scrollable={false} sec="upload" prog={stepProg} total={stepTotal} contentAlign="start" hidePill>
       <div style={{
         alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column",
         margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))",
@@ -4469,7 +4469,7 @@ export function PaymentScreen({ preselect = null, credits = null, userId = null,
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
-        <div style={getStickyHeaderStyle(theme === "light", { alpha: 0.94, blur: 8 })}>
+        <div style={getStickyHeaderStyle(theme === "light")}>
           <ScreenHeader back={onBack} title="Add Credits" />
         </div>
         <div style={{ fontSize:14, color:da.muted, lineHeight:1.5, marginBottom:18 }}>Add credits once. Use them whenever you want.</div>
@@ -4666,7 +4666,7 @@ export function PackResultsBuffer({ rows, pack, onClose, onOpenReport }) {
   })();
 
   return (
-    <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, accent:pack.accent }}>
+    <Shell scrollable={false} sec="upload" prog={0} total={0} contentAlign="start" hidePill palette={{ ...PAL.upload, accent:pack.accent }}>
       <div style={{ alignSelf:"stretch", flex:1, display:"flex", flexDirection:"column", margin:"-16px -20px calc(-24px - env(safe-area-inset-bottom, 0px))", padding:"0 20px calc(96px + env(safe-area-inset-bottom, 0px))", minHeight:0, overflowY:"auto", overscrollBehavior:"contain" }}>
         <div style={getStickyHeaderStyle(theme === "light", { pullTop: 0 })}>
           <ScreenHeader back={onClose} titleNode={titleNode} />
@@ -4850,7 +4850,7 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
 
   return (
     <Shell sec="upload" prog={0} total={0} contentAlign="start" hidePill>
-      <div style={getStickyHeaderStyle(theme === "light", { alpha: 0.94, blur: 8 })}>
+      <div style={getStickyHeaderStyle(theme === "light")}>
       {canUnlockWithCredits && (
         <div style={{ position:"absolute", top:SCREEN_HEADER_CONTROL_TOP, right:20, minHeight:40, zIndex:12, display:"flex", alignItems:"center" }}>
           <div style={{
@@ -5021,6 +5021,11 @@ export function UpgradePlaceholder({ info, onBack, credits = null, userRole = "u
               {isPayments ? "Add Credits" : "Ask admin for more credits"}
             </button>
           )}
+          {/* The Shell pane only pads 24px + safe-area at the bottom, which is
+              not enough to clear a full-width CTA on a device with a home
+              indicator. PackSelect uses 56px and PackResultsBuffer 96px for the
+              same reason; this brings the unlock flow in line with them. */}
+          <div aria-hidden style={{ height:"calc(32px + env(safe-area-inset-bottom, 0px))", flexShrink:0 }} />
         </>
       ) : isTester ? (
         <Sub mt={2}>{t("You're in beta testing mode — credits are managed by the admin. Reach out to get more.")}</Sub>
@@ -7134,6 +7139,7 @@ export function AdminPanel({ onBack, accessMode, onAccessModeChange }) {
 // MY RESULTS
 // ─────────────────────────────────────────────────────────────────
 export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onSettings = null, drawerMode = false, currentUser = null, previewRows = null }) {
+  const ink = useInk();
   const { theme } = useTheme();
   const da = getDA(theme);
   const isLight = theme === "light";
@@ -7543,7 +7549,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
             pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
             cursor:"pointer" }}
           aria-label={item.type === "bundle" ? "Delete pack" : "Delete result"}>×</button>
-        {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots color="rgba(255,255,255,0.4)" /></div>}
+        {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
         {isConfirming && !isDeleting && (
           <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
             alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
@@ -7557,7 +7563,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                 {item.type === "bundle" ? "Delete all" : "Delete"}
               </button>
               <button type="button" onClick={(e) => { e.stopPropagation(); item.type === "bundle" ? setConfirmBundle(null) : setConfirmId(null); }} className="wc-btn"
-                style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
+                style={{ background:ink.chipBg, border:`1px solid ${ink.chipBorder}`, borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
             </div>
           </div>
         )}
@@ -7694,7 +7700,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                       pointerEvents: editing && !isDeleting && !isConfirming ? "auto" : "none",
                       cursor:"pointer" }}
                     aria-label="Delete result">×</button>
-                  {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots color="rgba(255,255,255,0.4)" /></div>}
+                  {isDeleting && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                   {isConfirming && !isDeleting && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
@@ -7704,7 +7710,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                         <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }} className="wc-btn"
                           style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete</button>
                         <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmId(null); }} className="wc-btn"
-                          style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
+                          style={{ background:ink.chipBg, border:`1px solid ${ink.chipBorder}`, borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                       </div>
                     </div>
                   )}
@@ -7731,7 +7737,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
       </div>
     );
     return drawerMode ? nameDetailContent : (
-      <Shell sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
+      <Shell scrollable={false} sec="upload" prog={0} total={0} contentAlign="start" hideProgressBar>
         {nameDetailContent}
       </Shell>
     );
@@ -7742,7 +7748,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
       {/* Frosted sticky header (the Settings pattern): the pane/drawer is the
           scroll container and the list slides under this bar. Sort tabs live
           inside the bar so they stay visible. */}
-      <div style={getStickyHeaderStyle(isLight, { alpha: 0.9, blur: 8 })}>
+      <div style={getStickyHeaderStyle(isLight)}>
         <ScreenHeader
           back={() => { exitEditing(); onBack(); }}
           title="My Results"
@@ -7864,7 +7870,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                       pointerEvents: editing && !isDeletingName && !isConfirmingName ? "auto" : "none",
                       cursor:"pointer" }}
                     aria-label="Delete all for name">×</button>
-                  {isDeletingName && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots color="rgba(255,255,255,0.4)" /></div>}
+                  {isDeletingName && <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:20 }}><Dots /></div>}
                   {isConfirmingName && !isDeletingName && (
                     <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center", gap:10, borderRadius:20, padding:"12px 18px",
@@ -7874,7 +7880,7 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
                         <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteName(group.name, group); }} className="wc-btn"
                           style={{ background:"rgba(200,40,40,0.9)", border:"1px solid rgba(255,100,100,0.4)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:800, color:"#fff" }}>Delete all</button>
                         <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmNameId(null); }} className="wc-btn"
-                          style={{ background:"rgba(255,255,255,0.10)", border:"1px solid rgba(255,255,255,0.18)", borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
+                          style={{ background:ink.chipBg, border:`1px solid ${ink.chipBorder}`, borderRadius:999, padding:"7px 18px", fontSize:13, fontWeight:700, color:"#fff" }}>Cancel</button>
                       </div>
                     </div>
                   )}
@@ -7919,7 +7925,13 @@ export function MyResults({ onBack, onRestoreResult, initialBundleId = null, onS
     </>
   );
   return drawerMode ? (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", overscrollBehavior:"contain", position:"relative" }}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflowY:"auto", overflowX:"hidden", overscrollBehavior:"contain", position:"relative",
+      // The Shell path gets its bottom clearance from the pane's own padding,
+      // which sits inside the scroll area. The drawer had none at all, so the
+      // last row could finish flush against the home indicator. Matching it
+      // here (rather than on the drawer box) keeps content scrolling into the
+      // gap exactly the way it does on the full page.
+      paddingBottom:"calc(24px + env(safe-area-inset-bottom, 0px))" }}>
       {mainInnerContent}
     </div>
   ) : (
@@ -8137,7 +8149,7 @@ export function ChatMemoryQuiz({ quizId, onJoin }) {
   // ── Loading ──
   if (quizPhase === "loading") {
     return frame(
-      <div style={{ display:"flex", justifyContent:"center" }}><Dots color="rgba(255,255,255,0.4)" /></div>
+      <div style={{ display:"flex", justifyContent:"center" }}><Dots /></div>
     );
   }
 

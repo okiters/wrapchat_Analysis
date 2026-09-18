@@ -674,7 +674,13 @@ export const SCREEN_BODY_SCROLL_STYLE = {
 // scrolls under. pullTop 0 is for pages with their own paddingTop:0 wrapper.
 // alpha < 1 lets content scrolling under the header show through faintly;
 // blur (px) frosts whatever shows through so it reads as a glow, not text.
-export function getStickyHeaderStyle(isLight, { pullTop = 16, alpha = 1, blur = 0 } = {}) {
+// The frosted treatment is the DEFAULT, not an opt-in. It used to be, and the
+// call sites had drifted into four variants: opaque, opaque+pullTop0,
+// alpha .94 + blur 8, and alpha .90 + blur 8 — with no rule saying which page
+// got which. .90/8 is what Settings and My Results already used, so that is now
+// the single default and pages only override pullTop when their own scroll
+// container already bleeds the pane padding.
+export function getStickyHeaderStyle(isLight, { pullTop = 16, alpha = 0.9, blur = 8 } = {}) {
   return {
     position:"sticky",
     top:0,
@@ -736,16 +742,6 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
     setIntroReveal(!opener);
     let revealTimer;
     if (opener) revealTimer = setTimeout(() => setIntroReveal(true), OPENER_MS);
-    requestAnimationFrame(() => {
-      paneRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      // iOS sometimes leaves the WINDOW scrolled (rubber-band / input focus),
-      // which shifts the whole app up under the status bar and stays stuck.
-      if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
-        window.scrollTo(0, 0);
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-      }
-    });
     if (id !== prevIdRef.current) {
       setExitContent({ node: prevContentRef.current, dir });
       prevIdRef.current = id;
@@ -757,6 +753,37 @@ export function Shell({ sec, prog, total, children, feedback=null, shareType="ca
     }
     return () => { if (revealTimer) clearTimeout(revealTimer); };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Scroll reset ──
+  // Kept separate from the slide animation above, and deliberately on a wider
+  // trigger. Two things used to leave a page opening mid-scroll:
+  //   1. it only reset paneRef, so a page that owns its scrolling (My Results,
+  //      PackSelect, PackResultsBuffer, the trial unlock step) kept its offset;
+  //   2. it fired on `id` alone, which is a counter App.jsx increments by hand
+  //      in 50 places — any route that forgot to bump it kept the old position.
+  // Together those are why a header could appear at a different height
+  // depending on which way you entered the page.
+  useLayoutEffect(() => {
+    requestAnimationFrame(() => {
+      const pane = paneRef.current;
+      if (pane) {
+        pane.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        // Reach the page's own scrollers too. Only nodes actually scrolled are
+        // touched, so this costs nothing on a page that has none.
+        pane.querySelectorAll("*").forEach(el => {
+          if (el.scrollTop) el.scrollTop = 0;
+          if (el.scrollLeft) el.scrollLeft = 0;
+        });
+      }
+      // iOS sometimes leaves the WINDOW scrolled (rubber-band / input focus),
+      // which shifts the whole app up under the status bar and stays stuck.
+      if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    });
+  }, [id, sec, prog]);
 
   useLayoutEffect(() => {
     if (!animateIn) return;
