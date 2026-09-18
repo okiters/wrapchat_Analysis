@@ -10,6 +10,22 @@ _Nothing pending — everything below is shipped._
 
 ---
 
+## v4.0.1 — `npm run schema-check`, and a live grammar-limit failure it found
+
+**Files:** `scripts/schema-check.mjs` (new), `package.json`
+
+Sends every structured-output schema to the API and asserts both that the request is accepted and that it is served by the model we think we are paying for. That failure is silent by design: when a compiled grammar goes over the API's size limit the call 400s, the edge function retries without the schema and/or on the fallback model, reports keep being produced, and the only visible symptom is spend on the wrong model in the Anthropic console. It has now happened twice.
+
+**The `risk` schema is over the limit in production right now.** Every Toxicity and Accountability report has therefore been running without schema enforcement. It is not marginal — dropping single properties does not recover it, and it fails while the larger `connection` schema (4219B vs 4093B) passes, because the cost scales with required properties on a single object rather than byte size. The widest object is `shared.toxicity` at 13 required properties.
+
+Two structure-preserving fixes were measured, both accepted: hoisting `shared.toxicity` + `shared.accountability` up a level (3887B), or hoisting `people[].health` + `people[].accountability` (3969B). The second is the smaller client change — `normalizeCorePersonB` is the only reader and it already rebuilds the nested shape internally, so nothing downstream moves. Both change the wire shape, so either needs `ANALYSIS_CONTRACT` 2 and a coordinated app release, which is why neither is applied here.
+
+Also measured while investigating: the `connection` schema has room for exactly **one** more string property (three if `timeOfDay` and `loveMiss` are hoisted, four if the group-only fields move to a duo-specific variant). That rules out giving all six moment fields a separate required `read` property, which was the plan for making the read reliable.
+
+`schema-check` is deliberately NOT wired into `npm test` — it needs a key and network, and it currently exits 1 on the known `risk` failure.
+
+---
+
 ## v4.0 — Card voice, page structure, and the quip layer
 
 Driven by a run against a fourth real chat (a four-year Turkish friend chat, 17.8k messages) plus a structural audit of all 38 pages. The theme across all three parts: the right abstractions already existed and had been rolled out to exactly one page each.
