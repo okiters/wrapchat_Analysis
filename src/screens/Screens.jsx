@@ -70,7 +70,7 @@ import {
   aiAccountaAnalysis, aiEnergyAnalysis, generateCoreAnalysisA,
   buildStoredResultData, getStoredResultTranslations, getStoredResultDisplayLanguage,
   CORE_ANALYSIS_CACHE_VERSION, getAnalysisFamilyCacheKey, REPORT_PIPELINES,
-  HOMEPAGE_VERSION_LABEL, getDisplayResultData,
+  HOMEPAGE_VERSION_LABEL, getDisplayResultData, LOVE_LANG_CANONICAL,
 } from "../analysis/aiAnalysis";
 import {
   CloseResultsContext, ShareResultsContext, FeedbackContext, SlideContext, SectionPaletteContext,
@@ -168,6 +168,28 @@ const Quip = ({children}) => <div className="wc-beat-3" style={{ fontSize:14, te
 // Ink colors for the current Shell surface: white-family on the fixed dark
 // report palettes, da.* on themed (upload/trial) sections in light mode.
 // Components below Shell should use this instead of hardcoding white.
+// Guess options for "which love language describes X?".
+//
+// This used to be `[...new Set([langA, langB])]` — the two people's actual
+// answers. That made the card a coin flip, showed you the second person's
+// answer while you were still guessing the first, and collapsed to a single
+// option whenever the pair shared a language, which silently disabled the
+// guess in exactly the case where it is most interesting.
+//
+// Now: the real answer plus three decoys from the canonical five. "Mixed" is a
+// fallback label rather than a guessable type, so it is never offered as a
+// decoy (only ever shown when it IS the answer). Ordering is derived from
+// stableHash so a given result always presents the same options.
+function loveLanguageGuessOptions(correct, seed = "") {
+  if (!correct) return [];
+  const byHash = key => (a, b) => stableHash(`${key}|${a}`) - stableHash(`${key}|${b}`);
+  const decoys = LOVE_LANG_CANONICAL
+    .filter(lang => lang !== correct && lang !== "Mixed")
+    .sort(byHash(`${seed}|decoy`))
+    .slice(0, 3);
+  return [correct, ...decoys].sort(byHash(`${seed}|order`));
+}
+
 function useInk() {
   const themedSection = useContext(ThemedSurfaceContext);
   const { theme } = useTheme();
@@ -1753,7 +1775,7 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
   const personBName = ai?.personB?.name || s.names[1] || s.names[0] || "Person B";
   const langA = reportControl(ai?.personA?.language || "");
   const langB = reportControl(ai?.personB?.language || "");
-  const guessOptions = [...new Set([langA, langB].filter(Boolean))];
+  const guessOptions = loveLanguageGuessOptions(langA, `${personAName}|${personBName}`);
   const avail = lovelangCardAvailability(ai, aiLoading);
   const feedback = (cardTitle, cardIndex, enabled = true) => (
     enabled && resultId ? { resultId, reportType: "lovelang", cardIndex, cardTitle } : null
@@ -1775,7 +1797,7 @@ export function LoveLangReportScreen({ s, ai, aiLoading, step, back, next, resul
           question={loading ? "…" : t("Which love language describes {name}?", { name: personAName })}
           options={guessOptions}
           correctAnswer={langA}
-          confidenceValid={(ai?.loveLanguageGuessValid ?? false) && guessOptions.length >= 2}
+          confidenceValid={(ai?.loveLanguageGuessValid ?? false) && guessOptions.length >= 2}  /* always 4 now; guard kept for the no-answer case */
           onReveal={next}
           back={back}
           next={next}

@@ -10,6 +10,24 @@ _Nothing pending — everything below is shipped._
 
 ---
 
+## v4.0.2 — The love-language guess was a coin flip that leaked its own answer
+
+**Files:** `src/screens/Screens.jsx`, `tests/loveLanguageGuess.test.js` (new)
+
+"Which love language describes {name}?" built its options as `[...new Set([langA, langB])]` — the two participants' *actual answers*. Three consequences, all bad:
+
+- a 50/50 between two real answers rather than a guess against the five types;
+- the second person's answer was sitting in the options while you guessed the first;
+- when a pair shared a language the set collapsed to one option, `confidenceValid` went false, and the guess silently disappeared — in exactly the case where it is most interesting.
+
+Options are now the real answer plus three decoys drawn from `LOVE_LANG_CANONICAL`. `"Mixed"` is a fallback label rather than a guessable type, so it is never offered as a decoy and only ever appears when it is the answer. Ordering derives from `stableHash`, the same helper the quips use, so a given result always presents the same options on revisit.
+
+Audited the other seven `GuessCard` call sites: every one asks "which of the two people?", which is a legitimate binary. This was the only card guessing a *category*, and the only one built this way.
+
+Five tests cover the contract: four distinct options, the answer always present, no `Mixed` decoy, a shared language still yielding a full guess, and stability per result.
+
+---
+
 ## v4.0.1 — `npm run schema-check`, and a live grammar-limit failure it found
 
 **Files:** `scripts/schema-check.mjs` (new), `package.json`
